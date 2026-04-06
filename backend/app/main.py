@@ -44,11 +44,17 @@ def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db))
 def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.openlibrary_id")
+        # Match Work and optionally join with Author via WROTE relationship.
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name")
         works = []
         while result.has_next():
             row = result.get_next()
-            works.append({"id": row[0], "title": row[1], "openlibrary_id": row[2] if row[2] else None})
+            works.append({
+                "id": row[0], 
+                "title": row[1], 
+                "openlibrary_id": row[2] if row[2] else None,
+                "author": row[3] if row[3] else None
+            })
         return works
     except Exception as e:
         logger.error(f"Error listing works: {e}")
@@ -58,10 +64,17 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} RETURN w.id, w.title, w.openlibrary_id")
+        result = conn.execute(
+            f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name"
+        )
         if result.has_next():
             row = result.get_next()
-            return {"id": row[0], "title": row[1], "openlibrary_id": row[2] if row[2] else None}
+            return {
+                "id": row[0], 
+                "title": row[1], 
+                "openlibrary_id": row[2] if row[2] else None,
+                "author": row[3] if row[3] else None
+            }
         raise HTTPException(status_code=404, detail="Work not found")
     except Exception as e:
         logger.error(f"Error getting work: {e}")

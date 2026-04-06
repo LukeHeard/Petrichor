@@ -146,8 +146,89 @@ a {
 
 .main-container {
   padding: 3rem 1.5rem calc(var(--nav-height) + 3rem) 1.5rem;
-  max-width: 800px;
+  max-width: 1000px; /* Slightly wider for the grid */
   margin: 0 auto;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2.5rem 1.5rem;
+  padding: 1rem 0;
+}
+
+@media (min-width: 768px) {
+  .library-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .library-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.book-card {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.book-card:active {
+  transform: scale(0.98);
+}
+
+.book-card-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--muted-background);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.book-card:hover .book-card-cover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.book-card-fallback {
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.book-card-hover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--background) 80%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.book-card:hover .book-card-hover {
+  opacity: 1;
+}
+
+.book-card-info {
+  margin-top: 0.75rem;
 }
 
 /* Natural buttons */

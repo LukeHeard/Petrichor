@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import BookCard from "@/components/BookCard";
 
 interface Work {
   id: number;
   title: string;
   openlibrary_id?: string;
+  author?: string; // We'll need to fetch authors too for a better experience
 }
 
-export default function Library() {
+function LibraryContent() {
   const [works, setWorks] = useState<Work[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +20,8 @@ export default function Library() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`);
       if (response.ok) {
         const data = await response.json();
+        // For now, let's just use the data as is. 
+        // In a real app, we'd fetch author names linked to these works.
         setWorks(data);
       }
     } catch (err) {
@@ -55,20 +59,27 @@ export default function Library() {
             <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Your library is currently empty.</p>
           </div>
         ) : (
-          <div>
+          <div className="library-grid">
             {works.map((work) => (
-              <div key={work.id} className="book-row">
-                <div>
-                  <h3 className="font-serif">{work.title}</h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-                    Entry #{work.id} {work.openlibrary_id && `· OL: ${work.openlibrary_id}`}
-                  </p>
-                </div>
-              </div>
+              <BookCard 
+                key={work.id}
+                id={work.id}
+                title={work.title}
+                openlibrary_id={work.openlibrary_id}
+                author={work.author}
+              />
             ))}
           </div>
         )}
       </section>
     </div>
+  );
+}
+
+export default function Library() {
+  return (
+    <Suspense fallback={null}>
+      <LibraryContent />
+    </Suspense>
   );
 }

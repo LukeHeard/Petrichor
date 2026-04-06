@@ -10,6 +10,7 @@ class WorkCreate(WorkBase):
 
 class Work(WorkBase):
     id: int
+    author: Optional[str] = None
 
     class Config:
         from_attributes = True

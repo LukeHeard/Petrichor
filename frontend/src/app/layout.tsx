@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import NavigationWithModal from "@/components/NavigationWithModal";
+import GlobalBookModal from "@/components/GlobalBookModal";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Petrichor | Library",
@@ -18,6 +20,10 @@ export default function RootLayout({
         <main className="main-container">
           {children}
         </main>
+
+        <Suspense fallback={null}>
+          <GlobalBookModal />
+        </Suspense>
 
         <NavigationWithModal />
       </body>
