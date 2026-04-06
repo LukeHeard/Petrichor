@@ -75,7 +75,7 @@ def read_root():
     return {"message": "Petrichor Personal Library API"}
 
 @app.post("/works", response_model=schemas.Work)
-def create_work(work: schemas.WorkCreate, background_tasks: BackgroundTasks, db: DatabaseManager = Depends(get_db)):
+async def create_work(work: schemas.WorkCreate, background_tasks: BackgroundTasks, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # Create a Work node.
