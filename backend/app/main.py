@@ -166,8 +166,21 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/search")
-async def search_works(q: str = Query(..., min_length=1)):
+@app.get("/search", response_model=list[schemas.SearchResult])
+async def search_works(q: str = Query(..., min_length=1), db: DatabaseManager = Depends(get_db)):
+    # 1. Get existing library IDs to flag results
+    conn = db.get_connection()
+    existing_ids = set()
+    try:
+        id_result = conn.execute("MATCH (w:Work) RETURN w.openlibrary_id")
+        while id_result.has_next():
+            row = id_result.get_next()
+            if row[0]:
+                existing_ids.add(row[0])
+    except Exception as e:
+        logger.error(f"Error fetching existing IDs: {e}")
+
+    # 2. Search OpenLibrary
     headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
     async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
         try:
@@ -182,6 +195,7 @@ async def search_works(q: str = Query(..., min_length=1)):
                 authors = doc.get("author_name", [])
                 primary_author = authors[0] if authors else ""
                 
+                ol_id = doc.get("key")
                 cover_id = doc.get("cover_i")
                 if not cover_id:
                   cover_id = doc.get("cover_edition_key")
@@ -190,8 +204,9 @@ async def search_works(q: str = Query(..., min_length=1)):
                     "title": doc.get("title", "Unknown Title"),
                     "author": primary_author,
                     "first_publish_year": doc.get("first_publish_year"),
-                    "openlibrary_id": doc.get("key"),
-                    "cover_id": str(cover_id) if cover_id else None
+                    "openlibrary_id": ol_id,
+                    "cover_id": str(cover_id) if cover_id else None,
+                    "in_library": ol_id in existing_ids if ol_id else False
                 })
             return results
         except Exception as e:

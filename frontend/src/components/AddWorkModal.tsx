@@ -14,12 +14,14 @@ interface SearchResult {
   first_publish_year?: number;
   openlibrary_id?: string;
   cover_id?: string;
+  in_library: boolean;
 }
 
 export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState("");
 
   if (!isOpen) return null;
@@ -29,12 +31,14 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
+    setHasSearched(false);
     setError("");
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/search?q=${encodeURIComponent(searchQuery)}`);
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       setSearchResults(data);
+      setHasSearched(true);
     } catch (err: any) {
       setError("Failed to search OpenLibrary.");
       console.error(err);
@@ -44,6 +48,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   };
 
   const selectResult = async (result: SearchResult) => {
+    if (result.in_library) return;
+    
     setIsSearching(true);
     setError("");
 
@@ -85,6 +91,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       // Success
       setSearchQuery("");
       setSearchResults([]);
+      setHasSearched(false);
+      setIsSearching(false); // Explicitly reset this before closing
       onWorkAdded();
       onClose();
     } catch (err: any) {
@@ -128,6 +136,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
             setSearchQuery("");
             setSearchResults([]);
             setError("");
+            setHasSearched(false);
+            setIsSearching(false);
             onClose();
           }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
         </div>
@@ -150,19 +160,23 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {searchResults.map((res, i) => (
-              <div key={i} className="book-row" style={{ padding: '0.75rem 0' }}>
-                <div>
+              <div key={i} className="book-row" style={{ padding: '0.75rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ flex: 1, paddingRight: '1rem' }}>
                   <h3 className="font-serif" style={{ fontSize: '1.1rem', margin: 0 }}>{res.title}</h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
                     {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
                   </p>
                 </div>
-                <button onClick={() => selectResult(res)} className="btn-ghost" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} disabled={isSearching}>
-                  Add
-                </button>
+                {res.in_library ? (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem' }}>In library</span>
+                ) : (
+                  <button onClick={() => selectResult(res)} className="btn-ghost" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} disabled={isSearching}>
+                    Add
+                  </button>
+                )}
               </div>
             ))}
-            {searchResults.length === 0 && !isSearching && searchQuery && (
+            {hasSearched && searchResults.length === 0 && !isSearching && (
               <p style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '2rem', fontStyle: 'italic' }}>No results found.</p>
             )}
           </div>

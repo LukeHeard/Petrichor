@@ -27,3 +27,11 @@ class Author(AuthorBase):
 
     class Config:
         from_attributes = True
+
+class SearchResult(BaseModel):
+    title: str
+    author: Optional[str] = None
+    first_publish_year: Optional[int] = None
+    openlibrary_id: Optional[str] = None
+    cover_id: Optional[str] = None
+    in_library: bool = False
