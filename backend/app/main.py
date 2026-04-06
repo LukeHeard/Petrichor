@@ -88,7 +88,7 @@ def create_work(work: schemas.WorkCreate, background_tasks: BackgroundTasks, db:
         if result.has_next():
             row = result.get_next()
             work_id_internal = row[0]
-            cover_id_str = row[3] if row[3] else None
+            cover_id_str = row[3] if row[3] and row[3] != "" else None
             
             if cover_id_str:
                 background_tasks.add_task(download_cover_task, cover_id_str)
@@ -114,7 +114,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
         works = []
         while result.has_next():
             row = result.get_next()
-            cover_id_str = row[3] if row[3] else None
+            cover_id_str = row[3] if row[3] and row[3] != "" else None
             works.append({
                 "id": row[0], 
                 "title": row[1], 
@@ -137,7 +137,7 @@ def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         )
         if result.has_next():
             row = result.get_next()
-            cover_id_str = row[3] if row[3] else None
+            cover_id_str = row[3] if row[3] and row[3] != "" else None
             return {
                 "id": row[0], 
                 "title": row[1], 
@@ -168,7 +168,7 @@ def update_work(work_id: int, background_tasks: BackgroundTasks, cover_id: str =
         )
         if result.has_next():
             row = result.get_next()
-            cover_id_str = row[3] if row[3] else None
+            cover_id_str = row[3] if row[3] and row[3] != "" else None
             return {
                 "id": row[0], 
                 "title": row[1], 
@@ -270,6 +270,7 @@ async def search_works(q: str = Query(..., min_length=1), db: DatabaseManager = 
                     "first_publish_year": doc.get("first_publish_year"),
                     "openlibrary_id": ol_id,
                     "cover_id": str(cover_id) if cover_id else None,
+                    "cover_url": get_cover_local_url(str(cover_id)) if cover_id else None,
                     "in_library": ol_id in existing_ids if ol_id else False
                 })
             return results
