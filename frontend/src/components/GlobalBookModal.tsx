@@ -185,6 +185,7 @@ export default function GlobalBookModal() {
                       sizes="200px"
                       style={{ objectFit: 'contain', backgroundColor: 'var(--muted-background)' }}
                       priority
+                      loading="eager"
                     />
                   ) : (
                     <div style={{ width: '100%', height: '100%', backgroundColor: 'var(--muted-background)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1rem' }}>
