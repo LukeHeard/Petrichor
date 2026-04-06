@@ -6,31 +6,44 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 interface BookCardProps {
   id: number;
   title: string;
-  openlibrary_id?: string;
+  cover_id?: string;
   author?: string;
 }
 
-export default function BookCard({ id, title, openlibrary_id, author }: BookCardProps) {
+export default function BookCard({ id, title, cover_id, author }: BookCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
     params.set("book_id", id.toString());
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
+
+  // Helper to determine the cover URL
+  const getCoverUrl = (cid: string) => {
+    if (!cid || cid === "null" || cid === "undefined") return null;
+    if (/^\d+$/.test(cid)) {
+      return `https://covers.openlibrary.org/b/id/${cid}-L.jpg`;
+    }
+    return `https://covers.openlibrary.org/b/olid/${cid}-L.jpg`;
+  };
+
+  const coverUrl = cover_id ? getCoverUrl(cover_id) : null;
 
   return (
     <div className="book-card" onClick={handleClick}>
       <div className="book-card-cover">
-        {openlibrary_id ? (
+        {coverUrl ? (
           <Image
-            src={`https://covers.openlibrary.org/b/olid/${openlibrary_id}-L.jpg`}
+            src={coverUrl}
             alt={title}
             fill
             sizes="(max-width: 768px) 50vw, 33vw"
             style={{ objectFit: 'cover' }}
+            priority={false}
           />
         ) : (
           <div className="book-card-fallback">

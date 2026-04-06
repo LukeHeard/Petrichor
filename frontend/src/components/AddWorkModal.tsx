@@ -13,6 +13,7 @@ interface SearchResult {
   author: string;
   first_publish_year?: number;
   openlibrary_id?: string;
+  cover_id?: string;
 }
 
 export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkModalProps) {
@@ -43,7 +44,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   };
 
   const selectResult = async (result: SearchResult) => {
-    setIsSearching(true); // Borrowing to show loading state
+    setIsSearching(true);
     setError("");
 
     try {
@@ -64,7 +65,11 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       const workRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: result.title, openlibrary_id: result.openlibrary_id || null })
+        body: JSON.stringify({ 
+          title: result.title, 
+          openlibrary_id: result.openlibrary_id || null,
+          cover_id: result.cover_id || null 
+        })
       });
       if (!workRes.ok) throw new Error("Failed to add book");
       const workData = await workRes.json();
@@ -81,6 +86,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       setSearchQuery("");
       setSearchResults([]);
       onWorkAdded();
+      onClose();
     } catch (err: any) {
       setError(err.message || "An error occurred");
       setIsSearching(false);
