@@ -27,6 +27,7 @@ export default function GlobalBookModal() {
   const [loadingCovers, setLoadingCovers] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (bookId) {
@@ -75,6 +76,36 @@ export default function GlobalBookModal() {
       window.dispatchEvent(new Event("petrichor:workAdded"));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleUploadClick = () => {
+    document.getElementById("cover-upload-input")?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !bookId) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}/upload-cover`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const updatedBook = await res.json();
+      setBook(updatedBook);
+      setShowCoverPicker(false);
+      window.dispatchEvent(new Event("petrichor:workAdded"));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload image.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -214,10 +245,41 @@ export default function GlobalBookModal() {
                   <h3 className="font-serif" style={{ margin: 0 }}>Select Cover</h3>
                 </div>
 
+                <input 
+                  id="cover-upload-input" 
+                  type="file" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  onChange={handleFileChange} 
+                />
+
                 {loadingCovers ? (
                   <p style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--muted)', fontStyle: 'italic' }}>Fetching all available covers...</p>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '1rem', paddingBottom: '1rem' }}>
+                    
+                    {/* Upload Slot */}
+                    <div 
+                      onClick={handleUploadClick}
+                      className="upload-slot-btn"
+                      style={{ 
+                        position: 'relative', width: '100%', aspectRatio: '2/3', 
+                        borderRadius: '4px', overflow: 'hidden', cursor: 'pointer',
+                        border: '2px dashed var(--border)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: '0.5rem', transition: 'all 0.2s'
+                      }}
+                    >
+                      {uploading ? (
+                        <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Uploading...</span>
+                      ) : (
+                        <>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>Upload</span>
+                        </>
+                      )}
+                    </div>
+
                     {availableCovers.map((cid, i) => (
                       <div 
                         key={i} 

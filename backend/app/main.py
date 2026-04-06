@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, Body, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, Query, Body, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import httpx
 import os
+import uuid
+import shutil
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 import logging
@@ -89,14 +91,34 @@ def create_work(work: schemas.WorkCreate, background_tasks: BackgroundTasks, db:
             row = result.get_next()
             work_id_internal = row[0]
             cover_id_str = row[3] if row[3] and row[3] != "" else None
+            openlib_id = row[2] if row[2] else None
             
+            # If no cover_id was provided, try to fetch a default one from OpenLibrary
+            if not cover_id_str and openlib_id:
+                try:
+                    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
+                    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
+                        response = await client.get(f"https://openlibrary.org{openlib_id}.json")
+                        if response.status_code == 200:
+                            work_data = response.json()
+                            work_covers = work_data.get("covers", [])
+                            if work_covers:
+                                cover_id_str = str(work_covers[0])
+                                # Update the DB with the newly found default cover
+                                conn.execute(
+                                    f"MATCH (w:Work) WHERE w.id = {work_id_internal} SET w.cover_id = $cover",
+                                    parameters={"cover": cover_id_str}
+                                )
+                except Exception as e:
+                    logger.error(f"Failed to fetch default cover for {openlib_id}: {e}")
+
             if cover_id_str:
                 background_tasks.add_task(download_cover_task, cover_id_str)
 
             return {
                 "id": work_id_internal, 
                 "title": row[1], 
-                "openlibrary_id": row[2] if row[2] else None,
+                "openlibrary_id": openlib_id,
                 "cover_id": cover_id_str,
                 "cover_url": get_cover_local_url(cover_id_str)
             }
@@ -180,6 +202,47 @@ def update_work(work_id: int, background_tasks: BackgroundTasks, cover_id: str =
         raise HTTPException(status_code=404, detail="Work not found")
     except Exception as e:
         logger.error(f"Error updating work: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/works/{work_id}/upload-cover", response_model=schemas.Work)
+async def upload_work_cover(work_id: int, file: UploadFile = File(...), db: DatabaseManager = Depends(get_db)):
+    try:
+        # Generate a unique ID for the local upload
+        # We'll use .jpg to be consistent with our serving logic, 
+        # but in a real app we'd keep the original extension and update serving logic.
+        local_id = f"local-{uuid.uuid4()}"
+        file_name = f"{local_id}.jpg"
+        file_path = os.path.join(COVERS_DIR, file_name)
+
+        # Save the file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Update the database
+        conn = db.get_connection()
+        conn.execute(
+            f"MATCH (w:Work) WHERE w.id = {work_id} SET w.cover_id = $cover",
+            parameters={"cover": local_id}
+        )
+        
+        # Fetch updated work
+        result = conn.execute(
+            f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, w.cover_id, a.name"
+        )
+        if result.has_next():
+            row = result.get_next()
+            cover_id_str = row[3] if row[3] and row[3] != "" else None
+            return {
+                "id": row[0], 
+                "title": row[1], 
+                "openlibrary_id": row[2] if row[2] else None,
+                "cover_id": cover_id_str,
+                "cover_url": get_cover_local_url(cover_id_str),
+                "author": row[4] if row[4] else None
+            }
+        raise HTTPException(status_code=404, detail="Work not found")
+    except Exception as e:
+        logger.error(f"Error uploading cover: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/works/{work_id}")
