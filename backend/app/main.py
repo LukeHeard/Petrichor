@@ -1,6 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, Body
+from fastapi import FastAPI, Depends, HTTPException, Query, Body, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import httpx
+import os
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 import logging
@@ -20,12 +22,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Ensure covers directory exists
+COVERS_DIR = os.getenv("COVERS_PATH", "./data/covers")
+if not os.path.exists(COVERS_DIR):
+    os.makedirs(COVERS_DIR, exist_ok=True)
+
+# Mount static files for covers
+app.mount("/covers", StaticFiles(directory=COVERS_DIR), name="covers")
+
+def get_cover_local_url(cover_id: str) -> Optional[str]:
+    if not cover_id:
+        return None
+    file_path = os.path.join(COVERS_DIR, f"{cover_id}.jpg")
+    if os.path.exists(file_path):
+        return f"/covers/{cover_id}.jpg"
+    return None
+
+async def download_cover_task(cover_id: str):
+    if not cover_id:
+        return
+    
+    # Path relative to project root since we are running from there usually
+    # or use absolute path if possible. Let's stick to COVERS_DIR.
+    file_path = os.path.join(COVERS_DIR, f"{cover_id}.jpg")
+    if os.path.exists(file_path):
+        return
+
+    if cover_id.isdigit():
+        url = f"https://covers.openlibrary.org/b/id/{cover_id}-L.jpg"
+    else:
+        url = f"https://covers.openlibrary.org/b/olid/{cover_id}-L.jpg"
+
+    try:
+        headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                # Check if it's a real image (OpenLibrary returns a tiny 1x1 or default if not found)
+                # Usually they return a "no cover" image if default=true (default)
+                # We can check size or just save it.
+                if len(response.content) > 1000: # Simple check to avoid saving 1x1 pixels
+                    with open(file_path, "wb") as f:
+                        f.write(response.content)
+                    logger.info(f"Downloaded cover {cover_id}")
+    except Exception as e:
+        logger.error(f"Failed to download cover {cover_id}: {e}")
+
 @app.get("/")
 def read_root():
     return {"message": "Petrichor Personal Library API"}
 
 @app.post("/works", response_model=schemas.Work)
-def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db)):
+def create_work(work: schemas.WorkCreate, background_tasks: BackgroundTasks, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # Create a Work node.
@@ -39,11 +87,18 @@ def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db))
         )
         if result.has_next():
             row = result.get_next()
+            work_id_internal = row[0]
+            cover_id_str = row[3] if row[3] else None
+            
+            if cover_id_str:
+                background_tasks.add_task(download_cover_task, cover_id_str)
+
             return {
-                "id": row[0], 
+                "id": work_id_internal, 
                 "title": row[1], 
                 "openlibrary_id": row[2] if row[2] else None,
-                "cover_id": row[3] if row[3] else None
+                "cover_id": cover_id_str,
+                "cover_url": get_cover_local_url(cover_id_str)
             }
         raise HTTPException(status_code=500, detail="Failed to create work")
     except Exception as e:
@@ -59,11 +114,13 @@ def list_works(db: DatabaseManager = Depends(get_db)):
         works = []
         while result.has_next():
             row = result.get_next()
+            cover_id_str = row[3] if row[3] else None
             works.append({
                 "id": row[0], 
                 "title": row[1], 
                 "openlibrary_id": row[2] if row[2] else None,
-                "cover_id": row[3] if row[3] else None,
+                "cover_id": cover_id_str,
+                "cover_url": get_cover_local_url(cover_id_str),
                 "author": row[4] if row[4] else None
             })
         return works
@@ -80,11 +137,13 @@ def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         )
         if result.has_next():
             row = result.get_next()
+            cover_id_str = row[3] if row[3] else None
             return {
                 "id": row[0], 
                 "title": row[1], 
                 "openlibrary_id": row[2] if row[2] else None,
-                "cover_id": row[3] if row[3] else None,
+                "cover_id": cover_id_str,
+                "cover_url": get_cover_local_url(cover_id_str),
                 "author": row[4] if row[4] else None
             }
         raise HTTPException(status_code=404, detail="Work not found")
@@ -93,24 +152,29 @@ def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.patch("/works/{work_id}", response_model=schemas.Work)
-def update_work(work_id: int, cover_id: str = Body(..., embed=True), db: DatabaseManager = Depends(get_db)):
+def update_work(work_id: int, background_tasks: BackgroundTasks, cover_id: str = Body(..., embed=True), db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         conn.execute(
             f"MATCH (w:Work) WHERE w.id = {work_id} SET w.cover_id = $cover",
             parameters={"cover": cover_id}
         )
+        
+        background_tasks.add_task(download_cover_task, cover_id)
+
         # Fetch updated work
         result = conn.execute(
             f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, w.cover_id, a.name"
         )
         if result.has_next():
             row = result.get_next()
+            cover_id_str = row[3] if row[3] else None
             return {
                 "id": row[0], 
                 "title": row[1], 
                 "openlibrary_id": row[2] if row[2] else None,
-                "cover_id": row[3] if row[3] else None,
+                "cover_id": cover_id_str,
+                "cover_url": get_cover_local_url(cover_id_str),
                 "author": row[4] if row[4] else None
             }
         raise HTTPException(status_code=404, detail="Work not found")
@@ -225,27 +289,33 @@ async def get_work_editions(work_id: int, db: DatabaseManager = Depends(get_db))
     if not ol_id:
         return []
 
-    # 2. Fetch editions from OpenLibrary
+            # 2. Fetch editions from OpenLibrary
     headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
     async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
         try:
-            # ol_id is already something like "/works/OL123W"
-            response = await client.get(f"https://openlibrary.org{ol_id}/editions.json", params={"limit": 50})
+            # Increase limit to find more covers for books with many editions
+            response = await client.get(f"https://openlibrary.org{ol_id}/editions.json", params={"limit": 200})
             response.raise_for_status()
             data = response.json()
             
             # 3. Extract unique cover IDs
             covers = set()
             for entry in data.get("entries", []):
+                # Check for numeric cover IDs
                 for cid in entry.get("covers", []):
                     if cid and cid > 0:
                         covers.add(str(cid))
                 
-                # Check for edition keys too
-                if entry.get("key") and "covers" in entry:
-                    covers.add(entry.get("key").replace("/books/", ""))
+                # Check for edition keys (OLIDs) which can also be used as covers
+                if entry.get("key"):
+                    olid = entry.get("key").replace("/books/", "")
+                    # Add OLID as a candidate if it seems to have a cover or just as a fallback
+                    # We'll filter out duplicates or invalid ones later if needed
+                    # but usually every edition *can* have a cover via its OLID
+                    if "covers" in entry or entry.get("cover_i"):
+                         covers.add(olid)
             
-            return list(covers)
+            return sorted(list(covers), key=lambda x: x.isdigit(), reverse=True)
         except Exception as e:
             logger.exception(f"Editions error: {e}")
             raise HTTPException(status_code=502, detail=str(e))

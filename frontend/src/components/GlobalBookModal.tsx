@@ -9,6 +9,7 @@ interface FullWork {
   title: string;
   openlibrary_id?: string;
   cover_id?: string;
+  cover_url?: string;
   author?: string;
 }
 
@@ -104,6 +105,12 @@ export default function GlobalBookModal() {
     router.push(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
   };
 
+  const getFinalCoverUrl = () => {
+    if (book?.cover_url) return `${process.env.NEXT_PUBLIC_API_URL}${book.cover_url}`;
+    if (book?.cover_id) return getCoverUrl(book.cover_id);
+    return null;
+  };
+
   const getCoverUrl = (cid: string) => {
     if (!cid) return null;
     if (/^\d+$/.test(cid)) {
@@ -170,12 +177,12 @@ export default function GlobalBookModal() {
                     cursor: 'pointer'
                   }}
                 >
-                  {book.cover_id ? (
+                  {getFinalCoverUrl() ? (
                     <Image 
-                      src={getCoverUrl(book.cover_id)!} 
+                      src={getFinalCoverUrl()!} 
                       alt={book.title}
                       fill
-                      style={{ objectFit: 'cover' }}
+                      style={{ objectFit: 'contain', backgroundColor: 'var(--muted-background)' }}
                       priority
                     />
                   ) : (
@@ -208,7 +215,7 @@ export default function GlobalBookModal() {
                 {loadingCovers ? (
                   <p style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--muted)', fontStyle: 'italic' }}>Fetching all available covers...</p>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '1rem', paddingBottom: '1rem' }}>
                     {availableCovers.map((cid, i) => (
                       <div 
                         key={i} 
@@ -216,14 +223,17 @@ export default function GlobalBookModal() {
                         style={{ 
                           position: 'relative', width: '100%', aspectRatio: '2/3', 
                           borderRadius: '4px', overflow: 'hidden', cursor: 'pointer',
-                          border: book.cover_id === cid ? '2px solid var(--accent)' : '1px solid var(--border)'
+                          border: book.cover_id === cid ? '2px solid var(--accent)' : '1px solid var(--border)',
+                          transition: 'transform 0.2s, border-color 0.2s'
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                       >
                         <Image 
                           src={getCoverUrl(cid)!} 
                           alt="Edition Cover"
                           fill
-                          sizes="100px"
+                          sizes="120px"
                           style={{ objectFit: 'cover' }}
                         />
                       </div>

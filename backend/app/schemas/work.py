@@ -5,6 +5,7 @@ class WorkBase(BaseModel):
     title: str
     openlibrary_id: Optional[str] = None
     cover_id: Optional[str] = None
+    cover_url: Optional[str] = None
 
 class WorkCreate(WorkBase):
     pass
@@ -34,4 +35,5 @@ class SearchResult(BaseModel):
     first_publish_year: Optional[int] = None
     openlibrary_id: Optional[str] = None
     cover_id: Optional[str] = None
+    cover_url: Optional[str] = None
     in_library: bool = False

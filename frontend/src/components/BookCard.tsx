@@ -7,10 +7,11 @@ interface BookCardProps {
   id: number;
   title: string;
   cover_id?: string;
+  cover_url?: string;
   author?: string;
 }
 
-export default function BookCard({ id, title, cover_id, author }: BookCardProps) {
+export default function BookCard({ id, title, cover_id, cover_url, author }: BookCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -31,14 +32,17 @@ export default function BookCard({ id, title, cover_id, author }: BookCardProps)
     return `https://covers.openlibrary.org/b/olid/${cid}-L.jpg`;
   };
 
-  const coverUrl = cover_id ? getCoverUrl(cover_id) : null;
+  // Prioritize local cover URL from backend, fallback to OpenLibrary
+  const finalCoverUrl = cover_url 
+    ? `${process.env.NEXT_PUBLIC_API_URL}${cover_url}` 
+    : (cover_id ? getCoverUrl(cover_id) : null);
 
   return (
     <div className="book-card" onClick={handleClick}>
       <div className="book-card-cover">
-        {coverUrl ? (
+        {finalCoverUrl ? (
           <Image
-            src={coverUrl}
+            src={finalCoverUrl}
             alt={title}
             fill
             sizes="(max-width: 768px) 50vw, 33vw"

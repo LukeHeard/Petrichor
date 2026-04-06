@@ -8,6 +8,7 @@ interface Work {
   title: string;
   openlibrary_id?: string;
   cover_id?: string;
+  cover_url?: string;
   author?: string;
 }
 
@@ -65,6 +66,7 @@ function LibraryContent() {
                 id={work.id}
                 title={work.title}
                 cover_id={work.cover_id}
+                cover_url={work.cover_url}
                 author={work.author}
               />
             ))}
