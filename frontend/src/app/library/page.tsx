@@ -7,7 +7,8 @@ interface Work {
   id: number;
   title: string;
   openlibrary_id?: string;
-  author?: string; // We'll need to fetch authors too for a better experience
+  cover_id?: string;
+  author?: string;
 }
 
 function LibraryContent() {
@@ -20,8 +21,6 @@ function LibraryContent() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`);
       if (response.ok) {
         const data = await response.json();
-        // For now, let's just use the data as is. 
-        // In a real app, we'd fetch author names linked to these works.
         setWorks(data);
       }
     } catch (err) {
@@ -65,7 +64,7 @@ function LibraryContent() {
                 key={work.id}
                 id={work.id}
                 title={work.title}
-                openlibrary_id={work.openlibrary_id}
+                cover_id={work.cover_id}
                 author={work.author}
               />
             ))}
