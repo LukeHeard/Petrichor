@@ -17,7 +17,7 @@ class DatabaseManager:
         """Initialize the FRBR schema if it doesn't exist."""
         try:
             # Node Tables
-            self.conn.execute("CREATE NODE TABLE Work(id SERIAL, title STRING, PRIMARY KEY(id))")
+            self.conn.execute("CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, PRIMARY KEY(id))")
             self.conn.execute("CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))")
             self.conn.execute("CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))")
             self.conn.execute("CREATE NODE TABLE Manifestation(id SERIAL, publisher STRING, format STRING, isbn STRING, PRIMARY KEY(id))")

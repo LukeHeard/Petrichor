@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 import logging
@@ -26,13 +27,14 @@ def read_root():
 def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        # Create a Work node. Using Cypher's CREATE with SERIAL id handled by Kuzu.
-        # Kuzu's SERIAL id can be retrieved using id(n) or similar, 
-        # but let's assume we want to return the created work.
-        result = conn.execute(f"CREATE (w:Work {{title: '{work.title}'}}) RETURN w.id, w.title")
+        # Create a Work node. Using parameterized query for safety.
+        result = conn.execute(
+            "CREATE (w:Work {title: $title, openlibrary_id: $openlib}) RETURN w.id, w.title, w.openlibrary_id",
+            parameters={"title": work.title, "openlib": work.openlibrary_id or ""}
+        )
         if result.has_next():
             row = result.get_next()
-            return {"id": row[0], "title": row[1]}
+            return {"id": row[0], "title": row[1], "openlibrary_id": row[2] if row[2] else None}
         raise HTTPException(status_code=500, detail="Failed to create work")
     except Exception as e:
         logger.error(f"Error creating work: {e}")
@@ -42,11 +44,11 @@ def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db))
 def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) RETURN w.id, w.title")
+        result = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.openlibrary_id")
         works = []
         while result.has_next():
             row = result.get_next()
-            works.append({"id": row[0], "title": row[1]})
+            works.append({"id": row[0], "title": row[1], "openlibrary_id": row[2] if row[2] else None})
         return works
     except Exception as e:
         logger.error(f"Error listing works: {e}")
@@ -56,10 +58,10 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} RETURN w.id, w.title")
+        result = conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} RETURN w.id, w.title, w.openlibrary_id")
         if result.has_next():
             row = result.get_next()
-            return {"id": row[0], "title": row[1]}
+            return {"id": row[0], "title": row[1], "openlibrary_id": row[2] if row[2] else None}
         raise HTTPException(status_code=404, detail="Work not found")
     except Exception as e:
         logger.error(f"Error getting work: {e}")
@@ -101,3 +103,28 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
     except Exception as e:
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/search")
+async def search_works(q: str = Query(..., min_length=1)):
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                "https://openlibrary.org/search.json",
+                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year"}
+            )
+            response.raise_for_status()
+            data = response.json()
+            results = []
+            for doc in data.get("docs", []):
+                authors = doc.get("author_name", [])
+                primary_author = authors[0] if authors else ""
+                results.append({
+                    "title": doc.get("title", "Unknown Title"),
+                    "author": primary_author,
+                    "first_publish_year": doc.get("first_publish_year"),
+                    "openlibrary_id": doc.get("key")
+                })
+            return results
+        except Exception as e:
+            logger.error(f"Error fetching from OpenLibrary: {e}")
+            raise HTTPException(status_code=502, detail="External API error")
