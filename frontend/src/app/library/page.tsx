@@ -41,7 +41,7 @@ export default function Library() {
   return (
     <div>
       <header style={{ marginBottom: '3rem' }}>
-        <h1 style={{ marginBottom: '0.25rem' }}>Library</h1>
+        <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Library</span></h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>All Books</p>
       </header>
 

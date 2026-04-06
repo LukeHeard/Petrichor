@@ -32,11 +32,19 @@ export default function NavigationWithModal() {
             <span>Library</span>
           </Link>
 
-          {/* Center Plus Button with Elliptical wrap */}
+          {/* Center Plus Button with organic parenthesis curves */}
           <div className="nav-plus-wrapper">
+            <svg style={{ color: 'var(--border)' }} xmlns="http://www.w3.org/2000/svg" width="12" height="32" viewBox="0 0 12 32">
+              <path d="M 10 2 C 2 8, 2 24, 10 30" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            
             <button className="nav-plus-btn" onClick={() => setIsModalOpen(true)}>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
             </button>
+            
+            <svg style={{ color: 'var(--border)' }} xmlns="http://www.w3.org/2000/svg" width="12" height="32" viewBox="0 0 12 32">
+              <path d="M 2 2 C 10 8, 10 24, 2 30" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </div>
           
           <Link href="/tracking" className={`nav-item ${pathname === '/tracking' ? 'active' : ''}`}>

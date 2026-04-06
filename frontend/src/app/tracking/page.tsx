@@ -4,7 +4,7 @@ export default function Tracking() {
   return (
     <div>
       <header style={{ marginBottom: '3rem' }}>
-        <h1 style={{ marginBottom: '0.25rem' }}>Tracking</h1>
+        <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Tracking</span></h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Reading Calendar & Goals</p>
       </header>
 

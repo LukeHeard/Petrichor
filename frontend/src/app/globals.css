@@ -113,9 +113,10 @@ a {
 
 .nav-separator {
   height: 24px;
-  width: 1px;
+  width: 2px;
   background-color: var(--border);
-  opacity: 0.5;
+  opacity: 0.8;
+  border-radius: 1px;
 }
 
 .nav-plus-wrapper {
@@ -128,15 +129,15 @@ a {
 .nav-plus-btn {
   background: transparent;
   color: var(--foreground);
-  border: 1px solid var(--border);
-  border-radius: 50%; /* creates an ellipse if width != height */
-  width: 54px;
-  height: 36px;
+  border: none;
+  width: 44px;
+  height: 44px;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
   transition: all 0.2s;
+  border-radius: 8px; /* just for the generic active background color if clicked */
 }
 
 .nav-plus-btn:active {
