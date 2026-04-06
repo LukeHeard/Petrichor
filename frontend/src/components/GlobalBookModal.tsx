@@ -182,6 +182,7 @@ export default function GlobalBookModal() {
                       src={getFinalCoverUrl()!} 
                       alt={book.title}
                       fill
+                      sizes="200px"
                       style={{ objectFit: 'contain', backgroundColor: 'var(--muted-background)' }}
                       priority
                     />

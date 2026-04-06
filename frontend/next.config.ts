@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'covers.openlibrary.org',
       },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '8000',
+      },
     ],
   },
 };
