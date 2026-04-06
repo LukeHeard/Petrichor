@@ -24,11 +24,14 @@ export default function GlobalBookModal() {
   const [showCoverPicker, setShowCoverPicker] = useState(false);
   const [availableCovers, setAvailableCovers] = useState<string[]>([]);
   const [loadingCovers, setLoadingCovers] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (bookId) {
       setLoading(true);
       setShowCoverPicker(false);
+      setShowDeleteConfirm(false);
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`)
         .then(res => res.json())
         .then(data => setBook(data))
@@ -68,10 +71,27 @@ export default function GlobalBookModal() {
       setBook(updatedBook);
       setShowCoverPicker(false);
       
-      // Trigger a global refresh so the library grid updates
       window.dispatchEvent(new Event("petrichor:workAdded"));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!bookId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error("Failed to delete book");
+      
+      window.dispatchEvent(new Event("petrichor:workAdded"));
+      closeModal();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -109,22 +129,46 @@ export default function GlobalBookModal() {
         borderRadius: '12px',
         position: 'relative'
       }}>
-        <button onClick={closeModal} style={{ position: 'absolute', top: '1.25rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
+        {/* Header Controls */}
+        <div style={{ position: 'absolute', top: '1.25rem', right: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {!showCoverPicker && book && !showDeleteConfirm && (
+            <button 
+              onClick={() => setShowDeleteConfirm(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
+              title="Remove book"
+              className="delete-icon-btn"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </button>
+          )}
+          <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
+        </div>
         
         {loading ? (
           <p style={{ textAlign: 'center', color: 'var(--muted)', fontStyle: 'italic', margin: '3rem 0' }}>Loading details...</p>
         ) : book ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             
-            {!showCoverPicker ? (
+            {showDeleteConfirm ? (
+              <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                <h3 className="font-serif" style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Remove from library?</h3>
+                <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>This book and its data will be permanently removed.</p>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                  <button onClick={() => setShowDeleteConfirm(false)} className="btn-ghost" style={{ padding: '0.75rem 1.5rem' }}>Cancel</button>
+                  <button onClick={confirmDelete} className="btn-primary" style={{ padding: '0.75rem 1.5rem', backgroundColor: '#991b1b', color: 'white' }} disabled={deleting}>
+                    {deleting ? "Removing..." : "Confirm"}
+                  </button>
+                </div>
+              </div>
+            ) : !showCoverPicker ? (
               <>
                 <div 
                   onClick={handleOpenCoverPicker}
                   style={{ 
                     position: 'relative', width: '200px', height: '300px', marginBottom: '2rem', 
                     borderRadius: '4px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                    cursor: 'pointer', group: 'true'
-                  } as any}
+                    cursor: 'pointer'
+                  }}
                 >
                   {book.cover_id ? (
                     <Image 

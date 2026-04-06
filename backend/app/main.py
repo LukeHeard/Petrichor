@@ -118,6 +118,17 @@ def update_work(work_id: int, cover_id: str = Body(..., embed=True), db: Databas
         logger.error(f"Error updating work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/works/{work_id}")
+def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        # DETACH DELETE removes the node and all incoming/outgoing relationships.
+        conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} DETACH DELETE w")
+        return {"message": "Book removed from library"}
+    except Exception as e:
+        logger.error(f"Error deleting work: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/authors", response_model=schemas.Author)
 def create_author(author: schemas.AuthorCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()

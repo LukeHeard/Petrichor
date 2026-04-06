@@ -249,6 +249,11 @@ a {
 .btn-primary:empty { display: none; }
 .btn-primary:hover { opacity: 0.9; }
 
+.delete-icon-btn:hover {
+  color: #ef4444 !important;
+}
+
+
 .btn-ghost {
   background: transparent;
   color: var(--foreground);
