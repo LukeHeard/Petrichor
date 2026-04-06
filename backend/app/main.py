@@ -106,7 +106,10 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
 
 @app.get("/search")
 async def search_works(q: str = Query(..., min_length=1)):
-    async with httpx.AsyncClient() as client:
+    # Standardize our request to OpenLibrary per their API guidelines
+    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
+    
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
         try:
             response = await client.get(
                 "https://openlibrary.org/search.json",
@@ -125,6 +128,9 @@ async def search_works(q: str = Query(..., min_length=1)):
                     "openlibrary_id": doc.get("key")
                 })
             return results
+        except httpx.HTTPStatusError as exc:
+            logger.error(f"HTTPStatusError from OpenLibrary: {exc.response.status_code} - {exc.response.text}")
+            raise HTTPException(status_code=502, detail=f"OpenLibrary API returned error: {exc.response.status_code}")
         except Exception as e:
-            logger.error(f"Error fetching from OpenLibrary: {e}")
-            raise HTTPException(status_code=502, detail="External API error")
+            logger.exception(f"Unexpected error fetching from OpenLibrary: {e}")
+            raise HTTPException(status_code=502, detail=f"External API error: {str(e)}")

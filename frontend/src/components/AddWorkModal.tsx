@@ -119,112 +119,103 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
 
   const inputStyle = {
     width: '100%',
-    padding: '0.75rem',
-    borderRadius: '8px',
-    border: '1px solid var(--card-border)',
-    background: 'var(--background)',
-    color: 'var(--foreground)'
-  };
-
-  const buttonStyle = {
-    padding: '0.5rem 1rem',
-    borderRadius: '8px',
-    border: 'none',
-    background: 'var(--accent)',
-    color: 'var(--accent-foreground)',
-    fontWeight: 600,
-    cursor: 'pointer'
+    padding: '0.8rem',
+    borderRadius: '4px',
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--foreground)',
+    fontFamily: 'var(--font-sans)',
+    outline: 'none',
   };
 
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'color-mix(in srgb, var(--background) 90%, transparent)',
+      backdropFilter: 'blur(5px)',
+      WebkitBackdropFilter: 'blur(5px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 2000, padding: '1rem'
     }}>
-      <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.25rem', marginTop: 0 }}>
-            {step === "search" ? "Find Book on OpenLibrary" : "Confirm Details"}
+      <div style={{ 
+        width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto',
+        background: 'var(--background)',
+        border: '1px solid var(--border)',
+        padding: '2rem',
+        borderRadius: '8px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'flex-start' }}>
+          <h2 className="font-serif" style={{ fontSize: '1.5rem', marginTop: 0 }}>
+            {step === "search" ? "Find Book" : "Confirm Details"}
           </h2>
           <button onClick={resetAndClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
         </div>
 
-        {error && <div style={{ color: 'red', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
+        {error && <div style={{ color: '#b91c1c', marginBottom: '1rem', fontSize: '0.9rem', fontStyle: 'italic' }}>{error}</div>}
 
         {step === "search" ? (
           <div>
             <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
               <input 
                 type="text" 
-                placeholder="Search by title, author, or ISBN..." 
+                placeholder="Title, author, or ISBN..." 
                 value={searchQuery} 
                 onChange={e => setSearchQuery(e.target.value)} 
                 style={inputStyle}
               />
-              <button type="submit" style={{ ...buttonStyle, opacity: isSearching ? 0.7 : 1 }} disabled={isSearching}>
+              <button type="submit" className="btn-primary" style={{ opacity: isSearching ? 0.7 : 1 }} disabled={isSearching}>
                 {isSearching ? "..." : "Search"}
               </button>
             </form>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
               {searchResults.map((res, i) => (
-                <div key={i} style={{ 
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                  padding: '0.75rem', border: '1px solid var(--card-border)', borderRadius: '8px',
-                  background: 'var(--muted-background)'
-                }}>
+                <div key={i} className="book-row" style={{ padding: '0.75rem 0' }}>
                   <div>
-                    <h3 style={{ fontSize: '1rem', margin: 0 }}>{res.title}</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: 0 }}>
+                    <h3 className="font-serif" style={{ fontSize: '1.1rem', margin: 0 }}>{res.title}</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
                       {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
                     </p>
                   </div>
-                  <button onClick={() => selectResult(res)} style={{ 
-                    background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)',
-                    padding: '0.3rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 600
-                  }}>
+                  <button onClick={() => selectResult(res)} className="btn-ghost" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}>
                     Select
                   </button>
                 </div>
               ))}
               {searchResults.length === 0 && !isSearching && searchQuery && (
-                <p style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '1rem' }}>No results found.</p>
+                <p style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '2rem', fontStyle: 'italic' }}>No results found.</p>
               )}
             </div>
 
-            <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-              <button onClick={() => setStep("form")} style={{ background: 'none', border: 'none', color: 'var(--muted)', textDecoration: 'underline', cursor: 'pointer' }}>
+            <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
+              <button onClick={() => setStep("form")} style={{ background: 'none', border: 'none', color: 'var(--muted)', textDecoration: 'underline', textUnderlineOffset: '4px', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: '0.85rem' }}>
                 Or enter details manually
               </button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Title</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Title</label>
               <input type="text" value={title} onChange={e => setTitle(e.target.value)} required style={inputStyle} />
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Author (Optional)</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Author (Optional)</label>
               <input type="text" value={author} onChange={e => setAuthor(e.target.value)} style={inputStyle} />
             </div>
             {openlibraryId && (
               <div>
-                 <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Linked to OpenLibrary ID: {openlibraryId}</p>
+                 <p style={{ fontSize: '0.8rem', color: 'var(--muted)', fontStyle: 'italic' }}>Linked: OL ID {openlibraryId}</p>
               </div>
             )}
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
-              <button type="button" onClick={() => setStep("search")} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline' }}>
-                &larr; Back to search
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem' }}>
+              <button type="button" onClick={() => setStep("search")} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', textDecoration: 'none', fontSize: '0.85rem' }}>
+                &larr; Back
               </button>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button type="submit" disabled={loading} style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}>
-                  {loading ? 'Adding...' : 'Save Book'}
-                </button>
-              </div>
+              <button type="submit" className="btn-primary" disabled={loading} style={{ opacity: loading ? 0.7 : 1 }}>
+                {loading ? 'Saving...' : 'Save Book'}
+              </button>
             </div>
           </form>
         )}
