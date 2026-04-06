@@ -84,12 +84,12 @@ a {
   left: 0;
   right: 0;
   height: var(--nav-height);
-  background: color-mix(in srgb, var(--background) 85%, transparent);
+  background: color-mix(in srgb, var(--background) 90%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: center;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 1000;
@@ -99,16 +99,48 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--muted);
-  font-weight: 500;
-  gap: 6px;
-  letter-spacing: 0.05em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  flex: 1;
 }
 
 .nav-item.active {
   color: var(--foreground);
+}
+
+.nav-separator {
+  height: 24px;
+  width: 1px;
+  background-color: var(--border);
+  opacity: 0.5;
+}
+
+.nav-plus-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.nav-plus-btn {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 50%; /* creates an ellipse if width != height */
+  width: 54px;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-plus-btn:active {
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
 }
 
 .main-container {
