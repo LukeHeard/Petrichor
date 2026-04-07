@@ -97,26 +97,38 @@ def list_works(db: DatabaseManager = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/works/{work_id}", response_model=schemas.Work)
-def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
+async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute(
-            f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count"
-        )
-        if result.has_next():
-            row = result.get_next()
-            return {
-                "id": row[0], 
-                "title": row[1], 
-                "openlibrary_id": row[2], 
-                "author": row[3],
-                "first_publish_year": row[4],
-                "description": row[5],
-                "page_count": row[6],
-                "rating_average": row[7],
-                "rating_count": row[8]
-            }
-        raise HTTPException(status_code=404, detail="Work not found")
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count", {"id": work_id})
+        if not result.has_next():
+            raise HTTPException(status_code=404, detail="Work not found")
+        row = result.get_next()
+        
+        # Self-healing: If description is missing, try to fetch it now and save it
+        stored_desc = row[4]
+        olid = row[2]
+        if not stored_desc and olid:
+            logger.info(f"Self-healing: Fetching missing description for {row[1]}")
+            try:
+                enriched = await enrich_work(olid)
+                new_desc = enriched.get("description", "")
+                if new_desc:
+                    conn.execute("MATCH (w:Work) WHERE w.id = $id SET w.description = $desc", {"id": work_id, "desc": new_desc})
+                    stored_desc = new_desc
+            except Exception as e:
+                logger.warning(f"Self-healing failed for {work_id}: {e}")
+
+        return {
+            "id": row[0], 
+            "title": row[1], 
+            "openlibrary_id": olid, 
+            "first_publish_year": row[3],
+            "description": stored_desc,
+            "page_count": row[5],
+            "rating_average": row[6],
+            "rating_count": row[7]
+        }
     except Exception as e:
         logger.error(f"Error getting work: {e}")
         raise HTTPException(status_code=500, detail=str(e))

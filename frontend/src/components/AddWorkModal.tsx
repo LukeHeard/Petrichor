@@ -14,6 +14,7 @@ interface SearchResult {
   author: string;
   first_publish_year?: number;
   openlibrary_id?: string;
+  description?: string;
   page_count?: number;
   rating_average?: number;
   rating_count?: number;
@@ -114,6 +115,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
           title: result.title, 
           openlibrary_id: result.openlibrary_id || null,
           first_publish_year: result.first_publish_year || 0,
+          description: result.description || "",
           page_count: result.page_count || 0,
           rating_average: result.rating_average || 0,
           rating_count: result.rating_count || 0
