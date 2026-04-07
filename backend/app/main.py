@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
+import re
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 import logging
@@ -20,29 +21,65 @@ app.add_middleware(
 )
 
 # Tag cleaning helper
-def get_clean_tags(subjects: list[str]) -> list[str]:
+def get_clean_tags(subjects: list[str], title: str = "") -> list[str]:
     if not subjects:
         return []
+    
+    title_words = set(re.findall(r'\w+', title.lower())) if title else set()
     
     # Genres to prioritize/whitelist (as suggested by user)
     priority_genres = {"Fiction", "Fantasy", "Science Fiction", "Dystopia", "Young Adult", "Adventure", "Thriller", "Mystery", "Horror", "Romance"}
     
+    # Words to strip from multi-word tags (e.g. "Adventure Stories" -> "Adventure")
+    strip_words = {"Fiction", "Stories", "Literature", "General", "Review", "Novels", "Work", "Books"}
+    
+    # Blacklist for languages and random noise
+    blacklist = {"Englisch", "English", "Deutsch", "German", "Bestseller", "New York Times", "Nyt", "Award", "Series", "Franchise", "Form"}
+    
     cleaned = set()
     for s in subjects:
-        # Normalize: strip award tags, nyt stats, hyphens, and title case
-        s_low = s.lower()
-        if any(x in s_low for x in ["award:", "nyt:", "series:", "franchise:", "form:"]):
-            continue
+        # 1. Strip anything in parentheses: Dune (Imaginary Place) -> Dune
+        s = re.sub(r'\(.*?\)', '', s).strip()
         
-        # Normalize common names
+        # 2. Normalize hyphens and title case
         norm = s.replace("-", " ").title()
+        
+        # 3. Strip commas and extra spaces
+        norm = norm.replace(",", "").strip()
+        
+        # 4. Handle "Adventure Stories" -> "Adventure"
+        # We only do this for multi-word tags to avoid making "Fiction" empty
+        words = norm.split()
+        if len(words) > 1:
+            words = [w for w in words if w not in strip_words]
+            norm = " ".join(words).strip()
+            
+        if not norm or norm in blacklist:
+            continue
+            
+        # 5. Check blacklist for sub-words (e.g. "Amerikanisches Englisch")
+        if any(b in norm for b in blacklist):
+            continue
+
+        # 6. Title-aware filtering: If tag is redundant with the title, skip it
+        norm_low = norm.lower()
+        if title:
+            # If the tag is exactly the title or contains/is contained in it too closely
+            if norm_low == title.lower():
+                continue
+            # If the tag is just words from the title
+            tag_words = set(re.findall(r'\w+', norm_low))
+            if tag_words and tag_words.issubset(title_words):
+                continue
+
+        # 7. Final normalization for specific genres
         if "Science Fiction" in norm: norm = "Science Fiction"
         
         cleaned.add(norm)
     
     # Intersect with priority if too many, or just take first few
     sorted_tags = sorted(list(cleaned), key=lambda x: (x not in priority_genres, x))
-    return sorted_tags[:7]
+    return [t for t in sorted_tags if t][:7]
 
 @app.get("/")
 def read_root():
@@ -237,7 +274,7 @@ async def enrich_work(olid: str):
             
             # Extract tags from subjects
             subjects = data.get("subjects", [])
-            tags = get_clean_tags(subjects)
+            tags = get_clean_tags(subjects, data.get("title", ""))
                 
             return {
                 "openlibrary_id": olid,
@@ -283,7 +320,7 @@ async def search_works(q: str = Query(..., min_length=1)):
                     "page_count": doc.get("number_of_pages_median"),
                     "rating_average": doc.get("ratings_average"),
                     "rating_count": doc.get("ratings_count"),
-                    "tags": get_clean_tags(doc.get("subject", []))
+                    "tags": get_clean_tags(doc.get("subject", []), doc.get("title", ""))
                 })
             return results
         except httpx.HTTPStatusError as exc:
