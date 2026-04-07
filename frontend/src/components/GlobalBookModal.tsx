@@ -19,10 +19,12 @@ export default function GlobalBookModal() {
   
   const [book, setBook] = useState<FullWork | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (bookId) {
       setLoading(true);
+      setIsDeleting(false);
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`)
         .then(res => res.json())
         .then(data => setBook(data))
@@ -83,38 +85,89 @@ export default function GlobalBookModal() {
               <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center' }}>Additional tracking details going here soon (Wishlist, ratings, format, etc).</p>
               
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
-                <button 
-                  onClick={async () => {
-                    if (confirm("Are you sure you want to remove this book from your library?")) {
-                      try {
-                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
-                        if (res.ok) {
-                          window.dispatchEvent(new Event("petrichor:workAdded")); // Refresh library
-                          closeModal();
-                        }
-                      } catch (err) {
-                        console.error(err);
-                      }
-                    }
-                  }}
-                  style={{
-                    background: 'none',
-                    border: '1px solid color-mix(in srgb, #ff4444 30%, transparent)',
-                    color: '#ff4444',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 10%, transparent)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                >
-                  <span style={{ fontSize: '1.1rem' }}>🗑</span> Remove Work
-                </button>
+                {!isDeleting ? (
+                  <button 
+                    onClick={() => setIsDeleting(true)}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border)',
+                      color: 'var(--muted)',
+                      padding: '0.5rem 1.25rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'var(--font-sans)',
+                      letterSpacing: '0.02em'
+                    }}
+                    onMouseEnter={(e) => { 
+                      e.currentTarget.style.color = '#ff4444'; 
+                      e.currentTarget.style.borderColor = 'color-mix(in srgb, #ff4444 30%, transparent)';
+                      e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 5%, transparent)';
+                    }}
+                    onMouseLeave={(e) => { 
+                      e.currentTarget.style.color = 'var(--muted)'; 
+                      e.currentTarget.style.borderColor = 'var(--border)';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    Remove from Library
+                  </button>
+                ) : (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    gap: '1rem',
+                    padding: '1.5rem',
+                    backgroundColor: 'color-mix(in srgb, #ff4444 5%, transparent)',
+                    borderRadius: '8px',
+                    border: '1px solid color-mix(in srgb, #ff4444 20%, transparent)',
+                    width: '100%',
+                    animation: 'fadeInUp 0.3s ease'
+                  }}>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--foreground)' }}>Remove this work from library?</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
+                      <button 
+                        onClick={() => setIsDeleting(false)}
+                        className="btn-ghost"
+                        style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem' }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
+                            if (res.ok) {
+                              window.dispatchEvent(new Event("petrichor:workAdded")); 
+                              closeModal();
+                              setIsDeleting(false);
+                            }
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        style={{ 
+                          flex: 1, 
+                          padding: '0.5rem', 
+                          fontSize: '0.85rem',
+                          backgroundColor: '#b91c1c',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 500
+                        }}
+                      >
+                        Yes, Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             

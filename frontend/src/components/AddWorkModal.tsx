@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface AddWorkModalProps {
   isOpen: boolean;
@@ -20,6 +20,27 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
+  const [existingOlids, setExistingOlids] = useState<Set<string>>(new Set());
+
+  // Fetch current library to check for duplicates
+  const fetchLibraryIds = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`);
+      if (res.ok) {
+        const data = await res.json();
+        const ids = new Set(data.map((w: any) => w.openlibrary_id).filter(Boolean));
+        setExistingOlids(ids as Set<string>);
+      }
+    } catch (err) {
+      console.error("Failed to fetch existing library IDs", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchLibraryIds();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -80,6 +101,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       // Success
       setSearchQuery("");
       setSearchResults([]);
+      setIsSearching(false);
       onWorkAdded();
     } catch (err: any) {
       setError(err.message || "An error occurred");
@@ -151,9 +173,15 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
                     {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
                   </p>
                 </div>
-                <button onClick={() => selectResult(res)} className="btn-ghost" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} disabled={isSearching}>
-                  Add
-                </button>
+                {res.openlibrary_id && existingOlids.has(res.openlibrary_id) ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem', border: '1px solid transparent' }}>
+                    In Library
+                  </span>
+                ) : (
+                  <button onClick={() => selectResult(res)} className="btn-ghost" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} disabled={isSearching}>
+                    Add
+                  </button>
+                )}
               </div>
             ))}
             {searchResults.length === 0 && !isSearching && searchQuery && (
