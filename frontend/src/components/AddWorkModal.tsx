@@ -87,7 +87,11 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       const workRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: result.title, openlibrary_id: result.openlibrary_id || null })
+        body: JSON.stringify({ 
+          title: result.title, 
+          openlibrary_id: result.openlibrary_id || null,
+          first_publish_year: result.first_publish_year || 0
+        })
       });
       if (!workRes.ok) throw new Error("Failed to add book");
       const workData = await workRes.json();
