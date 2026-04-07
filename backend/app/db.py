@@ -66,9 +66,8 @@ class DatabaseManager:
             for col_name, col_type in new_cols.items():
                 if col_name not in cols:
                     try:
-                        self.conn.execute(f"ALTER TABLE Work ADD {col_name} {col_type} DEFAULT 0")
-                        if col_type == "STRING":
-                            self.conn.execute(f"MATCH (w:Work) SET w.{col_name} = ''") # Clear default 0 for strings
+                        default_val = "''" if col_type == "STRING" else "0.0" if col_type == "DOUBLE" else "0"
+                        self.conn.execute(f"ALTER TABLE Work ADD {col_name} {col_type} DEFAULT {default_val}")
                         logger.info(f"Added {col_name} to Work table")
                     except Exception as e:
                         logger.error(f"Failed to add column {col_name}: {e}")
