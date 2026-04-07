@@ -24,7 +24,7 @@ class DatabaseManager:
 
             # Node Tables
             node_tables = {
-                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, first_publish_year INT64, PRIMARY KEY(id))",
+                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, first_publish_year INT64, description STRING, page_count INT64, rating_average DOUBLE, rating_count INT64, PRIMARY KEY(id))",
                 "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
                 "Manifestation": "CREATE NODE TABLE Manifestation(id SERIAL, publisher STRING, format STRING, isbn STRING, PRIMARY KEY(id))",
@@ -56,12 +56,22 @@ class DatabaseManager:
             while res.has_next():
                 cols.append(res.get_next()[0])
             
-            if "first_publish_year" not in cols:
-                try:
-                    self.conn.execute("ALTER TABLE Work ADD first_publish_year INT64 DEFAULT 0")
-                    logger.info("Added first_publish_year to Work table")
-                except Exception as e:
-                    logger.error(f"Failed to add column: {e}")
+            new_cols = {
+                "description": "STRING",
+                "page_count": "INT64",
+                "rating_average": "DOUBLE",
+                "rating_count": "INT64"
+            }
+            
+            for col_name, col_type in new_cols.items():
+                if col_name not in cols:
+                    try:
+                        self.conn.execute(f"ALTER TABLE Work ADD {col_name} {col_type} DEFAULT 0")
+                        if col_type == "STRING":
+                            self.conn.execute(f"MATCH (w:Work) SET w.{col_name} = ''") # Clear default 0 for strings
+                        logger.info(f"Added {col_name} to Work table")
+                    except Exception as e:
+                        logger.error(f"Failed to add column {col_name}: {e}")
 
             logger.info("Schema initialization complete.")
         except Exception as e:

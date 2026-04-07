@@ -24,21 +24,54 @@ def read_root():
     return {"message": "Petrichor Personal Library API"}
 
 @app.post("/works", response_model=schemas.Work)
-def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db)):
+async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
+    
+    # 1. Enrich with description if missing and OLID exists
+    description = work.description or ""
+    if not description and work.openlibrary_id:
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+                # OLID can be /works/OL... or just OL...
+                olid = work.openlibrary_id.replace("/works/", "")
+                res = await client.get(f"https://openlibrary.org/works/{olid}.json")
+                if res.ok:
+                    data = res.json()
+                    desc_data = data.get("description", "")
+                    if isinstance(desc_data, dict):
+                        description = desc_data.get("value", "")
+                    else:
+                        description = desc_data
+        except Exception as e:
+            logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
+
     try:
-        # Create a Work node. Using parameterized query for safety.
         result = conn.execute(
-            "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year}) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year",
-            parameters={"title": work.title, "openlib": work.openlibrary_id or "", "year": work.first_publish_year or 0}
+            """CREATE (w:Work {
+                title: $title, 
+                openlibrary_id: $openlib, 
+                first_publish_year: $year,
+                description: $desc,
+                page_count: $pages,
+                rating_average: $rating_avg,
+                rating_count: $rating_cnt
+            }) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count""",
+            parameters={
+                "title": work.title, 
+                "openlib": work.openlibrary_id or "", 
+                "year": work.first_publish_year or 0,
+                "desc": description,
+                "pages": work.page_count or 0,
+                "rating_avg": work.rating_average or 0.0,
+                "rating_cnt": work.rating_count or 0
+            }
         )
         if result.has_next():
             row = result.get_next()
             return {
-                "id": row[0], 
-                "title": row[1], 
-                "openlibrary_id": row[2] if row[2] else None,
-                "first_publish_year": row[3]
+                "id": row[0], "title": row[1], "openlibrary_id": row[2], 
+                "first_publish_year": row[3], "description": row[4], 
+                "page_count": row[5], "rating_average": row[6], "rating_count": row[7]
             }
         raise HTTPException(status_code=500, detail="Failed to create work")
     except Exception as e:
@@ -50,16 +83,20 @@ def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count")
         works = []
         while result.has_next():
             row = result.get_next()
             works.append({
                 "id": row[0], 
                 "title": row[1], 
-                "openlibrary_id": row[2] if row[2] else None,
-                "author": row[3] if row[3] else None,
-                "first_publish_year": row[4]
+                "openlibrary_id": row[2], 
+                "author": row[3],
+                "first_publish_year": row[4],
+                "description": row[5],
+                "page_count": row[6],
+                "rating_average": row[7],
+                "rating_count": row[8]
             })
         return works
     except Exception as e:
@@ -71,16 +108,20 @@ def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         result = conn.execute(
-            f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year"
+            f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count"
         )
         if result.has_next():
             row = result.get_next()
             return {
                 "id": row[0], 
                 "title": row[1], 
-                "openlibrary_id": row[2] if row[2] else None,
-                "author": row[3] if row[3] else None,
-                "first_publish_year": row[4]
+                "openlibrary_id": row[2], 
+                "author": row[3],
+                "first_publish_year": row[4],
+                "description": row[5],
+                "page_count": row[6],
+                "rating_average": row[7],
+                "rating_count": row[8]
             }
         raise HTTPException(status_code=404, detail="Work not found")
     except Exception as e:
@@ -143,7 +184,7 @@ async def search_works(q: str = Query(..., min_length=1)):
         try:
             response = await client.get(
                 "https://openlibrary.org/search.json",
-                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year"}
+                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count"}
             )
             response.raise_for_status()
             data = response.json()
@@ -155,7 +196,10 @@ async def search_works(q: str = Query(..., min_length=1)):
                     "title": doc.get("title", "Unknown Title"),
                     "author": primary_author,
                     "first_publish_year": doc.get("first_publish_year"),
-                    "openlibrary_id": doc.get("key")
+                    "openlibrary_id": doc.get("key"),
+                    "page_count": doc.get("number_of_pages_median"),
+                    "rating_average": doc.get("ratings_average"),
+                    "rating_count": doc.get("ratings_count")
                 })
             return results
         except httpx.HTTPStatusError as exc:

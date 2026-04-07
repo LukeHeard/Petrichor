@@ -13,6 +13,9 @@ interface SearchResult {
   author: string;
   first_publish_year?: number;
   openlibrary_id?: string;
+  page_count?: number;
+  rating_average?: number;
+  rating_count?: number;
 }
 
 export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkModalProps) {
@@ -49,6 +52,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
     e.preventDefault();
     if (!searchQuery.trim()) return;
     
+    setHasSearched(false);
     setIsSearching(true);
     setError("");
     try {
@@ -90,7 +94,10 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         body: JSON.stringify({ 
           title: result.title, 
           openlibrary_id: result.openlibrary_id || null,
-          first_publish_year: result.first_publish_year || 0
+          first_publish_year: result.first_publish_year || 0,
+          page_count: result.page_count || 0,
+          rating_average: result.rating_average || 0,
+          rating_count: result.rating_count || 0
         })
       });
       if (!workRes.ok) throw new Error("Failed to add book");
@@ -107,6 +114,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       // Success
       setSearchQuery("");
       setSearchResults([]);
+      setHasSearched(false);
       setIsSearching(false);
       onWorkAdded();
     } catch (err: any) {

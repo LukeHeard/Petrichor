@@ -6,8 +6,13 @@ import { useEffect, useState } from "react";
 interface FullWork {
   id: number;
   title: string;
+  author?: string;
   openlibrary_id?: string;
   first_publish_year?: number;
+  description?: string;
+  page_count?: number;
+  rating_average?: number;
+  rating_count?: number;
 }
 
 export default function GlobalBookModal() {
@@ -70,19 +75,50 @@ export default function GlobalBookModal() {
             {/* Removed cover section per user request */}
             
             <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
+            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+               {book.author}
+            </p>
             {book.first_publish_year && book.first_publish_year > 0 && (
-              <p style={{ fontSize: '0.9rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '0.5rem' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '1.5rem' }}>
                 First published {book.first_publish_year}
               </p>
             )}
-            <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '2rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.6 }}>
-               <span>ID: {book.id}</span>
+
+            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', justifyContent: 'center' }}>
+              {book.page_count && book.page_count > 0 && (
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Pages</p>
+                  <p style={{ fontSize: '1rem', fontWeight: 500 }}>{book.page_count}</p>
+                </div>
+              )}
+              {book.rating_average && book.rating_average > 0 && (
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Rating</p>
+                  <p style={{ fontSize: '1rem', fontWeight: 500 }}>{book.rating_average.toFixed(1)}/5</p>
+                </div>
+              )}
+            </div>
+
+            <div className="thin-divider" style={{ margin: '0 0 1.5rem 0' }} />
+
+            <div style={{ alignSelf: 'stretch', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              {book.description ? (
+                <p className="font-serif" style={{ fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--foreground)', opacity: 0.9, textAlign: 'justify' }}>
+                  {book.description}
+                </p>
+              ) : (
+                <p style={{ fontSize: '0.9rem', color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center' }}>No description available.</p>
+              )}
+            </div>
+
+            <div className="thin-divider" style={{ margin: '1.5rem 0 0.5rem 0' }} />
+
+            <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginBottom: '1.5rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.5 }}>
+               <span>Internal ID: {book.id}</span>
                {book.openlibrary_id && (
                  <span>OLID: {book.openlibrary_id.replace('/works/', '')}</span>
                )}
             </p>
-
-            <div className="thin-divider" />
 
             <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center' }}>Additional tracking details going here soon (Wishlist, ratings, format, etc).</p>

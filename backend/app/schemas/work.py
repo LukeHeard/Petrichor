@@ -5,6 +5,10 @@ class WorkBase(BaseModel):
     title: str
     openlibrary_id: Optional[str] = None
     first_publish_year: Optional[int] = None
+    description: Optional[str] = None
+    page_count: Optional[int] = None
+    rating_average: Optional[float] = None
+    rating_count: Optional[int] = None
 
 class WorkCreate(WorkBase):
     pass
