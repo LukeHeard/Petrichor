@@ -16,26 +16,42 @@ class DatabaseManager:
     def _init_schema(self):
         """Initialize the FRBR schema if it doesn't exist."""
         try:
+            # Check existing tables
+            res = self.conn.execute("CALL SHOW_TABLES() RETURN name")
+            existing_tables = []
+            while res.has_next():
+                existing_tables.append(res.get_next()[0])
+
             # Node Tables
-            self.conn.execute("CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, PRIMARY KEY(id))")
-            self.conn.execute("CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))")
-            self.conn.execute("CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))")
-            self.conn.execute("CREATE NODE TABLE Manifestation(id SERIAL, publisher STRING, format STRING, isbn STRING, PRIMARY KEY(id))")
-            self.conn.execute("CREATE NODE TABLE Item(id SERIAL, barcode STRING, status STRING, PRIMARY KEY(id))")
+            node_tables = {
+                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, PRIMARY KEY(id))",
+                "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
+                "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
+                "Manifestation": "CREATE NODE TABLE Manifestation(id SERIAL, publisher STRING, format STRING, isbn STRING, PRIMARY KEY(id))",
+                "Item": "CREATE NODE TABLE Item(id SERIAL, barcode STRING, status STRING, PRIMARY KEY(id))"
+            }
             
+            for table_name, create_stmt in node_tables.items():
+                if table_name not in existing_tables:
+                    self.conn.execute(create_stmt)
+                    logger.info(f"Created node table {table_name}")
+
             # Relationship Tables
-            self.conn.execute("CREATE REL TABLE WROTE(FROM Author TO Work)")
-            self.conn.execute("CREATE REL TABLE IS_REALIZED_BY(FROM Work TO Expression)")
-            self.conn.execute("CREATE REL TABLE IS_EMBODIED_IN(FROM Expression TO Manifestation)")
-            self.conn.execute("CREATE REL TABLE IS_EXEMPLIFIED_BY(FROM Manifestation TO Item)")
+            rel_tables = {
+                "WROTE": "CREATE REL TABLE WROTE(FROM Author TO Work)",
+                "IS_REALIZED_BY": "CREATE REL TABLE IS_REALIZED_BY(FROM Work TO Expression)",
+                "IS_EMBODIED_IN": "CREATE REL TABLE IS_EMBODIED_IN(FROM Expression TO Manifestation)",
+                "IS_EXEMPLIFIED_BY": "CREATE REL TABLE IS_EXEMPLIFIED_BY(FROM Manifestation TO Item)"
+            }
+
+            for table_name, create_stmt in rel_tables.items():
+                if table_name not in existing_tables:
+                    self.conn.execute(create_stmt)
+                    logger.info(f"Created relationship table {table_name}")
             
-            logger.info("Schema initialized successfully.")
+            logger.info("Schema initialization complete.")
         except Exception as e:
-            # Table already exists errors are common on restart
-            if "already exists" in str(e).lower():
-                logger.info("Schema already exists, skipping initialization.")
-            else:
-                logger.error(f"Error initializing schema: {e}")
+            logger.error(f"Error initializing schema: {e}")
 
     def get_connection(self):
         return kuzu.Connection(self.db)
