@@ -180,7 +180,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {searchResults.map((res, i) => (
-              <div key={i} className="book-row" style={{ padding: '0.75rem 1.75rem' }}>
+              <div key={i} className="book-row" style={{ padding: '0.75rem 0.75rem' }}>
                 <div>
                   <h3 className="font-serif" style={{ fontSize: '1.1rem', margin: 0 }}>{res.title}</h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
