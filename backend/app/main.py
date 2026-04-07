@@ -35,7 +35,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 # OLID can be /works/OL... or just OL...
                 olid = work.openlibrary_id.replace("/works/", "")
                 res = await client.get(f"https://openlibrary.org/works/{olid}.json")
-                if res.ok:
+                if res.is_success:
                     data = res.json()
                     desc_data = data.get("description", "")
                     if isinstance(desc_data, dict):
@@ -46,16 +46,9 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
             logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
 
     try:
+        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $desc, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt}) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count"
         result = conn.execute(
-            """CREATE (w:Work {
-                title: $title, 
-                openlibrary_id: $openlib, 
-                first_publish_year: $year,
-                description: $desc,
-                page_count: $pages,
-                rating_average: $rating_avg,
-                rating_count: $rating_cnt
-            }) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count""",
+            query,
             parameters={
                 "title": work.title, 
                 "openlib": work.openlibrary_id or "", 
