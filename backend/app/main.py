@@ -20,66 +20,84 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Tag cleaning helper
+# Tag cleaning helper (Extensive Whitelist approach)
 def get_clean_tags(subjects: list[str], title: str = "") -> list[str]:
     if not subjects:
         return []
     
+    # Title words for redundancy filtering
     title_words = set(re.findall(r'\w+', title.lower())) if title else set()
     
-    # Genres to prioritize/whitelist (as suggested by user)
-    priority_genres = {"Fiction", "Fantasy", "Science Fiction", "Dystopia", "Young Adult", "Adventure", "Thriller", "Mystery", "Horror", "Romance"}
-    
-    # Words to strip from multi-word tags (e.g. "Adventure Stories" -> "Adventure")
-    strip_words = {"Fiction", "Stories", "Literature", "General", "Review", "Novels", "Work", "Books"}
-    
-    # Blacklist for languages and random noise
-    blacklist = {"Englisch", "English", "Deutsch", "German", "Bestseller", "New York Times", "Nyt", "Award", "Series", "Franchise", "Form"}
+    # 1. Broad Categories & Tribes (Keywords that signal a valid Genre/Trope)
+    valid_categories = {
+        # Core Genres
+        "Fiction", "Nonfiction", "Fantasy", "Science Fiction", "Sci Fi", "Horror", "Mystery", "Thriller", 
+        "Suspense", "Romance", "Historical", "Adventure", "Western", "Musical", "Documentary",
+        # Subgenres/Tropes
+        "Dystopia", "Utopia", "Apocalypt", "Space Opera", "Cyberpunk", "Steampunk", "Solarpunk", "Hopepunk",
+        "Grimdark", "High Fantasy", "Urban Fantasy", "Magical Realism", "Gothic", "Noir", "Hardboiled",
+        "Coming Of Age", "Young Adult", "New Adult", "Paranormal", "Supernatural", "Psychological",
+        "Philosophical", "Experimental", "Satire", "Allegory", "Mythology", "Folklore", "Fairy Tale",
+        "Military", "Police", "Legal", "Medical", "Politics", "Diplomacy", "War", "Espionage", "Crime",
+        "Detective", "Heist", "Time Travel", "Multiverse", "Artificial Intelligence", "Robot", "Alien",
+        "First Contact", "Space Travel", "Interplanetary", "Dimension", "Alternate History", "Survival",
+        "Self Discovery", "Identity", "Loneliness", "Grief", "Loss", "Hope", "Revenge", "Betrayal",
+        "Redemption", "Quest", "Journey", "Hero", "Villain", "Antihero", "Chosen One", "Secret Identity",
+        "Class Struggle", "Social Classes", "Caste System", "Revolution", "Resistance", "Conflict", "Society",
+        "Existential", "Cosmic", "Love", "Obsession", "Family", "Friendship", "Tragedy", "Comedy", "Dark",
+        "Cozy", "Atmospheric", "Noir", "Surreal", "Absurdist", "Classic", "Modernist", "Postmodern", "Ecology"
+    }
+
+    # 2. Strict Blacklist for Places/Entities
+    blacklist = {"Deutsch", "German", "English", "Englisch", "Amerikanisch", "New York", "London", "America", "Nyt", "Bestseller", "Award", "Series", "Franchise", "Form"}
+
+    # 3. Words to strip from tags (e.g. "Adventure Stories" -> "Adventure")
+    strip_words = {"Stories", "Literature", "Review", "Novels", "Work", "Books", "Edition"}
     
     cleaned = set()
     for s in subjects:
-        # 1. Strip anything in parentheses: Dune (Imaginary Place) -> Dune
-        s = re.sub(r'\(.*?\)', '', s).strip()
+        # Clean: Strip parentheses and punctuation
+        s_base = re.sub(r'\(.*?\)', '', s).strip()
+        norm = s_base.replace("-", " ").title().replace(",", "").strip()
         
-        # 2. Normalize hyphens and title case
-        norm = s.replace("-", " ").title()
-        
-        # 3. Strip commas and extra spaces
-        norm = norm.replace(",", "").strip()
-        
-        # 4. Handle "Adventure Stories" -> "Adventure"
-        # We only do this for multi-word tags to avoid making "Fiction" empty
-        words = norm.split()
-        if len(words) > 1:
-            words = [w for w in words if w not in strip_words]
-            norm = " ".join(words).strip()
-            
-        if not norm or norm in blacklist:
-            continue
-            
-        # 5. Check blacklist for sub-words (e.g. "Amerikanisches Englisch")
-        if any(b in norm for b in blacklist):
-            continue
-
-        # 6. Title-aware filtering: If tag is redundant with the title, skip it
+        # Avoid redundancy with title
         norm_low = norm.lower()
         if title:
-            # If the tag is exactly the title or contains/is contained in it too closely
-            if norm_low == title.lower():
-                continue
-            # If the tag is just words from the title
+            if norm_low == title.lower(): continue
             tag_words = set(re.findall(r'\w+', norm_low))
-            if tag_words and tag_words.issubset(title_words):
-                continue
+            if tag_words and tag_words.issubset(title_words): continue
 
-        # 7. Final normalization for specific genres
-        if "Science Fiction" in norm: norm = "Science Fiction"
+        # Filter: Must match a valid category word
+        # We check if any of our valid_categories is a substring or word in the tag
+        matched_cat = None
+        # Sort categories by length descending to catch most specific first (e.g. Science Fiction before Fiction)
+        for cat in sorted(list(valid_categories), key=len, reverse=True):
+            if cat.lower() in norm_low:
+                matched_cat = cat
+                break
+        
+        if not matched_cat:
+            continue
+            
+        # 5. Blacklist check
+        if any(b.lower() in norm_low for b in blacklist):
+            continue
+
+        # 6. Canonical Mapping: Use the official name from our category list
+        # This groups "Dystopian", "Dystopias", etc under "Dystopia"
+        norm = matched_cat
+        
+        if not norm: continue
+            
+        # Final normalization
+        if "Sci Fi" in norm: norm = "Science Fiction"
         
         cleaned.add(norm)
     
-    # Intersect with priority if too many, or just take first few
+    # Priority sorting (Genres first)
+    priority_genres = {"Fiction", "Fantasy", "Science Fiction", "Dystopia", "Young Adult", "Adventure", "Thriller", "Mystery", "Horror", "Romance"}
     sorted_tags = sorted(list(cleaned), key=lambda x: (x not in priority_genres, x))
-    return [t for t in sorted_tags if t][:7]
+    return [t for t in sorted_tags if t][:8]
 
 @app.get("/")
 def read_root():
