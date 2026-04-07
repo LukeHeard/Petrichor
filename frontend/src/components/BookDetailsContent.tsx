@@ -11,21 +11,12 @@ interface BookDetailsContentProps {
     openlibrary_id?: string;
     id?: number;
   };
-  isLoading?: boolean;
   actions?: React.ReactNode;
 }
 
-export default function BookDetailsContent({ book, isLoading, actions }: BookDetailsContentProps) {
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 0' }}>
-        <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Loading details...</p>
-      </div>
-    );
-  }
-
+export default function BookDetailsContent({ book, actions }: BookDetailsContentProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeInUp 0.3s ease' }}>
       <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
       <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
          {book.author}
@@ -70,7 +61,7 @@ export default function BookDetailsContent({ book, isLoading, actions }: BookDet
         )}
       </div>
 
-      {book.id || book.openlibrary_id ? (
+      {(book.id || book.openlibrary_id) && (
         <>
           <div className="thin-divider" style={{ margin: '1.5rem 0 0.5rem 0' }} />
           <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginBottom: '1.5rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.5 }}>
@@ -80,7 +71,7 @@ export default function BookDetailsContent({ book, isLoading, actions }: BookDet
              )}
           </p>
         </>
-      ) : null}
+      )}
 
       {actions && (
         <div style={{ alignSelf: 'stretch', marginTop: '1rem' }}>

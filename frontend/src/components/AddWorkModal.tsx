@@ -74,18 +74,25 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   };
 
   const handlePreview = async (result: SearchResult) => {
-    setPreviewWork({ ...result, description: "" });
-    setIsPreviewLoading(true);
+    setError("");
+    let timer = setTimeout(() => {
+      setError("Taking longer than usual to fetch details...");
+    }, 5000);
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.openlibrary_id || "")}`);
+      clearTimeout(timer);
+      
       if (res.ok) {
         const data = await res.json();
         setPreviewWork({ ...result, description: data.description });
+      } else {
+        // Fallback if enrichment fails
+        setPreviewWork({ ...result, description: "Description currently unavailable." });
       }
     } catch (err) {
       console.error("Failed to enrich work", err);
-    } finally {
-      setIsPreviewLoading(false);
+      setPreviewWork({ ...result, description: "Failed to load details." });
     }
   };
 
@@ -247,7 +254,6 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
             <div className="fade-in-up">
               <BookDetailsContent 
                 book={previewWork} 
-                isLoading={isPreviewLoading} 
                 actions={
                   <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
                     {previewWork.openlibrary_id && existingOlids.has(previewWork.openlibrary_id) ? (
