@@ -24,12 +24,13 @@ export default function GlobalBookModal() {
   const bookId = searchParams.get("book_id");
   
   const [book, setBook] = useState<FullWork | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!!bookId);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (bookId) {
       setLoading(true);
+      setBook(null); // Clear previous book to prevent stale data flash
       setIsDeleting(false);
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`)
         .then(res => res.json())
