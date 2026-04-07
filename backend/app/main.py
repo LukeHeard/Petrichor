@@ -158,7 +158,7 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/enrich/{olid}")
+@app.get("/enrich/{olid:path}")
 async def enrich_work(olid: str):
     """Fetch deep metadata (description, etc.) for a specific OLID without saving it."""
     headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
