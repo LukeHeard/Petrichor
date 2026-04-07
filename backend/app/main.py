@@ -124,6 +124,16 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/works/{work_id}")
+def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} DETACH DELETE w")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error deleting work: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/search")
 async def search_works(q: str = Query(..., min_length=1)):
     # Standardize our request to OpenLibrary per their API guidelines

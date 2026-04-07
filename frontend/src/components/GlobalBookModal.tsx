@@ -2,7 +2,6 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import Image from "next/image";
 
 interface FullWork {
   id: number;
@@ -66,20 +65,7 @@ export default function GlobalBookModal() {
           <p style={{ textAlign: 'center', color: 'var(--muted)', fontStyle: 'italic', margin: '3rem 0' }}>Loading details...</p>
         ) : book ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {book.openlibrary_id ? (
-              <div style={{ position: 'relative', width: '180px', height: '270px', marginBottom: '2rem', borderRadius: '4px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                <Image 
-                  src={`https://covers.openlibrary.org/b/olid/${book.openlibrary_id}-L.jpg`} 
-                  alt={book.title}
-                  fill
-                  style={{ objectFit: 'cover' }}
-                />
-              </div>
-            ) : (
-                <div style={{ width: '180px', height: '270px', marginBottom: '2rem', borderRadius: '4px', backgroundColor: 'var(--muted-background)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', textAlign: 'center' }}>
-                    <span className="font-serif" style={{ color: 'var(--muted)', fontSize: '1.2rem' }}>No Cover</span>
-                </div>
-            )}
+            {/* Removed cover section per user request */}
             
             <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
             {book.first_publish_year && (
@@ -93,8 +79,43 @@ export default function GlobalBookModal() {
 
             <div className="thin-divider" />
 
-            <div style={{ alignSelf: 'stretch' }}>
+            <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center' }}>Additional tracking details going here soon (Wishlist, ratings, format, etc).</p>
+              
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+                <button 
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to remove this book from your library?")) {
+                      try {
+                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                          window.dispatchEvent(new Event("petrichor:workAdded")); // Refresh library
+                          closeModal();
+                        }
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }
+                  }}
+                  style={{
+                    background: 'none',
+                    border: '1px solid color-mix(in srgb, #ff4444 30%, transparent)',
+                    color: '#ff4444',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 10%, transparent)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>🗑</span> Remove Work
+                </button>
+              </div>
             </div>
             
           </div>
