@@ -24,7 +24,7 @@ class DatabaseManager:
 
             # Node Tables
             node_tables = {
-                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, PRIMARY KEY(id))",
+                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, first_publish_year INT64, PRIMARY KEY(id))",
                 "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
                 "Manifestation": "CREATE NODE TABLE Manifestation(id SERIAL, publisher STRING, format STRING, isbn STRING, PRIMARY KEY(id))",
@@ -49,6 +49,20 @@ class DatabaseManager:
                     self.conn.execute(create_stmt)
                     logger.info(f"Created relationship table {table_name}")
             
+
+            # Check for existing Work columns for migration
+            res = self.conn.execute("CALL TABLE_INFO('Work') RETURN name")
+            cols = []
+            while res.has_next():
+                cols.append(res.get_next()[0])
+            
+            if "first_publish_year" not in cols:
+                try:
+                    self.conn.execute("ALTER TABLE Work ADD first_publish_year INT64 DEFAULT 0")
+                    logger.info("Added first_publish_year to Work table")
+                except Exception as e:
+                    logger.error(f"Failed to add column: {e}")
+
             logger.info("Schema initialization complete.")
         except Exception as e:
             logger.error(f"Error initializing schema: {e}")

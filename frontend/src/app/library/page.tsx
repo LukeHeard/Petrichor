@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import BookCard from "@/components/BookCard";
+import LibraryItem from "@/components/LibraryItem";
 
 interface Work {
   id: number;
   title: string;
   openlibrary_id?: string;
-  author?: string; // We'll need to fetch authors too for a better experience
+  author?: string;
+  first_publish_year?: number;
 }
 
 function LibraryContent() {
@@ -49,7 +50,7 @@ function LibraryContent() {
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>All Books</p>
       </header>
 
-      <section style={{ display: 'flex', flexDirection: 'column' }}>
+      <section>
         <div className="thin-divider" style={{ marginTop: 0 }} />
 
         {loading ? (
@@ -59,14 +60,15 @@ function LibraryContent() {
             <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Your library is currently empty.</p>
           </div>
         ) : (
-          <div className="library-grid">
-            {works.map((work) => (
-              <BookCard 
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            {works.map((work, index) => (
+              <LibraryItem 
                 key={work.id}
                 id={work.id}
+                index={index}
                 title={work.title}
-                openlibrary_id={work.openlibrary_id}
                 author={work.author}
+                first_publish_year={work.first_publish_year}
               />
             ))}
           </div>

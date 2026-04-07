@@ -8,6 +8,7 @@ interface FullWork {
   id: number;
   title: string;
   openlibrary_id?: string;
+  first_publish_year?: number;
 }
 
 export default function GlobalBookModal() {
@@ -81,6 +82,11 @@ export default function GlobalBookModal() {
             )}
             
             <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
+            {book.first_publish_year && (
+              <p style={{ fontSize: '0.9rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '0.5rem' }}>
+                First published {book.first_publish_year}
+              </p>
+            )}
             <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '2rem', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
                ID: {book.id} {book.openlibrary_id && `| OLID: ${book.openlibrary_id}`}
             </p>

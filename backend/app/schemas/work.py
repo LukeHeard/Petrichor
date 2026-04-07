@@ -4,6 +4,7 @@ from typing import Optional, List
 class WorkBase(BaseModel):
     title: str
     openlibrary_id: Optional[str] = None
+    first_publish_year: Optional[int] = None
 
 class WorkCreate(WorkBase):
     pass

@@ -29,12 +29,17 @@ def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db))
     try:
         # Create a Work node. Using parameterized query for safety.
         result = conn.execute(
-            "CREATE (w:Work {title: $title, openlibrary_id: $openlib}) RETURN w.id, w.title, w.openlibrary_id",
-            parameters={"title": work.title, "openlib": work.openlibrary_id or ""}
+            "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year}) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year",
+            parameters={"title": work.title, "openlib": work.openlibrary_id or "", "year": work.first_publish_year or 0}
         )
         if result.has_next():
             row = result.get_next()
-            return {"id": row[0], "title": row[1], "openlibrary_id": row[2] if row[2] else None}
+            return {
+                "id": row[0], 
+                "title": row[1], 
+                "openlibrary_id": row[2] if row[2] else None,
+                "first_publish_year": row[3]
+            }
         raise HTTPException(status_code=500, detail="Failed to create work")
     except Exception as e:
         logger.error(f"Error creating work: {e}")
@@ -45,7 +50,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year")
         works = []
         while result.has_next():
             row = result.get_next()
@@ -53,7 +58,8 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "id": row[0], 
                 "title": row[1], 
                 "openlibrary_id": row[2] if row[2] else None,
-                "author": row[3] if row[3] else None
+                "author": row[3] if row[3] else None,
+                "first_publish_year": row[4]
             })
         return works
     except Exception as e:
@@ -65,7 +71,7 @@ def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         result = conn.execute(
-            f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name"
+            f"MATCH (w:Work) WHERE w.id = {work_id} OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year"
         )
         if result.has_next():
             row = result.get_next()
@@ -73,7 +79,8 @@ def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
                 "id": row[0], 
                 "title": row[1], 
                 "openlibrary_id": row[2] if row[2] else None,
-                "author": row[3] if row[3] else None
+                "author": row[3] if row[3] else None,
+                "first_publish_year": row[4]
             }
         raise HTTPException(status_code=404, detail="Work not found")
     except Exception as e:

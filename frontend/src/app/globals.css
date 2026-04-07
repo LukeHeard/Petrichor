@@ -264,11 +264,37 @@ a {
 .book-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 1rem 0;
+  align-items: center;
+  padding: 1.25rem 0.5rem;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.book-row:hover {
+  background-color: var(--muted-background);
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .book-row:last-child {
   border-bottom: none;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s ease forwards;
+  opacity: 0;
 }
