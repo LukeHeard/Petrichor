@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import BookDetailsContent from "./BookDetailsContent";
 
 interface FullWork {
   id: number;
@@ -68,69 +69,12 @@ export default function GlobalBookModal() {
       }}>
         <button onClick={closeModal} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
         
-        {loading ? (
-          <p style={{ textAlign: 'center', color: 'var(--muted)', fontStyle: 'italic', margin: '3rem 0' }}>Loading details...</p>
-        ) : book ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {/* Removed cover section per user request */}
-            
-            <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
-            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-               {book.author}
-            </p>
-            {book.first_publish_year && book.first_publish_year > 0 && (
-              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '1.5rem' }}>
-                First published {book.first_publish_year}
-              </p>
-            )}
-
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', justifyContent: 'center' }}>
-              {book.page_count && book.page_count > 0 && (
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Pages</p>
-                  <p style={{ fontSize: '1rem', fontWeight: 500 }}>{book.page_count}</p>
-                </div>
-              )}
-              {book.rating_average && book.rating_average > 0 && (
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Rating</p>
-                  <p style={{ fontSize: '1rem', fontWeight: 500 }}>{book.rating_average.toFixed(1)}/5</p>
-                </div>
-              )}
-            </div>
-
-            <div className="thin-divider" style={{ margin: '0 0 1.5rem 0' }} />
-
-            <div style={{ alignSelf: 'stretch', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-              {book.description ? (
-                <p className="font-serif" style={{ 
-                  fontSize: '0.95rem', 
-                  lineHeight: '1.6', 
-                  color: 'var(--foreground)', 
-                  opacity: 0.9, 
-                  whiteSpace: 'pre-wrap',
-                  textAlign: 'left'
-                }}>
-                  {book.description}
-                </p>
-              ) : (
-                <p style={{ fontSize: '0.9rem', color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center' }}>No description available.</p>
-              )}
-            </div>
-
-            <div className="thin-divider" style={{ margin: '1.5rem 0 0.5rem 0' }} />
-
-            <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginBottom: '1.5rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.5 }}>
-               <span>Internal ID: {book.id}</span>
-               {book.openlibrary_id && (
-                 <span>OLID: {book.openlibrary_id.replace('/works/', '')}</span>
-               )}
-            </p>
-
-            <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center' }}>Additional tracking details going here soon (Wishlist, ratings, format, etc).</p>
-              
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+        {book ? (
+          <BookDetailsContent 
+            book={book} 
+            isLoading={loading} 
+            actions={
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
                 {!isDeleting ? (
                   <button 
                     onClick={() => setIsDeleting(true)}
@@ -215,10 +159,9 @@ export default function GlobalBookModal() {
                   </div>
                 )}
               </div>
-            </div>
-            
-          </div>
-        ) : (
+            }
+          />
+        ) : !loading && (
            <p style={{ textAlign: 'center', color: 'var(--muted)' }}>Could not load book.</p>
         )}
       </div>

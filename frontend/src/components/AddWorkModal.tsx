@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import BookDetailsContent from "./BookDetailsContent";
 
 interface AddWorkModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   const [error, setError] = useState("");
   const [existingOlids, setExistingOlids] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
+  const [previewWork, setPreviewWork] = useState<any | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   // Fetch current library to check for duplicates
   const fetchLibraryIds = async () => {
@@ -66,6 +69,22 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       console.error(err);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handlePreview = async (result: SearchResult) => {
+    setPreviewWork({ ...result, description: "" });
+    setIsPreviewLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.openlibrary_id || "")}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewWork({ ...result, description: data.description });
+      }
+    } catch (err) {
+      console.error("Failed to enrich work", err);
+    } finally {
+      setIsPreviewLoading(false);
     }
   };
 
@@ -116,6 +135,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       setSearchResults([]);
       setHasSearched(false);
       setIsSearching(false);
+      setPreviewWork(null);
       onWorkAdded();
     } catch (err: any) {
       setError(err.message || "An error occurred");
@@ -151,57 +171,100 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         borderRadius: '8px'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'flex-start' }}>
-          <h2 className="font-serif" style={{ fontSize: '1.5rem', marginTop: 0 }}>
-            Find Book
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {previewWork && (
+              <button 
+                onClick={() => setPreviewWork(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center', padding: '0.5rem 0' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+            )}
+            <h2 className="font-serif" style={{ fontSize: '1.5rem', marginTop: 0, marginBottom: 0 }}>
+              {previewWork ? "Book Preview" : "Find Book"}
+            </h2>
+          </div>
           <button onClick={() => {
             setSearchQuery("");
             setSearchResults([]);
             setError("");
+            setPreviewWork(null);
             onClose();
           }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
         </div>
 
         {error && <div style={{ color: '#b91c1c', marginBottom: '1rem', fontSize: '0.9rem', fontStyle: 'italic' }}>{error}</div>}
 
-        <div>
-          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            <input 
-              type="text" 
-              placeholder="Title, author, or ISBN..." 
-              value={searchQuery} 
-              onChange={e => setSearchQuery(e.target.value)} 
-              style={inputStyle}
-            />
-            <button type="submit" className="btn-primary" style={{ opacity: isSearching ? 0.7 : 1 }} disabled={isSearching}>
-              {isSearching ? "..." : "Search"}
-            </button>
-          </form>
+        <div style={{ position: 'relative', overflow: 'hidden', minHeight: '200px' }}>
+          {!previewWork ? (
+            <div className="fade-in-up">
+              <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <input 
+                  type="text" 
+                  placeholder="Title, author, or ISBN..." 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                  style={inputStyle}
+                />
+                <button type="submit" className="btn-primary" style={{ opacity: isSearching ? 0.7 : 1 }} disabled={isSearching}>
+                  {isSearching ? "..." : "Search"}
+                </button>
+              </form>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {searchResults.map((res, i) => (
-              <div key={i} className="book-row" style={{ padding: '0.75rem 0.75rem' }}>
-                <div>
-                  <h3 className="font-serif" style={{ fontSize: '1.1rem', margin: 0 }}>{res.title}</h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
-                    {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
-                  </p>
-                </div>
-                {res.openlibrary_id && existingOlids.has(res.openlibrary_id) ? (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem', border: '1px solid transparent' }}>
-                    In Library
-                  </span>
-                ) : (
-                  <button onClick={() => selectResult(res)} className="btn-ghost" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} disabled={isSearching}>
-                    Add
-                  </button>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {searchResults.map((res, i) => (
+                  <div key={i} className="book-row" style={{ padding: '0.75rem 0.75rem', cursor: 'pointer' }} onClick={() => handlePreview(res)}>
+                    <div style={{ pointerEvents: 'none' }}>
+                      <h3 className="font-serif" style={{ fontSize: '1.1rem', margin: 0 }}>{res.title}</h3>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
+                        {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
+                      </p>
+                    </div>
+                    {res.openlibrary_id && existingOlids.has(res.openlibrary_id) ? (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem', border: '1px solid transparent' }}>
+                        In Library
+                      </span>
+                    ) : (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); selectResult(res); }} 
+                        className="btn-ghost" 
+                        style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }} 
+                        disabled={isSearching}
+                      >
+                        Add
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {searchResults.length === 0 && !isSearching && hasSearched && (
+                  <p style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '2rem', fontStyle: 'italic' }}>No results found.</p>
                 )}
               </div>
-            ))}
-            {searchResults.length === 0 && !isSearching && hasSearched && (
-              <p style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '2rem', fontStyle: 'italic' }}>No results found.</p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="fade-in-up">
+              <BookDetailsContent 
+                book={previewWork} 
+                isLoading={isPreviewLoading} 
+                actions={
+                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+                    {previewWork.openlibrary_id && existingOlids.has(previewWork.openlibrary_id) ? (
+                      <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>Already in Library</p>
+                    ) : (
+                      <button 
+                        onClick={() => selectResult(previewWork)} 
+                        className="btn-primary"
+                        style={{ width: '100%', padding: '0.8rem' }}
+                        disabled={isSearching}
+                      >
+                        {isSearching ? "Adding..." : "Add to Library"}
+                      </button>
+                    )}
+                  </div>
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

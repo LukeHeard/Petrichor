@@ -158,6 +158,35 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/enrich/{olid}")
+async def enrich_work(olid: str):
+    """Fetch deep metadata (description, etc.) for a specific OLID without saving it."""
+    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
+        try:
+            # Clean OLID
+            clean_olid = olid.replace("/works/", "")
+            res = await client.get(f"https://openlibrary.org/works/{clean_olid}.json")
+            if not res.is_success:
+                raise HTTPException(status_code=404, detail="Work not found in OpenLibrary")
+            
+            data = res.json()
+            description = ""
+            desc_data = data.get("description", "")
+            if isinstance(desc_data, dict):
+                description = desc_data.get("value", "")
+            else:
+                description = desc_data
+                
+            return {
+                "openlibrary_id": olid,
+                "description": description,
+                # Additional fields could be added here later (subjects, etc)
+            }
+        except Exception as e:
+            logger.error(f"Enrichment error for {olid}: {e}")
+            raise HTTPException(status_code=502, detail="Failed to fetch details from OpenLibrary")
+
 @app.delete("/works/{work_id}")
 def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
