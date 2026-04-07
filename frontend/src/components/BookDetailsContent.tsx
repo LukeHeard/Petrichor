@@ -8,8 +8,10 @@ interface BookDetailsContentProps {
     description?: string;
     page_count?: number;
     rating_average?: number;
+    rating_count?: number;
     openlibrary_id?: string;
     id?: number;
+    tags?: string[];
   };
   actions?: React.ReactNode;
 }
@@ -25,6 +27,26 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '1.5rem' }}>
           First published {book.first_publish_year}
         </p>
+      )}
+
+      {book.tags && book.tags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
+          {book.tags.map(tag => (
+            <span key={tag} style={{ 
+              fontSize: '0.7rem', 
+              padding: '0.2rem 0.6rem', 
+              backgroundColor: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+              color: 'var(--accent)',
+              borderRadius: '100px',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase',
+              border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)'
+            }}>
+              {tag}
+            </span>
+          ))}
+        </div>
       )}
 
       <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', justifyContent: 'center' }}>

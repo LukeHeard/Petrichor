@@ -14,6 +14,7 @@ interface FullWork {
   page_count?: number;
   rating_average?: number;
   rating_count?: number;
+  tags?: string[];
 }
 
 export default function GlobalBookModal() {

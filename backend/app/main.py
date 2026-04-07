@@ -19,6 +19,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Tag cleaning helper
+def get_clean_tags(subjects: list[str]) -> list[str]:
+    if not subjects:
+        return []
+    
+    # Genres to prioritize/whitelist (as suggested by user)
+    priority_genres = {"Fiction", "Fantasy", "Science Fiction", "Dystopia", "Young Adult", "Adventure", "Thriller", "Mystery", "Horror", "Romance"}
+    
+    cleaned = set()
+    for s in subjects:
+        # Normalize: strip award tags, nyt stats, hyphens, and title case
+        s_low = s.lower()
+        if any(x in s_low for x in ["award:", "nyt:", "series:", "franchise:", "form:"]):
+            continue
+        
+        # Normalize common names
+        norm = s.replace("-", " ").title()
+        if "Science Fiction" in norm: norm = "Science Fiction"
+        
+        cleaned.add(norm)
+    
+    # Intersect with priority if too many, or just take first few
+    sorted_tags = sorted(list(cleaned), key=lambda x: (x not in priority_genres, x))
+    return sorted_tags[:7]
+
 @app.get("/")
 def read_root():
     return {"message": "Petrichor Personal Library API"}
@@ -46,7 +71,8 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
             logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
 
     try:
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt}) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count"
+        # 1. Create Work node
+        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
@@ -59,14 +85,25 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 "rating_cnt": work.rating_count or 0
             }
         )
-        if result.has_next():
-            row = result.get_next()
-            return {
-                "id": row[0], "title": row[1], "openlibrary_id": row[2], 
-                "first_publish_year": row[3], "description": row[4], 
-                "page_count": row[5], "rating_average": row[6], "rating_count": row[7]
-            }
-        raise HTTPException(status_code=500, detail="Failed to create work")
+        if not result.has_next():
+             raise HTTPException(status_code=500, detail="Failed to create work")
+        work_id = result.get_next()[0]
+
+        # 2. Handle Tags
+        tags_to_save = work.tags or []
+        for tag_name in tags_to_save:
+            # Match or create Tag
+            tag_res = conn.execute("MATCH (t:Tag) WHERE t.name = $name RETURN t.id", {"name": tag_name})
+            if tag_res.has_next():
+                tag_id = tag_res.get_next()[0]
+            else:
+                tag_create = conn.execute("CREATE (t:Tag {name: $name}) RETURN t.id", {"name": tag_name})
+                tag_id = tag_create.get_next()[0]
+            
+            # Link Work to Tag
+            conn.execute("MATCH (w:Work), (t:Tag) WHERE w.id = $wid AND t.id = $tid CREATE (w)-[:HAS_TAG]->(t)", {"wid": work_id, "tid": tag_id})
+
+        return await get_work(work_id, db)
     except Exception as e:
         logger.error(f"Error creating work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -119,6 +156,12 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             except Exception as e:
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
 
+        # Fetch tags
+        tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
+        tags = []
+        while tag_result.has_next():
+            tags.append(tag_result.get_next()[0])
+
         return {
             "id": row[0], 
             "title": row[1], 
@@ -127,7 +170,8 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "description": stored_desc,
             "page_count": row[5],
             "rating_average": row[6],
-            "rating_count": row[7]
+            "rating_count": row[7],
+            "tags": tags
         }
     except Exception as e:
         logger.error(f"Error getting work: {e}")
@@ -182,6 +226,7 @@ async def enrich_work(olid: str):
             if not res.is_success:
                 raise HTTPException(status_code=404, detail="Work not found in OpenLibrary")
             
+            
             data = res.json()
             description = ""
             desc_data = data.get("description", "")
@@ -189,11 +234,15 @@ async def enrich_work(olid: str):
                 description = desc_data.get("value", "")
             else:
                 description = desc_data
+            
+            # Extract tags from subjects
+            subjects = data.get("subjects", [])
+            tags = get_clean_tags(subjects)
                 
             return {
                 "openlibrary_id": olid,
                 "description": description,
-                # Additional fields could be added here later (subjects, etc)
+                "tags": tags
             }
         except Exception as e:
             logger.error(f"Enrichment error for {olid}: {e}")
@@ -218,7 +267,7 @@ async def search_works(q: str = Query(..., min_length=1)):
         try:
             response = await client.get(
                 "https://openlibrary.org/search.json",
-                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count"}
+                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
             )
             response.raise_for_status()
             data = response.json()
@@ -233,7 +282,8 @@ async def search_works(q: str = Query(..., min_length=1)):
                     "openlibrary_id": doc.get("key"),
                     "page_count": doc.get("number_of_pages_median"),
                     "rating_average": doc.get("ratings_average"),
-                    "rating_count": doc.get("ratings_count")
+                    "rating_count": doc.get("ratings_count"),
+                    "tags": get_clean_tags(doc.get("subject", []))
                 })
             return results
         except httpx.HTTPStatusError as exc:

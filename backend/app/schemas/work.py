@@ -9,6 +9,7 @@ class WorkBase(BaseModel):
     page_count: Optional[int] = None
     rating_average: Optional[float] = None
     rating_count: Optional[int] = None
+    tags: List[str] = []
 
 class WorkCreate(WorkBase):
     pass
@@ -16,6 +17,7 @@ class WorkCreate(WorkBase):
 class Work(WorkBase):
     id: int
     author: Optional[str] = None
+    tags: List[str] = []
 
     class Config:
         from_attributes = True
@@ -31,3 +33,13 @@ class Author(AuthorBase):
 
     class Config:
         from_attributes = True
+
+class SearchResult(BaseModel):
+    title: str
+    author: str
+    first_publish_year: Optional[int] = None
+    openlibrary_id: Optional[str] = None
+    tags: List[str] = []
+    page_count: Optional[int] = None
+    rating_average: Optional[float] = None
+    rating_count: Optional[int] = None

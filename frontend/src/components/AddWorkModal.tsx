@@ -18,6 +18,7 @@ interface SearchResult {
   page_count?: number;
   rating_average?: number;
   rating_count?: number;
+  tags?: string[];
 }
 
 export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkModalProps) {
