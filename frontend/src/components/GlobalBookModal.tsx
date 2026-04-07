@@ -103,7 +103,14 @@ export default function GlobalBookModal() {
 
             <div style={{ alignSelf: 'stretch', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
               {book.description ? (
-                <p className="font-serif" style={{ fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--foreground)', opacity: 0.9, textAlign: 'justify' }}>
+                <p className="font-serif" style={{ 
+                  fontSize: '0.95rem', 
+                  lineHeight: '1.6', 
+                  color: 'var(--foreground)', 
+                  opacity: 0.9, 
+                  whiteSpace: 'pre-wrap',
+                  textAlign: 'left'
+                }}>
                   {book.description}
                 </p>
               ) : (
