@@ -147,7 +147,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto',
         background: 'var(--background)',
         border: '1px solid var(--border)',
-        padding: '2rem',
+        padding: '2rem 1.5rem',
         borderRadius: '8px'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'flex-start' }}>
@@ -180,7 +180,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {searchResults.map((res, i) => (
-              <div key={i} className="book-row" style={{ padding: '0.75rem 0' }}>
+              <div key={i} className="book-row" style={{ padding: '0.75rem 1.75rem' }}>
                 <div>
                   <h3 className="font-serif" style={{ fontSize: '1.1rem', margin: 0 }}>{res.title}</h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
