@@ -51,10 +51,11 @@ class DatabaseManager:
             
 
             # Check for existing Work columns for migration
-            res = self.conn.execute("CALL TABLE_INFO('Work') RETURN name")
+            res = self.conn.execute("CALL TABLE_INFO('Work')")
             cols = []
             while res.has_next():
-                cols.append(res.get_next()[0])
+                row = res.get_next()
+                cols.append(row[1]) # Index 1 is the 'name' column
             
             new_cols = {
                 "description": "STRING",

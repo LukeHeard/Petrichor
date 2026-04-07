@@ -46,14 +46,14 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
             logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
 
     try:
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $desc, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt}) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count"
+        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt}) RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count"
         result = conn.execute(
             query,
             parameters={
                 "title": work.title, 
                 "openlib": work.openlibrary_id or "", 
                 "year": work.first_publish_year or 0,
-                "desc": description,
+                "description_text": description,
                 "pages": work.page_count or 0,
                 "rating_avg": work.rating_average or 0.0,
                 "rating_cnt": work.rating_count or 0
