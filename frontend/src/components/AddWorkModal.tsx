@@ -21,6 +21,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
   const [existingOlids, setExistingOlids] = useState<Set<string>>(new Set());
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Fetch current library to check for duplicates
   const fetchLibraryIds = async () => {
@@ -55,6 +56,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       setSearchResults(data);
+      setHasSearched(true);
     } catch (err: any) {
       setError("Failed to search OpenLibrary.");
       console.error(err);
@@ -184,7 +186,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
                 )}
               </div>
             ))}
-            {searchResults.length === 0 && !isSearching && searchQuery && (
+            {searchResults.length === 0 && !isSearching && hasSearched && (
               <p style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '2rem', fontStyle: 'italic' }}>No results found.</p>
             )}
           </div>

@@ -70,13 +70,16 @@ export default function GlobalBookModal() {
             {/* Removed cover section per user request */}
             
             <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
-            {book.first_publish_year && (
+            {book.first_publish_year && book.first_publish_year > 0 && (
               <p style={{ fontSize: '0.9rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '0.5rem' }}>
                 First published {book.first_publish_year}
               </p>
             )}
-            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '2rem', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-               ID: {book.id} {book.openlibrary_id && `| OLID: ${book.openlibrary_id}`}
+            <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '2rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.6 }}>
+               <span>ID: {book.id}</span>
+               {book.openlibrary_id && (
+                 <span>OLID: {book.openlibrary_id.replace('/works/', '')}</span>
+               )}
             </p>
 
             <div className="thin-divider" />
