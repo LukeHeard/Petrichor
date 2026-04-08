@@ -17,8 +17,12 @@ class WorkCreate(WorkBase):
     pass
 
 class WorkUpdate(BaseModel):
+    title: Optional[str] = None
+    first_publish_year: Optional[int] = None
+    description: Optional[str] = None
     personal_rating: Optional[float] = None
     status: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class Work(WorkBase):
     id: int

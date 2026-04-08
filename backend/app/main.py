@@ -281,6 +281,19 @@ def list_authors(db: DatabaseManager = Depends(get_db)):
         logger.error(f"Error listing authors: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/tags", response_model=list[str])
+def list_tags(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        result = conn.execute("MATCH (t:Tag) RETURN t.name")
+        tags = []
+        while result.has_next():
+            tags.append(result.get_next()[0])
+        return sorted(list(set(tags))) # Return unique sorted tags
+    except Exception as e:
+        logger.error(f"Error listing tags: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/works/{work_id}/authors/{author_id}")
 def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
@@ -347,6 +360,16 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
         # Build SET clause
         sets = []
         params = {"id": work_id}
+        
+        if work_update.title is not None:
+            sets.append("w.title = $title")
+            params["title"] = work_update.title
+        if work_update.first_publish_year is not None:
+            sets.append("w.first_publish_year = $year")
+            params["year"] = work_update.first_publish_year
+        if work_update.description is not None:
+            sets.append("w.description = $desc")
+            params["desc"] = work_update.description
         if work_update.personal_rating is not None:
             sets.append("w.personal_rating = $pers_rating")
             params["pers_rating"] = work_update.personal_rating
@@ -354,11 +377,39 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             sets.append("w.status = $status")
             params["status"] = work_update.status
         
-        if not sets:
-            return await get_work(work_id, db)
+        if sets:
+            query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)} RETURN w.id"
+            conn.execute(query, params)
             
-        query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)} RETURN w.id"
-        conn.execute(query, params)
+        # Handle Tags if provided
+        if work_update.tags is not None:
+            # 1. Get current tags
+            current_tags_res = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
+            current_tags = []
+            while current_tags_res.has_next():
+                current_tags.append(current_tags_res.get_next()[0])
+            
+            new_tags = set(work_update.tags)
+            old_tags = set(current_tags)
+            
+            # Tags to add
+            to_add = new_tags - old_tags
+            for tag_name in to_add:
+                # Match or create Tag node
+                tag_check = conn.execute("MATCH (t:Tag) WHERE t.name = $name RETURN t.id", {"name": tag_name})
+                if tag_check.has_next():
+                    tag_id = tag_check.get_next()[0]
+                else:
+                    tag_create = conn.execute("CREATE (t:Tag {name: $name}) RETURN t.id", {"name": tag_name})
+                    tag_id = tag_create.get_next()[0]
+                
+                # Create relationship
+                conn.execute("MATCH (w:Work), (t:Tag) WHERE w.id = $wid AND t.id = $tid CREATE (w)-[:HAS_TAG]->(t)", {"wid": work_id, "tid": tag_id})
+            
+            # Tags to remove
+            to_remove = old_tags - new_tags
+            for tag_name in to_remove:
+                conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) WHERE w.id = $wid AND t.name = $tname DELETE r", {"wid": work_id, "tname": tag_name})
         
         return await get_work(work_id, db)
     except HTTPException:

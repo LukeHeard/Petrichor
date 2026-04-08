@@ -21,7 +21,7 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeInUp 0.3s ease' }}>
       <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
       <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-         {book.author}
+        {book.author}
       </p>
       {book.first_publish_year && book.first_publish_year > 0 && (
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '1.5rem' }}>
@@ -32,9 +32,9 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
       {book.tags && book.tags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
           {book.tags.map(tag => (
-            <span key={tag} style={{ 
-              fontSize: '0.7rem', 
-              padding: '0.2rem 0.6rem', 
+            <span key={tag} style={{
+              fontSize: '0.7rem',
+              padding: '0.2rem 0.6rem',
               backgroundColor: 'color-mix(in srgb, var(--accent) 10%, transparent)',
               color: 'var(--accent)',
               borderRadius: '100px',
@@ -68,11 +68,11 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
 
       <div style={{ alignSelf: 'stretch', paddingRight: '0.5rem' }}>
         {book.description ? (
-          <p className="font-serif" style={{ 
-            fontSize: '0.95rem', 
-            lineHeight: '1.6', 
-            color: 'var(--foreground)', 
-            opacity: 0.9, 
+          <p className="font-serif" style={{
+            fontSize: '0.95rem',
+            lineHeight: '1.6',
+            color: 'var(--foreground)',
+            opacity: 0.9,
             whiteSpace: 'pre-wrap',
             textAlign: 'left'
           }}>
@@ -87,10 +87,10 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         <>
           <div className="thin-divider" style={{ margin: '1.5rem 0 0.5rem 0' }} />
           <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginBottom: '1.5rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.5 }}>
-             {book.id && <span>Internal ID: {book.id}</span>}
-             {book.openlibrary_id && (
-               <span>OLID: {book.openlibrary_id.replace('/works/', '')}</span>
-             )}
+            {book.id && <span>Internal ID: {book.id}</span>}
+            {book.openlibrary_id && (
+              <span>OLID: {book.openlibrary_id.replace('/works/', '')}</span>
+            )}
           </p>
         </>
       )}
