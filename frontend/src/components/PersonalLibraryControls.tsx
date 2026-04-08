@@ -113,70 +113,93 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
           <p className="section-label" style={{ marginBottom: 0 }}>Personal Rating</p>
           <div 
             onClick={() => {
-              setIsEditingRating(true);
-              setEditValue(rating > 0 ? rating.toFixed(1) : "");
+              if (!isEditingRating) {
+                setIsEditingRating(true);
+                setEditValue(rating > 0 ? rating.toFixed(1) : "");
+              }
             }}
             style={{ 
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'baseline',
-              gap: '0.2rem'
+              gap: '0.2rem',
+              position: 'relative',
+              paddingBottom: '2px'
             }}
           >
             {isEditingRating ? (
-              <input 
-                autoFocus
-                type="text"
-                value={editValue}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  // Allow numbers and one decimal point
-                  if (/^\d*\.?\d?$/.test(val) || val === "") {
-                    setEditValue(val);
-                  }
-                }}
-                onBlur={() => {
-                  setIsEditingRating(false);
-                  const num = parseFloat(editValue);
-                  if (!isNaN(num)) {
-                    const finalNum = Math.min(10, Math.max(0, num));
-                    setRating(finalNum);
-                    saveChanges({ personal_rating: finalNum });
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur();
-                  } else if (e.key === 'Escape') {
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline' }}>
+                <input 
+                  autoFocus
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^\d*\.?\d?$/.test(val) || val === "") {
+                      setEditValue(val);
+                    }
+                  }}
+                  onBlur={() => {
                     setIsEditingRating(false);
+                    const num = parseFloat(editValue);
+                    if (!isNaN(num)) {
+                      const finalNum = Math.min(10, Math.max(0, num));
+                      setRating(finalNum);
+                      saveChanges({ personal_rating: finalNum });
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    } else if (e.key === 'Escape') {
+                      setIsEditingRating(false);
+                    }
+                  }}
+                  style={{
+                    fontSize: '1.75rem',
+                    fontWeight: 500,
+                    color: 'var(--accent)',
+                    fontFamily: 'var(--font-serif)',
+                    background: 'none',
+                    border: 'none',
+                    width: '3rem',
+                    outline: 'none',
+                    padding: 0,
+                    margin: 0,
+                    textAlign: 'right'
+                  }}
+                />
+                {/* Animated Underline */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-2px',
+                  left: '15%',
+                  right: '0',
+                  height: '2px',
+                  background: 'var(--accent)',
+                  borderRadius: '1px',
+                  animation: 'fadeInHorizontal 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards'
+                }} />
+                
+                <style dangerouslySetInnerHTML={{ __html: `
+                  @keyframes fadeInHorizontal {
+                    from { opacity: 0; transform: scaleX(0); transform-origin: right; }
+                    to { opacity: 1; transform: scaleX(1); transform-origin: right; }
                   }
-                }}
-                style={{
-                  fontSize: '1.75rem',
-                  fontWeight: 500,
-                  color: 'var(--accent)',
-                  fontFamily: 'var(--font-serif)',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: '2px solid var(--accent)',
-                  width: '3.5rem',
-                  outline: 'none',
-                  padding: 0,
-                  margin: 0,
-                  textAlign: 'right'
-                }}
-              />
+                `}} />
+              </div>
             ) : (
               <span style={{ 
                 fontSize: '1.75rem', 
                 fontWeight: 500, 
                 color: 'var(--accent)', 
                 fontFamily: 'var(--font-serif)',
+                transition: 'opacity 0.3s ease'
               }}>
                 {rating > 0 ? rating.toFixed(1) : "—"} 
               </span>
             )}
-            <span style={{ fontSize: '0.9rem', opacity: 0.4, fontWeight: 400, fontFamily: 'var(--font-sans)' }}>/ 10</span>
+            <span style={{ fontSize: '0.9rem', opacity: 0.4, fontWeight: 400, fontFamily: 'var(--font-sans)', transition: 'opacity 0.3s ease' }}>/ 10</span>
           </div>
         </div>
         
