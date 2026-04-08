@@ -199,6 +199,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
             setSearchQuery("");
             setSearchResults([]);
             setError("");
+            setHasSearched(false);
             setPreviewWork(null);
             onClose();
           }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>

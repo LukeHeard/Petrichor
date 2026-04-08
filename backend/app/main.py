@@ -127,7 +127,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
 
     try:
         # 1. Create Work node
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt}) RETURN w.id"
+        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
@@ -137,7 +137,9 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 "description_text": description,
                 "pages": work.page_count or 0,
                 "rating_avg": work.rating_average or 0.0,
-                "rating_cnt": work.rating_count or 0
+                "rating_cnt": work.rating_count or 0,
+                "pers_rating": work.personal_rating or 0.0,
+                "status": work.status or "Owned"
             }
         )
         if not result.has_next():
@@ -168,7 +170,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # 1. Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status")
         works = []
         while result.has_next():
             row = result.get_next()
@@ -182,6 +184,8 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "page_count": row[6],
                 "rating_average": row[7],
                 "rating_count": row[8],
+                "personal_rating": row[9],
+                "status": row[10],
                 "tags": []
             })
 
@@ -208,7 +212,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
@@ -242,6 +246,8 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "page_count": row[5],
             "rating_average": row[6],
             "rating_count": row[7],
+            "personal_rating": row[8],
+            "status": row[9],
             "tags": tags
         }
     except Exception as e:
@@ -327,6 +333,38 @@ def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Error deleting work: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/works/{work_id}", response_model=schemas.Work)
+async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        # Check if work exists
+        check = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id", {"id": work_id})
+        if not check.has_next():
+            raise HTTPException(status_code=404, detail="Work not found")
+        
+        # Build SET clause
+        sets = []
+        params = {"id": work_id}
+        if work_update.personal_rating is not None:
+            sets.append("w.personal_rating = $pers_rating")
+            params["pers_rating"] = work_update.personal_rating
+        if work_update.status is not None:
+            sets.append("w.status = $status")
+            params["status"] = work_update.status
+        
+        if not sets:
+            return await get_work(work_id, db)
+            
+        query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)} RETURN w.id"
+        conn.execute(query, params)
+        
+        return await get_work(work_id, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/search")

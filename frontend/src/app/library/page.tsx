@@ -10,11 +10,24 @@ interface Work {
   author?: string;
   first_publish_year?: number;
   tags?: string[];
+  personal_rating?: number;
+  status?: string;
 }
 
 function LibraryContent() {
   const [works, setWorks] = useState<Work[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSpinner, setShowSpinner] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (loading) {
+      timer = setTimeout(() => setShowSpinner(true), 1000);
+    } else {
+      setShowSpinner(false);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const fetchWorks = useCallback(async () => {
     setLoading(true);
@@ -40,22 +53,33 @@ function LibraryContent() {
       fetchWorks();
     };
 
+    const handleWorkUpdated = (e: any) => {
+      const { id, ...updates } = e.detail;
+      setWorks(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
+    };
+
     window.addEventListener("petrichor:workAdded", handleWorkAdded);
-    return () => window.removeEventListener("petrichor:workAdded", handleWorkAdded);
+    window.addEventListener("petrichor:workUpdated", handleWorkUpdated as EventListener);
+    return () => {
+      window.removeEventListener("petrichor:workAdded", handleWorkAdded);
+      window.removeEventListener("petrichor:workUpdated", handleWorkUpdated as EventListener);
+    }
   }, [fetchWorks]);
 
   return (
     <div>
       <header style={{ marginBottom: '3rem' }}>
         <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Library</span></h1>
-        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>All Books</p>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>"A reader lives a thousand lives before he dies. The man who never reads lives only one." — George R.R. Martin</p>
       </header>
 
       <section>
         <div className="thin-divider" style={{ marginTop: 0 }} />
 
         {loading ? (
-          <p style={{ textAlign: 'center', margin: '3rem 0', color: 'var(--muted)', fontStyle: 'italic' }}>Loading library...</p>
+          showSpinner && (
+            <p style={{ textAlign: 'center', margin: '3rem 0', color: 'var(--muted)', fontStyle: 'italic' }}>Loading library...</p>
+          )
         ) : works.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
             <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Your library is currently empty.</p>
@@ -70,6 +94,8 @@ function LibraryContent() {
                 title={work.title}
                 author={work.author}
                 first_publish_year={work.first_publish_year}
+                personal_rating={work.personal_rating}
+                status={work.status}
               />
             ))}
           </div>

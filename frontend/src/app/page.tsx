@@ -5,7 +5,7 @@ export default function Home() {
     <div>
       <header style={{ marginBottom: '3rem' }}>
         <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Home</span></h1>
-        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Dashboard & Overview</p>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>"Maybe home is nothing but two planks of wood laid across a fire." — C.S. Lewis</p>
       </header>
 
       <section style={{ display: 'flex', flexDirection: 'column' }}>

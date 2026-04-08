@@ -66,7 +66,7 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
 
       <div className="thin-divider" style={{ margin: '0 0 1.5rem 0' }} />
 
-      <div style={{ alignSelf: 'stretch', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+      <div style={{ alignSelf: 'stretch', paddingRight: '0.5rem' }}>
         {book.description ? (
           <p className="font-serif" style={{ 
             fontSize: '0.95rem', 
