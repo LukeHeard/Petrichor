@@ -24,7 +24,7 @@ class DatabaseManager:
 
             # Node Tables
             node_tables = {
-                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, first_publish_year INT64, description STRING, page_count INT64, rating_average DOUBLE, rating_count INT64, PRIMARY KEY(id))",
+                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, first_publish_year INT64, description STRING, page_count INT64, rating_average DOUBLE, rating_count INT64, personal_rating DOUBLE, status STRING, PRIMARY KEY(id))",
                 "Tag": "CREATE NODE TABLE Tag(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
@@ -63,13 +63,19 @@ class DatabaseManager:
                 "description": "STRING",
                 "page_count": "INT64",
                 "rating_average": "DOUBLE",
-                "rating_count": "INT64"
+                "rating_count": "INT64",
+                "personal_rating": "DOUBLE",
+                "status": "STRING"
             }
             
             for col_name, col_type in new_cols.items():
                 if col_name not in cols:
                     try:
-                        default_val = "''" if col_type == "STRING" else "0.0" if col_type == "DOUBLE" else "0"
+                        if col_type == "STRING":
+                            default_val = "'Owned'" if col_name == "status" else "''"
+                        else:
+                            default_val = "0.0"
+                        
                         self.conn.execute(f"ALTER TABLE Work ADD {col_name} {col_type} DEFAULT {default_val}")
                         logger.info(f"Added {col_name} to Work table")
                     except Exception as e:

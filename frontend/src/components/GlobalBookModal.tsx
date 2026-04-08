@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import BookDetailsContent from "./BookDetailsContent";
+import PersonalLibraryControls from "./PersonalLibraryControls";
 
 interface FullWork {
   id: number;
@@ -15,6 +16,8 @@ interface FullWork {
   rating_average?: number;
   rating_count?: number;
   tags?: string[];
+  personal_rating?: number;
+  status?: string;
 }
 
 export default function GlobalBookModal() {
@@ -28,6 +31,7 @@ export default function GlobalBookModal() {
   const [loading, setLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [activeTab, setActiveTab] = useState<"details" | "notes">("details");
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -53,9 +57,20 @@ export default function GlobalBookModal() {
     } else {
       setBook(null);
       setTimedOut(false);
+      setActiveTab("details");
     }
     return () => clearTimeout(timer);
   }, [bookId]);
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (book && e.detail.id === book.id) {
+        setBook({ ...book, ...e.detail });
+      }
+    };
+    window.addEventListener("petrichor:workUpdated", handleUpdate);
+    return () => window.removeEventListener("petrichor:workUpdated", handleUpdate);
+  }, [book]);
 
   if (!bookId) return null;
 
@@ -87,99 +102,157 @@ export default function GlobalBookModal() {
         position: 'relative',
         animation: 'fadeInUp 0.3s ease'
       }}>
-        <button onClick={closeModal} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
+        <button onClick={closeModal} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1, zIndex: 10 }}>&times;</button>
         
         {book ? (
-          <BookDetailsContent 
-            book={book} 
-            actions={
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
-                {!isDeleting ? (
-                  <button 
-                    onClick={() => setIsDeleting(true)}
-                    style={{
-                      background: 'none',
-                      border: '1px solid var(--border)',
-                      color: 'var(--muted)',
-                      padding: '0.5rem 1.25rem',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      transition: 'all 0.2s ease',
-                      fontFamily: 'var(--font-sans)',
-                      letterSpacing: '0.02em'
-                    }}
-                    onMouseEnter={(e) => { 
-                      e.currentTarget.style.color = '#ff4444'; 
-                      e.currentTarget.style.borderColor = 'color-mix(in srgb, #ff4444 30%, transparent)';
-                      e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 5%, transparent)';
-                    }}
-                    onMouseLeave={(e) => { 
-                      e.currentTarget.style.color = 'var(--muted)'; 
-                      e.currentTarget.style.borderColor = 'var(--border)';
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    Remove from Library
-                  </button>
-                ) : (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    gap: '1rem',
-                    padding: '1.5rem',
-                    backgroundColor: 'color-mix(in srgb, #ff4444 5%, transparent)',
-                    borderRadius: '8px',
-                    border: '1px solid color-mix(in srgb, #ff4444 20%, transparent)',
-                    width: '100%',
-                    animation: 'fadeInUp 0.3s ease'
-                  }}>
-                    <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--foreground)' }}>Remove this work from library?</p>
-                    <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Tabs */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '1.5rem', 
+              marginBottom: '2rem', 
+              borderBottom: '1px solid var(--border)',
+              paddingBottom: '0.5rem'
+            }}>
+              <button 
+                onClick={() => setActiveTab("details")}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '0.5rem 0',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  color: activeTab === "details" ? 'var(--foreground)' : 'var(--muted)',
+                  borderBottom: activeTab === "details" ? '2px solid var(--accent)' : '2px solid transparent',
+                  marginBottom: '-0.6rem',
+                  transition: 'all 0.2s ease',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em'
+                }}
+              >
+                Details
+              </button>
+              <button 
+                onClick={() => setActiveTab("notes")}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '0.5rem 0',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  color: activeTab === "notes" ? 'var(--foreground)' : 'var(--muted)',
+                  borderBottom: activeTab === "notes" ? '2px solid var(--accent)' : '2px solid transparent',
+                  marginBottom: '-0.6rem',
+                  transition: 'all 0.2s ease',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em'
+                }}
+              >
+                Notes
+              </button>
+            </div>
+
+            {activeTab === "details" ? (
+              <BookDetailsContent 
+                book={book} 
+                actions={
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+                    {!isDeleting ? (
                       <button 
-                        onClick={() => setIsDeleting(false)}
-                        className="btn-ghost"
-                        style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem' }}
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        onClick={async () => {
-                          try {
-                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
-                            if (res.ok) {
-                              window.dispatchEvent(new Event("petrichor:workAdded")); 
-                              closeModal();
-                              setIsDeleting(false);
-                            }
-                          } catch (err) {
-                            console.error(err);
-                          }
-                        }}
-                        style={{ 
-                          flex: 1, 
-                          padding: '0.5rem', 
-                          fontSize: '0.85rem',
-                          backgroundColor: '#b91c1c',
-                          color: 'white',
-                          border: 'none',
+                        onClick={() => setIsDeleting(true)}
+                        style={{
+                          background: 'none',
+                          border: '1px solid var(--border)',
+                          color: 'var(--muted)',
+                          padding: '0.5rem 1.25rem',
                           borderRadius: '4px',
                           cursor: 'pointer',
-                          fontWeight: 500
+                          fontSize: '0.8rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          transition: 'all 0.2s ease',
+                          fontFamily: 'var(--font-sans)',
+                          letterSpacing: '0.02em'
+                        }}
+                        onMouseEnter={(e) => { 
+                          e.currentTarget.style.color = '#ff4444'; 
+                          e.currentTarget.style.borderColor = 'color-mix(in srgb, #ff4444 30%, transparent)';
+                          e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 5%, transparent)';
+                        }}
+                        onMouseLeave={(e) => { 
+                          e.currentTarget.style.color = 'var(--muted)'; 
+                          e.currentTarget.style.borderColor = 'var(--border)';
+                          e.currentTarget.style.backgroundColor = 'transparent';
                         }}
                       >
-                        Yes, Remove
+                        Remove from Library
                       </button>
-                    </div>
+                    ) : (
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        gap: '1rem',
+                        padding: '1.5rem',
+                        backgroundColor: 'color-mix(in srgb, #ff4444 5%, transparent)',
+                        borderRadius: '8px',
+                        border: '1px solid color-mix(in srgb, #ff4444 20%, transparent)',
+                        width: '100%',
+                        animation: 'fadeInUp 0.3s ease'
+                      }}>
+                        <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--foreground)' }}>Remove this work from library?</p>
+                        <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
+                          <button 
+                            onClick={() => setIsDeleting(false)}
+                            className="btn-ghost"
+                            style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem' }}
+                          >
+                            Cancel
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
+                                if (res.ok) {
+                                  window.dispatchEvent(new Event("petrichor:workAdded")); 
+                                  closeModal();
+                                  setIsDeleting(false);
+                                }
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            style={{ 
+                              flex: 1, 
+                              padding: '0.5rem', 
+                              fontSize: '0.85rem',
+                              backgroundColor: '#b91c1c',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontWeight: 500
+                            }}
+                          >
+                            Yes, Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            }
-          />
+                }
+              />
+            ) : (
+              <PersonalLibraryControls 
+                workId={book.id}
+                initialStatus={book.status || "Owned"}
+                initialRating={book.personal_rating || 0}
+              />
+            )}
+          </div>
         ) : (
            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
              <p style={{ color: 'var(--muted)', fontSize: '0.95rem', fontStyle: 'italic' }}>Taking longer than usual...</p>

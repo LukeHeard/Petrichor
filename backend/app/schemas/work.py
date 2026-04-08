@@ -9,10 +9,16 @@ class WorkBase(BaseModel):
     page_count: Optional[int] = None
     rating_average: Optional[float] = None
     rating_count: Optional[int] = None
+    personal_rating: Optional[float] = 0.0
+    status: Optional[str] = "Owned"
     tags: List[str] = []
 
 class WorkCreate(WorkBase):
     pass
+
+class WorkUpdate(BaseModel):
+    personal_rating: Optional[float] = None
+    status: Optional[str] = None
 
 class Work(WorkBase):
     id: int
