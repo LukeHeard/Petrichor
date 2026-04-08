@@ -86,7 +86,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       
       if (res.ok) {
         const data = await res.json();
-        setPreviewWork({ ...result, description: data.description });
+        setPreviewWork({ ...result, description: data.description, tags: data.tags || result.tags });
       } else {
         // Fallback if enrichment fails
         setPreviewWork({ ...result, description: "Description currently unavailable." });
@@ -126,7 +126,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
           description: result.description || "",
           page_count: result.page_count || 0,
           rating_average: result.rating_average || 0,
-          rating_count: result.rating_count || 0
+          rating_count: result.rating_count || 0,
+          tags: result.tags || []
         })
       });
       if (!workRes.ok) throw new Error("Failed to add book");

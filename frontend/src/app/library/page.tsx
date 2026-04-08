@@ -9,6 +9,7 @@ interface Work {
   openlibrary_id?: string;
   author?: string;
   first_publish_year?: number;
+  tags?: string[];
 }
 
 function LibraryContent() {
