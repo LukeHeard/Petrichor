@@ -76,7 +76,7 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
                 fontSize: '0.85rem',
                 fontWeight: status === s ? 600 : 500,
                 background: status === s ? 'var(--background)' : 'transparent',
-                color: status === s ? 'var(--foreground)' : 'var(--muted)',
+                color: status === s ? 'var(--accent)' : 'var(--muted)',
                 boxShadow: status === s ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
                 transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 fontFamily: 'var(--font-sans)',
