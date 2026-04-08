@@ -38,7 +38,7 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
       </div>
       
       <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', minWidth: '80px' }}>
-        {status && status !== "Owned" && (
+        {status && (
           <span style={{ 
             fontSize: '0.6rem', 
             fontWeight: 700, 
