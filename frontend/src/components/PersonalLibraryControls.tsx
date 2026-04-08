@@ -11,6 +11,8 @@ interface PersonalLibraryControlsProps {
 export default function PersonalLibraryControls({ workId, initialStatus, initialRating }: PersonalLibraryControlsProps) {
   const [status, setStatus] = useState(initialStatus || "Owned");
   const [rating, setRating] = useState(initialRating || 0);
+  const [isEditingRating, setIsEditingRating] = useState(false);
+  const [editValue, setEditValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const statuses = ["Owned", "Reading", "Finished", "DNF"];
@@ -109,18 +111,73 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <p className="section-label" style={{ marginBottom: 0 }}>Personal Rating</p>
-          <span style={{ 
-            fontSize: '1.75rem', 
-            fontWeight: 500, 
-            color: 'var(--accent)', 
-            fontFamily: 'var(--font-serif)',
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: '0.2rem'
-          }}>
-            {rating > 0 ? rating.toFixed(1) : "—"} 
+          <div 
+            onClick={() => {
+              setIsEditingRating(true);
+              setEditValue(rating > 0 ? rating.toFixed(1) : "");
+            }}
+            style={{ 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '0.2rem'
+            }}
+          >
+            {isEditingRating ? (
+              <input 
+                autoFocus
+                type="text"
+                value={editValue}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // Allow numbers and one decimal point
+                  if (/^\d*\.?\d?$/.test(val) || val === "") {
+                    setEditValue(val);
+                  }
+                }}
+                onBlur={() => {
+                  setIsEditingRating(false);
+                  const num = parseFloat(editValue);
+                  if (!isNaN(num)) {
+                    const finalNum = Math.min(10, Math.max(0, num));
+                    setRating(finalNum);
+                    saveChanges({ personal_rating: finalNum });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  } else if (e.key === 'Escape') {
+                    setIsEditingRating(false);
+                  }
+                }}
+                style={{
+                  fontSize: '1.75rem',
+                  fontWeight: 500,
+                  color: 'var(--accent)',
+                  fontFamily: 'var(--font-serif)',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: '2px solid var(--accent)',
+                  width: '3.5rem',
+                  outline: 'none',
+                  padding: 0,
+                  margin: 0,
+                  textAlign: 'right'
+                }}
+              />
+            ) : (
+              <span style={{ 
+                fontSize: '1.75rem', 
+                fontWeight: 500, 
+                color: 'var(--accent)', 
+                fontFamily: 'var(--font-serif)',
+              }}>
+                {rating > 0 ? rating.toFixed(1) : "—"} 
+              </span>
+            )}
             <span style={{ fontSize: '0.9rem', opacity: 0.4, fontWeight: 400, fontFamily: 'var(--font-sans)' }}>/ 10</span>
-          </span>
+          </div>
         </div>
         
         <div style={{ padding: '0.5rem 0' }}>
