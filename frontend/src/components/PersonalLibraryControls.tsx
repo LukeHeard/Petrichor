@@ -20,6 +20,9 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
   const ratingRef = useRef(rating);
   ratingRef.current = rating;
 
+  const [inputWidth, setInputWidth] = useState(0);
+  const measureRef = useRef<HTMLSpanElement>(null);
+
   const saveChanges = useCallback(async (updates: { status?: string; personal_rating?: number }) => {
     setIsSaving(true);
     try {
@@ -45,6 +48,13 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
     saveChanges({ status: newStatus });
   };
 
+  // Measure text width for dynamic input/underline
+  useEffect(() => {
+    if (measureRef.current) {
+      setInputWidth(measureRef.current.offsetWidth);
+    }
+  }, [editValue, isEditingRating, rating]);
+
   // Debounced slider update + Save on unmount
   useEffect(() => {
     const currentRating = rating;
@@ -56,14 +66,13 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
 
     return () => {
       clearTimeout(timer);
-      // If we unmount and the value in ref is different from initial, save it immediately
       if (ratingRef.current !== initialRating) {
         const updates = { personal_rating: ratingRef.current };
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
-          keepalive: true // Ensure request completes even if page/component is gone
+          keepalive: true
         });
       }
     };
@@ -71,6 +80,19 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
 
   return (
     <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1rem 0' }}>
+      {/* Hidden measurement span */}
+      <span ref={measureRef} style={{
+        position: 'absolute',
+        visibility: 'hidden',
+        whiteSpace: 'pre',
+        fontSize: '1.75rem',
+        fontWeight: 500,
+        fontFamily: 'var(--font-serif)',
+        pointerEvents: 'none'
+      }}>
+        {isEditingRating ? (editValue || " ") : (rating > 0 ? rating.toFixed(1) : "—")}
+      </span>
+
       {/* Status Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <p className="section-label" style={{ marginBottom: '0.25rem' }}>Reading Status</p>
@@ -162,18 +184,19 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
                     fontFamily: 'var(--font-serif)',
                     background: 'none',
                     border: 'none',
-                    width: '3rem',
+                    width: `${Math.max(inputWidth, 20)}px`,
                     outline: 'none',
                     padding: 0,
                     margin: 0,
-                    textAlign: 'right'
+                    textAlign: 'right',
+                    transition: 'width 0.1s ease-out'
                   }}
                 />
                 {/* Animated Underline */}
                 <div style={{
                   position: 'absolute',
                   bottom: '-2px',
-                  left: '15%',
+                  left: '0',
                   right: '0',
                   height: '2px',
                   background: 'var(--accent)',
@@ -183,8 +206,8 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
                 
                 <style dangerouslySetInnerHTML={{ __html: `
                   @keyframes fadeInHorizontal {
-                    from { opacity: 0; transform: scaleX(0); transform-origin: right; }
-                    to { opacity: 1; transform: scaleX(1); transform-origin: right; }
+                    from { opacity: 0; transform: scaleX(0); }
+                    to { opacity: 1; transform: scaleX(1); }
                   }
                 `}} />
               </div>
@@ -194,7 +217,10 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
                 fontWeight: 500, 
                 color: 'var(--accent)', 
                 fontFamily: 'var(--font-serif)',
-                transition: 'opacity 0.3s ease'
+                transition: 'opacity 0.3s ease',
+                display: 'inline-block',
+                minWidth: `${Math.max(inputWidth, 20)}px`,
+                textAlign: 'right'
               }}>
                 {rating > 0 ? rating.toFixed(1) : "—"} 
               </span>
