@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface PersonalLibraryControlsProps {
   workId: number;
@@ -15,6 +15,9 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
 
   const statuses = ["Owned", "Reading", "Finished"];
 
+  const ratingRef = useRef(rating);
+  ratingRef.current = rating;
+
   const saveChanges = useCallback(async (updates: { status?: string; personal_rating?: number }) => {
     setIsSaving(true);
     try {
@@ -24,8 +27,6 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
         body: JSON.stringify(updates)
       });
       if (res.ok) {
-        // Success
-        // We could dispatch an event here if we need other components to update
         window.dispatchEvent(new CustomEvent("petrichor:workUpdated", { detail: { id: workId, ...updates } }));
       }
     } catch (err) {
@@ -42,14 +43,29 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
     saveChanges({ status: newStatus });
   };
 
-  // Debounced slider update for rating
+  // Debounced slider update + Save on unmount
   useEffect(() => {
-    if (rating === initialRating) return;
+    const currentRating = rating;
+    if (currentRating === initialRating) return;
+
     const timer = setTimeout(() => {
-      saveChanges({ personal_rating: rating });
-    }, 1000); // 1s debounce to avoid too many API calls
-    return () => clearTimeout(timer);
-  }, [rating, initialRating, saveChanges]);
+      saveChanges({ personal_rating: currentRating });
+    }, 1000); 
+
+    return () => {
+      clearTimeout(timer);
+      // If we unmount and the value in ref is different from initial, save it immediately
+      if (ratingRef.current !== initialRating) {
+        const updates = { personal_rating: ratingRef.current };
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+          keepalive: true // Ensure request completes even if page/component is gone
+        });
+      }
+    };
+  }, [rating, initialRating, saveChanges, workId]);
 
   return (
     <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1rem 0' }}>
@@ -78,7 +94,7 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
                 background: status === s ? 'var(--background)' : 'transparent',
                 color: status === s ? 'var(--accent)' : 'var(--muted)',
                 boxShadow: status === s ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'background 0.2s ease, color 0.1s ease, box-shadow 0.2s ease',
                 fontFamily: 'var(--font-sans)',
                 letterSpacing: '0.01em'
               }}
@@ -115,6 +131,8 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
             step="0.1" 
             value={rating} 
             onChange={(e) => setRating(parseFloat(e.target.value))}
+            onMouseUp={() => saveChanges({ personal_rating: rating })}
+            onKeyUp={() => saveChanges({ personal_rating: rating })}
             style={{
               width: '100%',
               accentColor: 'var(--accent)',
