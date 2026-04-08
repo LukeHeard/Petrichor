@@ -53,11 +53,16 @@ function LibraryContent() {
       fetchWorks();
     };
 
+    const handleWorkUpdated = (e: any) => {
+      const { id, ...updates } = e.detail;
+      setWorks(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
+    };
+
     window.addEventListener("petrichor:workAdded", handleWorkAdded);
-    window.addEventListener("petrichor:workUpdated", handleWorkAdded);
+    window.addEventListener("petrichor:workUpdated", handleWorkUpdated as EventListener);
     return () => {
       window.removeEventListener("petrichor:workAdded", handleWorkAdded);
-      window.removeEventListener("petrichor:workUpdated", handleWorkAdded);
+      window.removeEventListener("petrichor:workUpdated", handleWorkUpdated as EventListener);
     }
   }, [fetchWorks]);
 
