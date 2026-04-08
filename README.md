@@ -1,7 +1,7 @@
 # Petrichor
 The minimalist's library
 
-Grounded in the tactile joy of cataloging, elevated by graph-based data. This app aims to be an easy to use, yet powerful tool for tracking your books and reading habits.
+Grounded in the tactile joy of cataloging, elevated by graph-based data. This app aims to be an easy to use, yet powerful tool for tracking your library and reading habits.
 
 Understand the complex simplicity of books with Petrichor.
 
