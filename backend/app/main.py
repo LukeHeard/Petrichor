@@ -336,7 +336,7 @@ def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.patch("/works/{work_id}", response_model=schemas.Work)
-def update_work(work_id: int, work_update: schemas.WorkUpdate, db: DatabaseManager = Depends(get_db)):
+async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # Check if work exists
@@ -355,12 +355,12 @@ def update_work(work_id: int, work_update: schemas.WorkUpdate, db: DatabaseManag
             params["status"] = work_update.status
         
         if not sets:
-            return get_work(work_id, db)
+            return await get_work(work_id, db)
             
         query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)} RETURN w.id"
         conn.execute(query, params)
         
-        return get_work(work_id, db)
+        return await get_work(work_id, db)
     except HTTPException:
         raise
     except Exception as e:
