@@ -33,6 +33,7 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
         <h3 className="font-serif" style={{ fontSize: '1.05rem', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{title}</h3>
         <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0, fontWeight: 500 }}>
           {author || "Unknown Author"}
+          {first_publish_year ? ` (${first_publish_year})` : ""}
         </p>
       </div>
       
@@ -61,12 +62,6 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
           </span>
           <span style={{ fontSize: '0.7rem', color: 'var(--muted)', opacity: 0.3, fontWeight: 500 }}>/10</span>
         </div>
-
-        {first_publish_year && !status && !personal_rating && (
-          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', margin: 0 }}>
-            {first_publish_year}
-          </p>
-        )}
       </div>
     </div>
   );
