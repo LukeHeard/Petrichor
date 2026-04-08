@@ -13,7 +13,7 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
   const [rating, setRating] = useState(initialRating || 0);
   const [isSaving, setIsSaving] = useState(false);
 
-  const statuses = ["Owned", "Reading", "Finished"];
+  const statuses = ["Owned", "Reading", "Finished", "DNF"];
 
   const ratingRef = useRef(rating);
   ratingRef.current = rating;
