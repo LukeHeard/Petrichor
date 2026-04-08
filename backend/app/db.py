@@ -53,7 +53,7 @@ class DatabaseManager:
             
 
             # Check for existing Work columns for migration
-            res = self.conn.execute("CALL TABLE_INFO('Work')")
+            res = self.conn.execute("CALL TABLE_INFO('Work') RETURN *")
             cols = []
             while res.has_next():
                 row = res.get_next()

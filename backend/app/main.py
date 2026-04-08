@@ -167,10 +167,9 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
 def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        # Match Work and optionally join with Author via WROTE relationship.
+        # 1. Match Work and optionally join with Author via WROTE relationship.
         result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count")
         works = []
-        work_ids = []
         while result.has_next():
             row = result.get_next()
             works.append({
@@ -185,21 +184,20 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "rating_count": row[8],
                 "tags": []
             })
-            work_ids.append(row[0])
 
-        if work_ids:
-            # Fetch tags for all fetched works
-            tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id IN $ids RETURN w.id, t.name", {"ids": work_ids})
-            tag_map = {}
-            while tag_result.has_next():
-                t_row = tag_result.get_next()
-                wid, tname = t_row[0], t_row[1]
-                if wid not in tag_map:
-                    tag_map[wid] = []
-                tag_map[wid].append(tname)
-            
-            for work in works:
-                work["tags"] = tag_map.get(work["id"], [])
+        # 2. Fetch ALL work-tag relationships and map them
+        # Note: We fetch all because Kuzu's Python driver currently has issues with list parameters in the IN clause
+        tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) RETURN w.id, t.name")
+        tag_map = {}
+        while tag_result.has_next():
+            t_row = tag_result.get_next()
+            wid, tname = t_row[0], t_row[1]
+            if wid not in tag_map:
+                tag_map[wid] = []
+            tag_map[wid].append(tname)
+        
+        for work in works:
+            work["tags"] = tag_map.get(work["id"], [])
 
         return works
     except Exception as e:
