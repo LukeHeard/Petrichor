@@ -10,6 +10,8 @@ interface Work {
   author?: string;
   first_publish_year?: number;
   tags?: string[];
+  personal_rating?: number;
+  status?: string;
 }
 
 function LibraryContent() {
@@ -52,7 +54,11 @@ function LibraryContent() {
     };
 
     window.addEventListener("petrichor:workAdded", handleWorkAdded);
-    return () => window.removeEventListener("petrichor:workAdded", handleWorkAdded);
+    window.addEventListener("petrichor:workUpdated", handleWorkAdded);
+    return () => {
+      window.removeEventListener("petrichor:workAdded", handleWorkAdded);
+      window.removeEventListener("petrichor:workUpdated", handleWorkAdded);
+    }
   }, [fetchWorks]);
 
   return (
@@ -83,6 +89,8 @@ function LibraryContent() {
                 title={work.title}
                 author={work.author}
                 first_publish_year={work.first_publish_year}
+                personal_rating={work.personal_rating}
+                status={work.status}
               />
             ))}
           </div>
