@@ -337,21 +337,21 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
           value={review}
           onChange={e => setReview(e.target.value)}
           placeholder="Your review..."
+          rows={1}
           style={{
             background: 'transparent',
             border: 'none',
             borderBottom: '1px solid var(--border)',
             borderRadius: 0,
-            padding: '0.25rem 0',
+            padding: 0,
             color: 'var(--foreground)',
             fontSize: '1.1rem',
             outline: 'none',
             resize: 'none',
             fontFamily: 'var(--font-serif)',
-            lineHeight: '1.6',
+            lineHeight: '1.4',
             transition: 'border-color 0.2s ease',
             overflow: 'hidden',
-            minHeight: '2rem'
           }}
           onFocus={e => e.target.style.borderColor = 'var(--accent)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
@@ -366,21 +366,21 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
           value={notes}
           onChange={e => setNotes(e.target.value)}
           placeholder="Your notes..."
+          rows={1}
           style={{
             background: 'transparent',
             border: 'none',
             borderBottom: '1px solid var(--border)',
             borderRadius: 0,
-            padding: '0.25rem 0',
+            padding: 0,
             color: 'var(--foreground)',
             fontSize: '1rem',
             outline: 'none',
             resize: 'none',
             fontFamily: 'var(--font-serif)',
-            lineHeight: '1.6',
+            lineHeight: '1.4',
             transition: 'border-color 0.2s ease',
             overflow: 'hidden',
-            minHeight: '2rem'
           }}
           onFocus={e => e.target.style.borderColor = 'var(--accent)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
