@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface LibraryFiltersProps {
   onSearchChange: (query: string) => void;
@@ -22,8 +22,25 @@ export default function LibraryFilters({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("id-desc"); // Default: Recently Added
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
 
   const statuses = ["Owned", "Reading", "Finished", "DNF"];
+
+  const sortOptions = [
+    { label: "Recently Added", value: "id-desc" },
+    { label: "Oldest Added", value: "id-asc" },
+    { label: "Title (A-Z)", value: "title-asc" },
+    { label: "Title (Z-A)", value: "title-desc" },
+    { label: "Author (A-Z)", value: "author-asc" },
+    { label: "Author (Z-A)", value: "author-desc" },
+    { label: "Rating (High-Low)", value: "rating-desc" },
+    { label: "Rating (Low-High)", value: "rating-asc" },
+    { label: "Year (Newest)", value: "year-desc" },
+    { label: "Year (Oldest)", value: "year-asc" },
+  ];
+
+  const currentSortLabel = sortOptions.find(o => o.value === sortBy)?.label || "Sort";
 
   const handleStatusToggle = (status: string) => {
     const newStatuses = selectedStatuses.includes(status)
@@ -41,8 +58,19 @@ export default function LibraryFilters({
     onTagChange(newTags);
   };
 
+  // Close sort dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
+    <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
       
       {/* Search and Sort Row */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -76,41 +104,91 @@ export default function LibraryFilters({
           />
         </div>
 
-        <div style={{ position: 'relative', minWidth: '160px' }}>
-          <select 
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              onSortChange(e.target.value);
-            }}
+        {/* Custom Sleek Sort Dropdown */}
+        <div ref={sortRef} style={{ position: 'relative' }}>
+          <button 
+            onClick={() => setIsSortOpen(!isSortOpen)}
             style={{
-              width: '100%',
-              padding: '0.75rem 1rem',
-              borderRadius: '12px',
-              border: '1px solid var(--border)',
-              background: 'var(--muted-background)',
-              color: 'var(--foreground)',
-              fontSize: '0.9rem',
-              outline: 'none',
-              fontFamily: 'var(--font-sans)',
-              appearance: 'none',
-              cursor: 'pointer'
+              background: 'none',
+              border: 'none',
+              padding: '0.75rem 0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: 'var(--muted)',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'color 0.2s ease',
+              fontFamily: 'var(--font-sans)'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--foreground)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted)'}
           >
-            <option value="id-desc">Recently Added</option>
-            <option value="title-asc">Title (A-Z)</option>
-            <option value="author-asc">Author (A-Z)</option>
-            <option value="rating-desc">Rating (High-Low)</option>
-            <option value="year-desc">Release Year (Newest)</option>
-          </select>
-          <svg 
-            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }}
-            xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          >
-            <path d="m6 9 6 6 6-6"/>
-          </svg>
+            {currentSortLabel}
+            <svg 
+              style={{ transform: isSortOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+              xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+
+          {isSortOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '110%',
+              right: 0,
+              width: '200px',
+              background: 'color-mix(in srgb, var(--background) 95%, white)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              padding: '0.5rem',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+              zIndex: 100,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.1rem',
+              animation: 'menuSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}>
+              {sortOptions.map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    setSortBy(option.value);
+                    onSortChange(option.value);
+                    setIsSortOpen(false);
+                  }}
+                  style={{
+                    padding: '0.6rem 0.75rem',
+                    textAlign: 'left',
+                    background: sortBy === option.value ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: sortBy === option.value ? 'var(--accent)' : 'var(--foreground)',
+                    fontSize: '0.8rem',
+                    fontWeight: sortBy === option.value ? 600 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  className="sort-option-hover"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .sort-option-hover:hover {
+          background: color-mix(in srgb, var(--muted) 10%, transparent) !important;
+          padding-left: 1rem !important;
+        }
+      `}} />
 
       {/* Status Filter */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

@@ -112,14 +112,24 @@ function LibraryContent() {
       switch (sortBy) {
         case 'id-desc':
           return b.id - a.id;
+        case 'id-asc':
+          return a.id - b.id;
         case 'title-asc':
           return a.title.localeCompare(b.title);
+        case 'title-desc':
+          return b.title.localeCompare(a.title);
         case 'author-asc':
           return (a.author || "").localeCompare(b.author || "");
+        case 'author-desc':
+          return (b.author || "").localeCompare(a.author || "");
         case 'rating-desc':
           return (b.personal_rating || 0) - (a.personal_rating || 0);
+        case 'rating-asc':
+          return (a.personal_rating || 0) - (b.personal_rating || 0);
         case 'year-desc':
           return (b.first_publish_year || 0) - (a.first_publish_year || 0);
+        case 'year-asc':
+          return (a.first_publish_year || 0) - (b.first_publish_year || 0);
         default:
           return 0;
       }
