@@ -99,7 +99,8 @@ export default function TagManager({ tags, onTagsChange }: TagManagerProps) {
               lineHeight: 1,
               display: 'flex',
               alignItems: 'center',
-              opacity: 0.6
+              opacity: 0.6,
+              transform: 'translateY(-1px)'
             }}
             onMouseEnter={e => e.currentTarget.style.opacity = '1'}
             onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}

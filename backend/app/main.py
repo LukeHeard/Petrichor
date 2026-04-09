@@ -378,7 +378,7 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             params["status"] = work_update.status
         
         if sets:
-            query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)} RETURN w.id"
+            query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)}"
             conn.execute(query, params)
             
         # Handle Tags if provided
