@@ -18,7 +18,6 @@ interface Work {
 
 function LibraryContent() {
   const [works, setWorks] = useState<Work[]>([]);
-  const [allTags, setAllTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSpinner, setShowSpinner] = useState(false);
 
@@ -53,21 +52,8 @@ function LibraryContent() {
     }
   }, []);
 
-  const fetchTags = useCallback(async () => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tags`);
-      if (response.ok) {
-        const data = await response.json();
-        setAllTags(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch tags", err);
-    }
-  }, []);
-
   useEffect(() => {
     fetchWorks();
-    fetchTags();
 
     const handleWorkAdded = () => {
       fetchWorks();
@@ -84,7 +70,14 @@ function LibraryContent() {
       window.removeEventListener("petrichor:workAdded", handleWorkAdded);
       window.removeEventListener("petrichor:workUpdated", handleWorkUpdated as EventListener);
     }
-  }, [fetchWorks, fetchTags]);
+  }, [fetchWorks]);
+
+  // Dynamically compute available tags from current works
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    works.forEach(w => w.tags?.forEach(t => tags.add(t)));
+    return Array.from(tags).sort();
+  }, [works]);
 
   const filteredAndSortedWorks = useMemo(() => {
     let result = [...works];
