@@ -5,6 +5,8 @@ Grounded in the tactile joy of cataloging, elevated by graph-based data. This ap
 
 Understand the complex simplicity of books with Petrichor.
 
+<img width="2476" height="1456" alt="Screenshot 2026-04-08 212741" src="https://github.com/user-attachments/assets/faaf9c41-3ea0-4021-8225-5c877cdb526b" />
+
 
 ### Execution
 
