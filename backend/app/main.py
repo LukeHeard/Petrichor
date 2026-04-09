@@ -362,14 +362,14 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
         params = {"id": work_id}
         
         if work_update.title is not None:
-            sets.append("w.title = $title")
-            params["title"] = work_update.title
+            sets.append("w.title = $new_title")
+            params["new_title"] = work_update.title
         if work_update.first_publish_year is not None:
-            sets.append("w.first_publish_year = $year")
-            params["year"] = work_update.first_publish_year
+            sets.append("w.first_publish_year = $publish_year")
+            params["publish_year"] = work_update.first_publish_year
         if work_update.description is not None:
-            sets.append("w.description = $desc")
-            params["desc"] = work_update.description
+            sets.append("w.description = $description_text")
+            params["description_text"] = work_update.description
         if work_update.personal_rating is not None:
             sets.append("w.personal_rating = $pers_rating")
             params["pers_rating"] = work_update.personal_rating
@@ -378,9 +378,7 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             params["status"] = work_update.status
         
         if sets:
-            # Use multiple SET clauses instead of commas as some Kuzu versions prefer it
-            set_clauses = " ".join([f"SET {s}" for s in sets])
-            query = f"MATCH (w:Work) WHERE w.id = $id {set_clauses}"
+            query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)}"
             conn.execute(query, params)
             
         # Handle Tags if provided
