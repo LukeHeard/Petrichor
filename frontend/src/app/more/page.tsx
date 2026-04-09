@@ -1,11 +1,11 @@
 "use client";
 
-export default function Stats() {
+export default function More() {
   return (
     <div>
       <header style={{ marginBottom: '3rem' }}>
-        <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Stats</span></h1>
-        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Reading Insights</p>
+        <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>More</span></h1>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Insights & Settings</p>
       </header>
 
       <section style={{ display: 'flex', flexDirection: 'column' }}>

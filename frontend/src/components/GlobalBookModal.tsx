@@ -4,6 +4,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import BookDetailsContent from "./BookDetailsContent";
 import PersonalLibraryControls from "./PersonalLibraryControls";
+import TagManager from "./TagManager";
 
 interface FullWork {
   id: number;
@@ -18,20 +19,29 @@ interface FullWork {
   tags?: string[];
   personal_rating?: number;
   status?: string;
+  review?: string;
+  personal_notes?: string;
 }
 
 export default function GlobalBookModal() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  
+
   const bookId = searchParams.get("book_id");
-  
+
   const [book, setBook] = useState<FullWork | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "notes">("details");
+
+  // Edit form state
+  const [editTitle, setEditTitle] = useState("");
+  const [editYear, setEditYear] = useState<number | undefined>(0);
+  const [editDescription, setEditDescription] = useState("");
+  const [editTags, setEditTags] = useState<string[]>([]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -40,7 +50,7 @@ export default function GlobalBookModal() {
       setBook(null);
       setTimedOut(false);
       setIsDeleting(false);
-      
+
       // 5 second timeout for showing error
       timer = setTimeout(() => {
         if (!book) setTimedOut(true);
@@ -50,6 +60,10 @@ export default function GlobalBookModal() {
         .then(res => res.json())
         .then(data => {
           setBook(data);
+          setEditTitle(data.title);
+          setEditYear(data.first_publish_year);
+          setEditDescription(data.description || "");
+          setEditTags(data.tags || []);
           clearTimeout(timer);
         })
         .catch(err => console.error(err))
@@ -79,6 +93,35 @@ export default function GlobalBookModal() {
     newParams.delete("book_id");
     const query = newParams.toString();
     router.push(`${pathname}${query ? `?${query}` : ''}`);
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!book) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle,
+          first_publish_year: editYear,
+          description: editDescription,
+          tags: editTags
+        })
+      });
+      if (res.ok) {
+        const updatedWork = await res.json();
+        setBook(updatedWork);
+        setIsEditing(false);
+        // Refresh library list
+        window.dispatchEvent(new Event("petrichor:workAdded"));
+      }
+    } catch (err) {
+      console.error("Failed to save work", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // If we don't have a book and we haven't timed out, don't show the modal at all
@@ -93,11 +136,11 @@ export default function GlobalBookModal() {
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       zIndex: 3000, padding: '1rem'
     }}>
-      <div style={{ 
-        width: '100%', maxWidth: '400px', height: '700px', maxHeight: '90vh',
+      <div style={{
+        width: '100%', maxWidth: '460px', height: '700px', maxHeight: '90vh',
         background: 'var(--background)',
         border: '1px solid var(--border)',
-        padding: '2rem',
+        padding: 0,
         borderRadius: '8px',
         position: 'relative',
         display: 'flex',
@@ -105,18 +148,18 @@ export default function GlobalBookModal() {
         animation: 'fadeInUp 0.3s ease'
       }}>
         <button onClick={closeModal} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1, zIndex: 10 }}>&times;</button>
-        
+
         {book ? (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '2rem 2rem 0' }}>
             {/* Tabs */}
-            <div style={{ 
-              display: 'flex', 
-              gap: '1.5rem', 
-              marginBottom: '2rem', 
+            <div style={{
+              display: 'flex',
+              gap: '1.5rem',
+              marginBottom: '2rem',
               borderBottom: '1px solid var(--border)',
               paddingBottom: '0.5rem'
             }}>
-              <button 
+              <button
                 onClick={() => setActiveTab("details")}
                 style={{
                   background: 'none',
@@ -135,7 +178,7 @@ export default function GlobalBookModal() {
               >
                 Details
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab("notes")}
                 style={{
                   background: 'none',
@@ -156,112 +199,225 @@ export default function GlobalBookModal() {
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingRight: '0.25rem' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '0 2rem 2rem 2rem' }}>
               {activeTab === "details" ? (
-                <BookDetailsContent 
-                  book={book} 
-                  actions={
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'auto', paddingTop: '1.5rem' }}>
-                      {!isDeleting ? (
+                isEditing ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeInUp 0.3s ease' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Title</label>
+                      <input 
+                        type="text" 
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.6rem', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>First Published Year</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <button 
-                          onClick={() => setIsDeleting(true)}
-                          style={{
-                            background: 'none',
-                            border: '1px solid var(--border)',
-                            color: 'var(--muted)',
-                            padding: '0.5rem 1.25rem',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            transition: 'all 0.2s ease',
-                            fontFamily: 'var(--font-sans)',
-                            letterSpacing: '0.02em'
-                          }}
-                          onMouseEnter={(e) => { 
-                            e.currentTarget.style.color = '#ff4444'; 
-                            e.currentTarget.style.borderColor = 'color-mix(in srgb, #ff4444 30%, transparent)';
-                            e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 5%, transparent)';
-                          }}
-                          onMouseLeave={(e) => { 
-                            e.currentTarget.style.color = 'var(--muted)'; 
-                            e.currentTarget.style.borderColor = 'var(--border)';
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
+                          onClick={() => setEditYear(prev => Math.max(0, (prev || 0) - 1))}
+                          className="btn-ghost"
+                          style={{ padding: '0.6rem 0.8rem', borderRadius: '4px', minWidth: '40px' }}
                         >
-                          Remove from Library
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>
                         </button>
-                      ) : (
-                        <div style={{ 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          alignItems: 'center', 
-                          gap: '1rem',
-                          padding: '1.5rem',
-                          backgroundColor: 'color-mix(in srgb, #ff4444 5%, transparent)',
-                          borderRadius: '8px',
-                          border: '1px solid color-mix(in srgb, #ff4444 20%, transparent)',
-                          width: '100%',
-                          animation: 'fadeInUp 0.3s ease'
-                        }}>
-                          <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--foreground)' }}>Remove this work from library?</p>
-                          <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
-                            <button 
-                              onClick={() => setIsDeleting(false)}
-                              className="btn-ghost"
-                              style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem' }}
-                            >
-                              Cancel
-                            </button>
-                            <button 
-                              onClick={async () => {
-                                try {
-                                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
-                                  if (res.ok) {
-                                    window.dispatchEvent(new Event("petrichor:workAdded")); 
-                                    closeModal();
-                                    setIsDeleting(false);
-                                  }
-                                } catch (err) {
-                                  console.error(err);
-                                }
-                              }}
-                              style={{ 
-                                flex: 1, 
-                                padding: '0.5rem', 
-                                fontSize: '0.85rem',
-                                backgroundColor: '#b91c1c',
-                                color: 'white',
-                                border: 'none',
+                        <input 
+                          type="number" 
+                          value={editYear || ""}
+                          onChange={e => setEditYear(parseInt(e.target.value) || 0)}
+                          style={{ 
+                            flex: 1, 
+                            background: 'transparent', 
+                            border: '1px solid var(--border)', 
+                            borderRadius: '4px', 
+                            padding: '0.6rem', 
+                            color: 'var(--foreground)', 
+                            fontSize: '0.95rem', 
+                            outline: 'none',
+                            textAlign: 'center',
+                            fontFamily: 'var(--font-sans)'
+                          }}
+                        />
+                        <button 
+                          onClick={() => setEditYear(prev => (prev || 0) + 1)}
+                          className="btn-ghost"
+                          style={{ padding: '0.6rem 0.8rem', borderRadius: '4px', minWidth: '40px' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Tags</label>
+                      <TagManager tags={editTags} onTagsChange={setEditTags} />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Description</label>
+                      <textarea 
+                        value={editDescription}
+                        onChange={e => setEditDescription(e.target.value)}
+                        rows={8}
+                        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.6rem', color: 'var(--foreground)', fontSize: '0.9rem', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-serif)', lineHeight: '1.5' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                      <button 
+                        onClick={() => {
+                          setIsEditing(false);
+                          setEditTitle(book.title);
+                          setEditYear(book.first_publish_year);
+                          setEditDescription(book.description || "");
+                          setEditTags(book.tags || []);
+                        }}
+                        className="btn-ghost"
+                        style={{ flex: 1, padding: '0.75rem' }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={handleSave}
+                        className="btn-primary"
+                        style={{ flex: 1, padding: '0.75rem' }}
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <BookDetailsContent
+                    book={book}
+                    actions={
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: 'auto', paddingTop: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+                          <button 
+                            onClick={() => setIsEditing(true)}
+                            className="btn-ghost"
+                            style={{ 
+                              padding: '0.5rem 1.25rem', 
+                              fontSize: '0.8rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              border: '1px solid var(--border)',
+                              opacity: 0.8
+                            }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                            Edit Details
+                          </button>
+
+                          {!isDeleting ? (
+                            <button
+                              onClick={() => setIsDeleting(true)}
+                              style={{
+                                background: 'none',
+                                border: '1px solid var(--border)',
+                                color: 'var(--muted)',
+                                padding: '0.5rem 1.25rem',
                                 borderRadius: '4px',
                                 cursor: 'pointer',
-                                fontWeight: 500
+                                fontSize: '0.8rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s ease',
+                                fontFamily: 'var(--font-sans)',
+                                letterSpacing: '0.02em',
+                                opacity: 0.6
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = '#ff4444';
+                                e.currentTarget.style.borderColor = 'color-mix(in srgb, #ff4444 30%, transparent)';
+                                e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 5%, transparent)';
+                                e.currentTarget.style.opacity = '1';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'var(--muted)';
+                                e.currentTarget.style.borderColor = 'var(--border)';
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.opacity = '0.6';
                               }}
                             >
-                              Yes, Remove
+                              Remove from Library
                             </button>
-                          </div>
+                          ) : (
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '1rem',
+                              padding: '1.5rem',
+                              backgroundColor: 'color-mix(in srgb, #ff4444 5%, transparent)',
+                              borderRadius: '8px',
+                              border: '1px solid color-mix(in srgb, #ff4444 20%, transparent)',
+                              width: '100%',
+                              animation: 'fadeInUp 0.3s ease'
+                            }}>
+                              <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--foreground)' }}>Remove this work from library?</p>
+                              <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
+                                <button
+                                  onClick={() => setIsDeleting(false)}
+                                  className="btn-ghost"
+                                  style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem' }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
+                                      if (res.ok) {
+                                        window.dispatchEvent(new Event("petrichor:workAdded"));
+                                        closeModal();
+                                        setIsDeleting(false);
+                                      }
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    padding: '0.5rem',
+                                    fontSize: '0.85rem',
+                                    backgroundColor: '#b91c1c',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  Yes, Remove
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  }
-                />
+                      </div>
+                    }
+                  />
+                )
               ) : (
-                <PersonalLibraryControls 
+                <PersonalLibraryControls
                   workId={book.id}
                   initialStatus={book.status || "Owned"}
                   initialRating={book.personal_rating || 0}
+                  initialReview={book.review || ""}
+                  initialNotes={book.personal_notes || ""}
                 />
               )}
             </div>
           </div>
         ) : (
-           <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-             <p style={{ color: 'var(--muted)', fontSize: '0.95rem', fontStyle: 'italic' }}>Taking longer than usual...</p>
-             <button onClick={closeModal} className="btn-ghost" style={{ marginTop: '1rem', padding: '0.4rem 1rem', fontSize: '0.8rem' }}>Cancel</button>
-           </div>
+          <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+            <p style={{ color: 'var(--muted)', fontSize: '0.95rem', fontStyle: 'italic' }}>Taking longer than usual...</p>
+            <button onClick={closeModal} className="btn-ghost" style={{ marginTop: '1rem', padding: '0.4rem 1rem', fontSize: '0.8rem' }}>Cancel</button>
+          </div>
         )}
       </div>
     </div>
