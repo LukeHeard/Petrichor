@@ -388,11 +388,6 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
       </div>
 
       <div style={{ marginTop: '1rem', minHeight: '1rem' }}>
-        {isSaving && (
-          <p className="fade-in-up" style={{ fontSize: '0.7rem', color: 'var(--muted)', textAlign: 'center', fontStyle: 'italic', margin: 0, opacity: 0.7 }}>
-            Synchronizing with library...
-          </p>
-        )}
       </div>
     </div>
   );
