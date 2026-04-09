@@ -137,7 +137,7 @@ export default function GlobalBookModal() {
       zIndex: 3000, padding: '1rem'
     }}>
       <div style={{
-        width: '100%', maxWidth: '400px', height: '700px', maxHeight: '90vh',
+        width: '100%', maxWidth: '460px', height: '700px', maxHeight: '90vh',
         background: 'var(--background)',
         border: '1px solid var(--border)',
         padding: 0,
