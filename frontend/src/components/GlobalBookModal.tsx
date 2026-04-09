@@ -215,12 +215,39 @@ export default function GlobalBookModal() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>First Published Year</label>
-                      <input 
-                        type="number" 
-                        value={editYear}
-                        onChange={e => setEditYear(parseInt(e.target.value) || 0)}
-                        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.6rem', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none' }}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <button 
+                          onClick={() => setEditYear(prev => Math.max(0, (prev || 0) - 1))}
+                          className="btn-ghost"
+                          style={{ padding: '0.6rem 0.8rem', borderRadius: '4px', minWidth: '40px' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>
+                        </button>
+                        <input 
+                          type="number" 
+                          value={editYear || ""}
+                          onChange={e => setEditYear(parseInt(e.target.value) || 0)}
+                          style={{ 
+                            flex: 1, 
+                            background: 'transparent', 
+                            border: '1px solid var(--border)', 
+                            borderRadius: '4px', 
+                            padding: '0.6rem', 
+                            color: 'var(--foreground)', 
+                            fontSize: '0.95rem', 
+                            outline: 'none',
+                            textAlign: 'center',
+                            fontFamily: 'var(--font-sans)'
+                          }}
+                        />
+                        <button 
+                          onClick={() => setEditYear(prev => (prev || 0) + 1)}
+                          className="btn-ghost"
+                          style={{ padding: '0.6rem 0.8rem', borderRadius: '4px', minWidth: '40px' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
