@@ -144,12 +144,13 @@ export default function LibraryFilters({
               border: '1px solid var(--border)',
               borderRadius: '12px',
               padding: '0.5rem',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)',
-              zIndex: 1100, // Higher than nav and books
+              boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+              zIndex: 110,
               display: 'flex',
               flexDirection: 'column',
               gap: '0.1rem',
-              animation: 'menuSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+              animation: 'menuSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              pointerEvents: 'auto'
             }}>
               {sortOptions.map(option => (
                 <button
