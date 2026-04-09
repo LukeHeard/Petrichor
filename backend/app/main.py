@@ -5,6 +5,7 @@ import re
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -127,7 +128,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
 
     try:
         # 1. Create Work node
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes}) RETURN w.id"
+        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
@@ -141,7 +142,8 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 "pers_rating": work.personal_rating or 0.0,
                 "status": work.status or "Owned",
                 "review": work.review or "",
-                "notes": work.personal_notes or ""
+                "notes": work.personal_notes or "",
+                "created": int(time.time())
             }
         )
         if not result.has_next():
@@ -172,7 +174,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # 1. Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at")
         works = []
         while result.has_next():
             row = result.get_next()
@@ -190,6 +192,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "status": row[10],
                 "review": row[11],
                 "personal_notes": row[12],
+                "created_at": row[13],
                 "tags": []
             })
 
@@ -216,7 +219,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
@@ -234,13 +237,13 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
                     stored_desc = new_desc
             except Exception as e:
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
-
+ 
         # Fetch tags
         tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
         tags = []
         while tag_result.has_next():
             tags.append(tag_result.get_next()[0])
-
+ 
         return {
             "id": row[0], 
             "title": row[1], 
@@ -254,6 +257,7 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "status": row[9],
             "review": row[10],
             "personal_notes": row[11],
+            "created_at": row[12],
             "tags": tags
         }
     except Exception as e:

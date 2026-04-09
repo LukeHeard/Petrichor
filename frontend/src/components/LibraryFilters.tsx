@@ -20,7 +20,7 @@ export default function LibraryFilters({
   const [search, setSearch] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("id-desc"); // Default: Recently Added
+  const [sortBy, setSortBy] = useState("added-desc"); // Default: Recently Added
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -28,8 +28,8 @@ export default function LibraryFilters({
   const statuses = ["Owned", "Reading", "Finished", "DNF"];
 
   const sortOptions = [
-    { label: "Recently Added", value: "id-desc" },
-    { label: "Oldest Added", value: "id-asc" },
+    { label: "Recently Added", value: "added-desc" },
+    { label: "Oldest Added", value: "added-asc" },
     { label: "Title (A-Z)", value: "title-asc" },
     { label: "Title (Z-A)", value: "title-desc" },
     { label: "Author (A-Z)", value: "author-asc" },

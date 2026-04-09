@@ -32,6 +32,7 @@ class Work(WorkBase):
     id: int
     author: Optional[str] = None
     tags: List[str] = []
+    created_at: Optional[int] = None
 
     class Config:
         from_attributes = True

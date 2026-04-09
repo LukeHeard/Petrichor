@@ -13,6 +13,7 @@ interface Work {
   tags?: string[];
   personal_rating?: number;
   status?: string;
+  created_at?: number;
 }
 
 function LibraryContent() {
@@ -110,10 +111,10 @@ function LibraryContent() {
     // Sort
     result.sort((a, b) => {
       switch (sortBy) {
-        case 'id-desc':
-          return b.id - a.id;
-        case 'id-asc':
-          return a.id - b.id;
+        case 'added-desc':
+          return (b.created_at || 0) - (a.created_at || 0);
+        case 'added-asc':
+          return (a.created_at || 0) - (b.created_at || 0);
         case 'title-asc':
           return a.title.localeCompare(b.title);
         case 'title-desc':
