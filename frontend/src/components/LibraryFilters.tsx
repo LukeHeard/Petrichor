@@ -8,7 +8,6 @@ interface LibraryFiltersProps {
   onTagChange: (tags: string[]) => void;
   onSortChange: (sortBy: string) => void;
   allTags: string[];
-  shouldAnimate?: boolean;
 }
 
 export default function LibraryFilters({ 
@@ -16,8 +15,7 @@ export default function LibraryFilters({
   onStatusChange, 
   onTagChange, 
   onSortChange,
-  allTags,
-  shouldAnimate = true
+  allTags
 }: LibraryFiltersProps) {
   const [search, setSearch] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -44,7 +42,7 @@ export default function LibraryFilters({
   };
 
   return (
-    <div className={shouldAnimate ? "fade-in-up" : ""} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
+    <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
       
       {/* Search and Sort Row */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>

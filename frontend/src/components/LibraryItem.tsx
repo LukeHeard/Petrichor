@@ -10,10 +10,9 @@ interface LibraryItemProps {
   personal_rating?: number;
   status?: string;
   index: number;
-  shouldAnimate?: boolean;
 }
 
-export default function LibraryItem({ id, title, author, first_publish_year, personal_rating, status, index, shouldAnimate = true }: LibraryItemProps) {
+export default function LibraryItem({ id, title, author, first_publish_year, personal_rating, status, index }: LibraryItemProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -26,9 +25,9 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
 
   return (
     <div 
-      className={`book-row ${shouldAnimate ? 'fade-in-up' : ''}`} 
+      className="book-row fade-in-up" 
       onClick={handleClick}
-      style={shouldAnimate ? { animationDelay: `${index * 50}ms` } : {}}
+      style={{ animationDelay: `${index * 50}ms` }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', flex: 1, minWidth: 0 }}>
         <h3 className="font-serif" style={{ fontSize: '1.05rem', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{title}</h3>

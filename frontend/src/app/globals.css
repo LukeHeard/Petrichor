@@ -304,20 +304,20 @@ a {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 0.5rem;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, padding 0.2s ease, transform 0.2s ease;
   border-radius: 4px;
+}
+
+.book-row:first-child {
+  border-top: none;
 }
 
 .book-row:hover {
   background-color: var(--muted-background);
   padding-left: 1rem;
   padding-right: 1rem;
-}
-
-.book-row:last-child {
-  border-bottom: none;
 }
 
 /* Animations */

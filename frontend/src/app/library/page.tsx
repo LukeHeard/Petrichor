@@ -26,7 +26,6 @@ function LibraryContent() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("id-desc");
-  const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -50,8 +49,6 @@ function LibraryContent() {
       console.error("Failed to fetch works", err);
     } finally {
       setLoading(false);
-      // Give a tiny delay before marking as loaded so the first animation completes
-      setTimeout(() => setHasLoaded(true), 1000);
     }
   }, []);
 
@@ -145,7 +142,6 @@ function LibraryContent() {
           onTagChange={setSelectedTags}
           onSortChange={setSortBy}
           allTags={allTags}
-          shouldAnimate={!hasLoaded}
         />
 
         {loading ? (
@@ -168,7 +164,6 @@ function LibraryContent() {
                 first_publish_year={work.first_publish_year}
                 personal_rating={work.personal_rating}
                 status={work.status}
-                shouldAnimate={!hasLoaded}
               />
             ))}
           </div>
