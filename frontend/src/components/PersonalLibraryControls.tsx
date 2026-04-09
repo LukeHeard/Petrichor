@@ -30,6 +30,8 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
 
   const [inputWidth, setInputWidth] = useState(0);
   const measureRef = useRef<HTMLSpanElement>(null);
+  const reviewRefUI = useRef<HTMLTextAreaElement>(null);
+  const notesRefUI = useRef<HTMLTextAreaElement>(null);
 
   const saveChanges = useCallback(async (updates: { status?: string; personal_rating?: number; review?: string; personal_notes?: string }) => {
     setIsSaving(true);
@@ -55,6 +57,21 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
     setStatus(newStatus);
     saveChanges({ status: newStatus });
   };
+
+  // Auto-resize textareas
+  useEffect(() => {
+    if (reviewRefUI.current) {
+      reviewRefUI.current.style.height = 'auto';
+      reviewRefUI.current.style.height = `${reviewRefUI.current.scrollHeight}px`;
+    }
+  }, [review]);
+
+  useEffect(() => {
+    if (notesRefUI.current) {
+      notesRefUI.current.style.height = 'auto';
+      notesRefUI.current.style.height = `${notesRefUI.current.scrollHeight}px`;
+    }
+  }, [notes]);
 
   // Measure text width for dynamic input/underline
   useEffect(() => {
@@ -316,10 +333,10 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <p className="section-label">Your Review</p>
         <textarea 
+          ref={reviewRefUI}
           value={review}
           onChange={e => setReview(e.target.value)}
           placeholder="What did you think of this work?"
-          rows={5}
           style={{
             background: 'transparent',
             border: 'none',
@@ -327,12 +344,14 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
             borderRadius: 0,
             padding: '0.5rem 0',
             color: 'var(--foreground)',
-            fontSize: '0.95rem',
+            fontSize: '1.1rem',
             outline: 'none',
             resize: 'none',
             fontFamily: 'var(--font-serif)',
             lineHeight: '1.6',
-            transition: 'border-color 0.2s ease'
+            transition: 'border-color 0.2s ease',
+            overflow: 'hidden',
+            minHeight: '2rem'
           }}
           onFocus={e => e.target.style.borderColor = 'var(--accent)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
@@ -343,10 +362,10 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <p className="section-label">Personal Notes</p>
         <textarea 
+          ref={notesRefUI}
           value={notes}
           onChange={e => setNotes(e.target.value)}
           placeholder="Private thoughts, favorite quotes, or reading progress..."
-          rows={5}
           style={{
             background: 'transparent',
             border: 'none',
@@ -354,12 +373,14 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
             borderRadius: 0,
             padding: '0.5rem 0',
             color: 'var(--foreground)',
-            fontSize: '0.95rem',
+            fontSize: '1rem',
             outline: 'none',
             resize: 'none',
             fontFamily: 'var(--font-serif)',
             lineHeight: '1.6',
-            transition: 'border-color 0.2s ease'
+            transition: 'border-color 0.2s ease',
+            overflow: 'hidden',
+            minHeight: '2rem'
           }}
           onFocus={e => e.target.style.borderColor = 'var(--accent)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
