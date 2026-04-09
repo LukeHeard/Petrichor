@@ -54,9 +54,9 @@ export default function NavigationWithModal() {
           
           <div className="nav-separator" />
           
-          <Link href="/stats" className={`nav-item ${pathname === '/stats' ? 'active' : ''}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-            <span>Stats</span>
+          <Link href="/more" className={`nav-item ${pathname === '/more' ? 'active' : ''}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+            <span>More</span>
           </Link>
 
         </div>
