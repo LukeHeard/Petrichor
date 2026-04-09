@@ -378,7 +378,9 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             params["status"] = work_update.status
         
         if sets:
-            query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)}"
+            # Use multiple SET clauses instead of commas as some Kuzu versions prefer it
+            set_clauses = " ".join([f"SET {s}" for s in sets])
+            query = f"MATCH (w:Work) WHERE w.id = $id {set_clauses}"
             conn.execute(query, params)
             
         # Handle Tags if provided
