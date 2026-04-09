@@ -70,7 +70,14 @@ export default function LibraryFilters({
   }, []);
 
   return (
-    <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
+    <div className="fade-in-up" style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '1.25rem', 
+      marginBottom: '2rem',
+      position: 'relative',
+      zIndex: 100 // Ensure filters stay on top of the list below
+    }}>
       
       {/* Search and Sort Row */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -144,13 +151,14 @@ export default function LibraryFilters({
               border: '1px solid var(--border)',
               borderRadius: '12px',
               padding: '0.5rem',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-              zIndex: 110,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+              zIndex: 200, // Higher than the main container
               display: 'flex',
               flexDirection: 'column',
               gap: '0.1rem',
               animation: 'menuSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              userSelect: 'none'
             }}>
               {sortOptions.map(option => (
                 <button
