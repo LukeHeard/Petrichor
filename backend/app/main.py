@@ -127,7 +127,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
 
     try:
         # 1. Create Work node
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status}) RETURN w.id"
+        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
@@ -139,7 +139,9 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 "rating_avg": work.rating_average or 0.0,
                 "rating_cnt": work.rating_count or 0,
                 "pers_rating": work.personal_rating or 0.0,
-                "status": work.status or "Owned"
+                "status": work.status or "Owned",
+                "review": work.review or "",
+                "notes": work.personal_notes or ""
             }
         )
         if not result.has_next():
@@ -170,7 +172,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # 1. Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes")
         works = []
         while result.has_next():
             row = result.get_next()
@@ -186,6 +188,8 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "rating_count": row[8],
                 "personal_rating": row[9],
                 "status": row[10],
+                "review": row[11],
+                "personal_notes": row[12],
                 "tags": []
             })
 
@@ -212,7 +216,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
@@ -248,6 +252,8 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "rating_count": row[7],
             "personal_rating": row[8],
             "status": row[9],
+            "review": row[10],
+            "personal_notes": row[11],
             "tags": tags
         }
     except Exception as e:
@@ -376,6 +382,12 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
         if work_update.status is not None:
             sets.append("w.status = $status")
             params["status"] = work_update.status
+        if work_update.review is not None:
+            sets.append("w.review = $review")
+            params["review"] = work_update.review
+        if work_update.personal_notes is not None:
+            sets.append("w.personal_notes = $notes")
+            params["notes"] = work_update.personal_notes
         
         if sets:
             query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)}"

@@ -6,11 +6,15 @@ interface PersonalLibraryControlsProps {
   workId: number;
   initialStatus: string;
   initialRating: number;
+  initialReview?: string;
+  initialNotes?: string;
 }
 
-export default function PersonalLibraryControls({ workId, initialStatus, initialRating }: PersonalLibraryControlsProps) {
+export default function PersonalLibraryControls({ workId, initialStatus, initialRating, initialReview = "", initialNotes = "" }: PersonalLibraryControlsProps) {
   const [status, setStatus] = useState(initialStatus || "Owned");
   const [rating, setRating] = useState(initialRating || 0);
+  const [review, setReview] = useState(initialReview);
+  const [notes, setNotes] = useState(initialNotes);
   const [isEditingRating, setIsEditingRating] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -19,11 +23,15 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
 
   const ratingRef = useRef(rating);
   ratingRef.current = rating;
+  const reviewRef = useRef(review);
+  reviewRef.current = review;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
 
   const [inputWidth, setInputWidth] = useState(0);
   const measureRef = useRef<HTMLSpanElement>(null);
 
-  const saveChanges = useCallback(async (updates: { status?: string; personal_rating?: number }) => {
+  const saveChanges = useCallback(async (updates: { status?: string; personal_rating?: number; review?: string; personal_notes?: string }) => {
     setIsSaving(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
@@ -67,16 +75,53 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
     return () => {
       clearTimeout(timer);
       if (ratingRef.current !== initialRating) {
-        const updates = { personal_rating: ratingRef.current };
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
+          body: JSON.stringify({ personal_rating: ratingRef.current }),
           keepalive: true
         });
       }
     };
   }, [rating, initialRating, saveChanges, workId]);
+
+  // Debounced Review update
+  useEffect(() => {
+    if (review === initialReview) return;
+    const timer = setTimeout(() => {
+      saveChanges({ review });
+    }, 1500);
+    return () => {
+      clearTimeout(timer);
+      if (reviewRef.current !== initialReview) {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ review: reviewRef.current }),
+          keepalive: true
+        });
+      }
+    };
+  }, [review, initialReview, saveChanges, workId]);
+
+  // Debounced Notes update
+  useEffect(() => {
+    if (notes === initialNotes) return;
+    const timer = setTimeout(() => {
+      saveChanges({ personal_notes: notes });
+    }, 1500);
+    return () => {
+      clearTimeout(timer);
+      if (notesRef.current !== initialNotes) {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personal_notes: notesRef.current }),
+          keepalive: true
+        });
+      }
+    };
+  }, [notes, initialNotes, saveChanges, workId]);
 
   return (
     <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1rem 0' }}>
@@ -265,6 +310,60 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
             <span>10.0</span>
           </div>
         </div>
+      </div>
+
+      {/* Review Section */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <p className="section-label">Your Review</p>
+        <textarea 
+          value={review}
+          onChange={e => setReview(e.target.value)}
+          placeholder="What did you think of this work?"
+          rows={5}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderBottom: '1px solid var(--border)',
+            borderRadius: 0,
+            padding: '0.5rem 0',
+            color: 'var(--foreground)',
+            fontSize: '0.95rem',
+            outline: 'none',
+            resize: 'none',
+            fontFamily: 'var(--font-serif)',
+            lineHeight: '1.6',
+            transition: 'border-color 0.2s ease'
+          }}
+          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
+        />
+      </div>
+
+      {/* Notes Section */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <p className="section-label">Personal Notes</p>
+        <textarea 
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Private thoughts, favorite quotes, or reading progress..."
+          rows={5}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderBottom: '1px solid var(--border)',
+            borderRadius: 0,
+            padding: '0.5rem 0',
+            color: 'var(--foreground)',
+            fontSize: '0.95rem',
+            outline: 'none',
+            resize: 'none',
+            fontFamily: 'var(--font-serif)',
+            lineHeight: '1.6',
+            transition: 'border-color 0.2s ease'
+          }}
+          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
+        />
       </div>
 
       <div style={{ marginTop: '1rem', minHeight: '1rem' }}>
