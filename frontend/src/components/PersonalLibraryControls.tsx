@@ -336,13 +336,13 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
           ref={reviewRefUI}
           value={review}
           onChange={e => setReview(e.target.value)}
-          placeholder="What did you think of this work?"
+          placeholder="Your review..."
           style={{
             background: 'transparent',
             border: 'none',
             borderBottom: '1px solid var(--border)',
             borderRadius: 0,
-            padding: '0.5rem 0',
+            padding: '0.25rem 0',
             color: 'var(--foreground)',
             fontSize: '1.1rem',
             outline: 'none',
@@ -365,13 +365,13 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
           ref={notesRefUI}
           value={notes}
           onChange={e => setNotes(e.target.value)}
-          placeholder="Private thoughts, favorite quotes, or reading progress..."
+          placeholder="Your notes..."
           style={{
             background: 'transparent',
             border: 'none',
             borderBottom: '1px solid var(--border)',
             borderRadius: 0,
-            padding: '0.5rem 0',
+            padding: '0.25rem 0',
             color: 'var(--foreground)',
             fontSize: '1rem',
             outline: 'none',

@@ -178,10 +178,10 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto',
         background: 'var(--background)',
         border: '1px solid var(--border)',
-        padding: '2rem 1.5rem',
+        padding: 0,
         borderRadius: '8px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'flex-start', padding: '2rem 1.5rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {previewWork && (
               <button 
@@ -207,7 +207,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
 
         {error && <div style={{ color: '#b91c1c', marginBottom: '1rem', fontSize: '0.9rem', fontStyle: 'italic' }}>{error}</div>}
 
-        <div style={{ position: 'relative', overflow: 'hidden', minHeight: '200px' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', minHeight: '200px', padding: '0 1.5rem 2rem' }}>
           {!previewWork ? (
             <div className="fade-in-up">
               <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>

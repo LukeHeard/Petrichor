@@ -140,7 +140,7 @@ export default function GlobalBookModal() {
         width: '100%', maxWidth: '400px', height: '700px', maxHeight: '90vh',
         background: 'var(--background)',
         border: '1px solid var(--border)',
-        padding: '2rem',
+        padding: 0,
         borderRadius: '8px',
         position: 'relative',
         display: 'flex',
@@ -150,7 +150,7 @@ export default function GlobalBookModal() {
         <button onClick={closeModal} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1, zIndex: 10 }}>&times;</button>
 
         {book ? (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '2rem 2rem 0' }}>
             {/* Tabs */}
             <div style={{
               display: 'flex',
@@ -199,7 +199,7 @@ export default function GlobalBookModal() {
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingRight: '0.25rem' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '0 2rem 2rem 2rem' }}>
               {activeTab === "details" ? (
                 isEditing ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeInUp 0.3s ease' }}>
