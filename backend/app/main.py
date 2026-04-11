@@ -6,8 +6,6 @@ from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 import logging
 import time
-import asyncio
-from thefuzz import fuzz
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -443,116 +441,27 @@ async def search_works(q: str = Query(..., min_length=1)):
     
     async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
         try:
-            # 1. Broad initial search to get potential candidates (increased limit)
             response = await client.get(
                 "https://openlibrary.org/search.json",
-                params={"q": q, "limit": "50", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
+                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
             )
             response.raise_for_status()
             data = response.json()
-            
-            initial_results = []
-            franchises_to_fetch = set()
-            
-            query_lower = q.lower()
-            
+            results = []
             for doc in data.get("docs", []):
-                title = doc.get("title", "Unknown Title")
                 authors = doc.get("author_name", [])
                 primary_author = authors[0] if authors else ""
-                
-                # Calculate scores
-                title_score = fuzz.partial_ratio(query_lower, title.lower())
-                author_score = fuzz.partial_ratio(query_lower, primary_author.lower())
-                # Use max score part but also weighted for exact matches
-                score = max(title_score, author_score)
-                
-                # Bonus for exact title or author match
-                if query_lower == title.lower() or query_lower == primary_author.lower():
-                    score = 100
-                
-                # Skip low relevance results
-                if score < 60:
-                    continue
-                
-                subjects = doc.get("subject", [])
-                
-                # If it's a very strong match, look for franchises
-                if score >= 85:
-                    for s in subjects:
-                        if s.startswith("franchise:") or s.startswith("series:"):
-                            franchises_to_fetch.add(s)
-
-                initial_results.append({
-                    "title": title,
+                results.append({
+                    "title": doc.get("title", "Unknown Title"),
                     "author": primary_author,
                     "first_publish_year": doc.get("first_publish_year"),
                     "openlibrary_id": doc.get("key"),
                     "page_count": doc.get("number_of_pages_median"),
                     "rating_average": doc.get("ratings_average"),
-                    "rating_count": doc.get("ratings_count") or 0,
-                    "tags": get_clean_tags(subjects, title),
-                    "score": score,
-                    "subjects": subjects # Keep for deduplication/merging
+                    "rating_count": doc.get("ratings_count"),
+                    "tags": get_clean_tags(doc.get("subject", []), doc.get("title", ""))
                 })
-
-            # 2. Fetch entire franchises for top matches
-            franchise_results = []
-            if franchises_to_fetch:
-                # Limit to top 3 franchises to prevent too many requests
-                fetch_list = list(franchises_to_fetch)[:3]
-                
-                async def fetch_franchise(f_query):
-                    try:
-                        res = await client.get(
-                            "https://openlibrary.org/search.json",
-                            params={"q": f'subject:"{f_query}"', "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
-                        )
-                        if res.is_success:
-                            return res.json().get("docs", [])
-                        return []
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch franchise {f_query}: {e}")
-                        return []
-
-                # Parallel fetch
-                tasks = [fetch_franchise(f) for f in fetch_list]
-                franchise_docs_list = await asyncio.gather(*tasks)
-                
-                for docs in franchise_docs_list:
-                    for doc in docs:
-                        authors = doc.get("author_name", [])
-                        primary_author = authors[0] if authors else ""
-                        franchise_results.append({
-                            "title": doc.get("title", "Unknown Title"),
-                            "author": primary_author,
-                            "first_publish_year": doc.get("first_publish_year"),
-                            "openlibrary_id": doc.get("key"),
-                            "page_count": doc.get("number_of_pages_median"),
-                            "rating_average": doc.get("ratings_average"),
-                            "rating_count": doc.get("ratings_count") or 0,
-                            "tags": get_clean_tags(doc.get("subject", []), doc.get("title", "")),
-                            "score": 95, # Direct franchise match gets high score
-                            "subjects": doc.get("subject", [])
-                        })
-
-            # 3. Merge and deduplicate
-            all_results_dict = {r["openlibrary_id"]: r for r in initial_results}
-            for r in franchise_results:
-                if r["openlibrary_id"] not in all_results_dict:
-                    all_results_dict[r["openlibrary_id"]] = r
-                else:
-                    # If already present, ensure it has high franchise score
-                    all_results_dict[r["openlibrary_id"]]["score"] = max(all_results_dict[r["openlibrary_id"]]["score"], 95)
-
-            final_results = list(all_results_dict.values())
-            
-            # Sort by score descending, then by popularity (rating count)
-            final_results.sort(key=lambda x: (x["score"], x["rating_count"]), reverse=True)
-            
-            # Return more results as requested
-            return final_results[:60]
-            
+            return results
         except httpx.HTTPStatusError as exc:
             logger.error(f"HTTPStatusError from OpenLibrary: {exc.response.status_code} - {exc.response.text}")
             raise HTTPException(status_code=502, detail=f"OpenLibrary API returned error: {exc.response.status_code}")
