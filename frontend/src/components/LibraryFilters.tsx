@@ -69,11 +69,7 @@ export default function LibraryFilters({
     onTagChange(newTags);
   };
   
-  const [canReset, setCanReset] = useState(false);
-
-  useEffect(() => {
-    setCanReset(isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc"));
-  }, [isInitialized, searchQuery, parentSelectedStatuses, parentSelectedTags, parentSortBy]);
+  const hasChanges = isMounted && isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc");
 
   // Mount check
   useEffect(() => {
@@ -271,26 +267,26 @@ export default function LibraryFilters({
           }}>
             <button
               onClick={onReset}
-              disabled={!canReset}
+              disabled={!hasChanges}
               style={{
                 background: 'none',
                 border: 'none',
                 padding: '0.25rem 0.5rem',
-                color: canReset ? 'var(--accent)' : 'var(--muted)',
+                color: hasChanges ? 'var(--accent)' : 'var(--muted)',
                 fontSize: '0.65rem',
                 fontWeight: 800,
-                cursor: canReset ? 'pointer' : 'default',
+                cursor: hasChanges ? 'pointer' : 'default',
                 fontFamily: 'var(--font-sans)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
-                opacity: canReset ? 0.7 : 0.3,
+                opacity: hasChanges ? 0.7 : 0.3,
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                if (canReset) e.currentTarget.style.opacity = '1';
+                if (hasChanges) e.currentTarget.style.opacity = '1';
               }}
               onMouseLeave={(e) => {
-                if (canReset) e.currentTarget.style.opacity = '0.7';
+                if (hasChanges) e.currentTarget.style.opacity = '0.7';
               }}
             >
               Reset Filters
