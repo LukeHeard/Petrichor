@@ -130,7 +130,9 @@ class GoodreadsScraper:
             # Title
             title = book_data.get("title", "")
             
-            description = re.sub(r'<.*?>', '', description) if description else ""
+            # Description
+            description = ""
+            desc_field = book_data.get("description")
             
             # Preserve some formatting tags instead of stripping everything
             if desc_field:
