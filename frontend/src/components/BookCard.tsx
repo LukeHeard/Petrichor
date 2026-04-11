@@ -40,7 +40,6 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
             fill
             sizes="(max-width: 768px) 50vw, 33vw"
             style={{ objectFit: 'cover' }}
-            priority={index < 8}
           />
         ) : (
           <div className="book-card-fallback">

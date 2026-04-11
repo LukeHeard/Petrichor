@@ -35,7 +35,6 @@ export default function LibraryFilters({
 }: LibraryFiltersProps) {
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
   const statuses = ["Owned", "Reading", "Finished", "DNF"];
@@ -69,12 +68,7 @@ export default function LibraryFilters({
     onTagChange(newTags);
   };
   
-  const hasChanges = isMounted && isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc");
-
-  // Mount check
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const hasChanges = isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc");
 
   // Close sort dropdown on click outside
   useEffect(() => {
