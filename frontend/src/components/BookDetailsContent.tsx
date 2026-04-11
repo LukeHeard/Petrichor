@@ -104,11 +104,11 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         )}
       </div>
 
-      {(book.id || book.goodreads_id) && (
+      {(book.id !== undefined && book.id !== null || book.goodreads_id) && (
         <>
           <div className="thin-divider" style={{ margin: '1.5rem 0 0.5rem 0' }} />
           <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginBottom: '1.5rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.5 }}>
-            {book.id && <span>Internal ID: {book.id}</span>}
+            {(book.id !== undefined && book.id !== null) && <span>Internal ID: {book.id}</span>}
             {book.goodreads_id && (
               <span>Goodreads ID: {book.goodreads_id}</span>
             )}
