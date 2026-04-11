@@ -10,7 +10,7 @@ interface FullWork {
   id: number;
   title: string;
   author?: string;
-  google_books_id?: string;
+  goodreads_id?: string;
   thumbnail_url?: string;
   first_publish_year?: number;
   description?: string;

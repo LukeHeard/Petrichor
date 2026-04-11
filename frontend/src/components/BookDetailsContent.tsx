@@ -9,7 +9,7 @@ interface BookDetailsContentProps {
     page_count?: number;
     rating_average?: number;
     rating_count?: number;
-    google_books_id?: string;
+    goodreads_id?: string;
     thumbnail_url?: string;
     id?: number;
     tags?: string[];
@@ -76,8 +76,11 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         )}
         {book.rating_average && book.rating_average > 0 && (
           <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Rating</p>
-            <p style={{ fontSize: '1rem', fontWeight: 500 }}>{book.rating_average.toFixed(1)}/5</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Goodreads Rating</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.2rem' }}>
+              <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{book.rating_average.toFixed(2)}</p>
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 400 }}>({(book.rating_count || 0).toLocaleString()})</span>
+            </div>
           </div>
         )}
       </div>
@@ -101,13 +104,13 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         )}
       </div>
 
-      {(book.id || book.google_books_id) && (
+      {(book.id || book.goodreads_id) && (
         <>
           <div className="thin-divider" style={{ margin: '1.5rem 0 0.5rem 0' }} />
           <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginBottom: '1.5rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.5 }}>
             {book.id && <span>Internal ID: {book.id}</span>}
-            {book.google_books_id && (
-              <span>Google Books ID: {book.google_books_id}</span>
+            {book.goodreads_id && (
+              <span>Goodreads ID: {book.goodreads_id}</span>
             )}
           </p>
         </>

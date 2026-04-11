@@ -3,7 +3,7 @@ from typing import Optional, List
 
 class WorkBase(BaseModel):
     title: str
-    google_books_id: Optional[str] = None
+    goodreads_id: Optional[str] = None
     thumbnail_url: Optional[str] = None
     first_publish_year: Optional[int] = None
     description: Optional[str] = None
@@ -54,7 +54,7 @@ class SearchResult(BaseModel):
     title: str
     author: str
     first_publish_year: Optional[int] = None
-    google_books_id: Optional[str] = None
+    goodreads_id: Optional[str] = None
     thumbnail_url: Optional[str] = None
     tags: List[str] = []
     page_count: Optional[int] = None

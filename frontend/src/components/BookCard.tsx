@@ -6,7 +6,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 interface BookCardProps {
   id: number;
   title: string;
-  google_books_id?: string;
+  goodreads_id?: string;
   thumbnail_url?: string;
   author?: string;
 }

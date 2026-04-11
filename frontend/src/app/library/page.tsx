@@ -7,7 +7,7 @@ import LibraryFilters from "@/components/LibraryFilters";
 interface Work {
   id: number;
   title: string;
-  google_books_id?: string;
+  goodreads_id?: string;
   thumbnail_url?: string;
   author?: string;
   first_publish_year?: number;
