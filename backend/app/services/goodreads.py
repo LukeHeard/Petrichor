@@ -130,15 +130,30 @@ class GoodreadsScraper:
             # Title
             title = book_data.get("title", "")
             
-            # Description
-            description = ""
-            desc_field = book_data.get("description")
-            if isinstance(desc_field, dict) and "__ref" in desc_field:
-                 desc_obj = apollo.get(desc_field["__ref"], {})
-                 description = desc_obj.get("html", "")
-            elif isinstance(desc_field, str):
-                 description = desc_field
             description = re.sub(r'<.*?>', '', description) if description else ""
+            
+            # Preserve some formatting tags instead of stripping everything
+            if desc_field:
+                html_content = ""
+                if isinstance(desc_field, dict) and "__ref" in desc_field:
+                    html_content = apollo.get(desc_field["__ref"], {}).get("html", "")
+                elif isinstance(desc_field, str):
+                    html_content = desc_field
+                
+                if html_content:
+                    # Whitelist tags: b, i, em, strong, p, br
+                    allowed = ["b", "i", "em", "strong", "p", "br"]
+                    # Regex to match tags
+                    tag_pattern = re.compile(r'</?([a-z1-6]+).*?>', re.IGNORECASE)
+                    
+                    def filter_tags(match):
+                        tag = match.group(1).lower()
+                        if tag in allowed:
+                            closing = "/" if match.group(0).startswith("</") else ""
+                            return f"<{closing}{tag}>"
+                        return ""
+                    
+                    description = tag_pattern.sub(filter_tags, html_content)
 
             # Stats (Ratings) - Located in the Work object
             avg_rating = 0.0

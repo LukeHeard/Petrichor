@@ -89,16 +89,17 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
 
       <div style={{ alignSelf: 'stretch', paddingRight: '0.5rem' }}>
         {book.description ? (
-          <p className="font-serif" style={{
-            fontSize: '0.95rem',
-            lineHeight: '1.6',
-            color: 'var(--foreground)',
-            opacity: 0.9,
-            whiteSpace: 'pre-wrap',
-            textAlign: 'left'
-          }}>
-            {book.description}
-          </p>
+          <div 
+            className="font-serif description-content"
+            dangerouslySetInnerHTML={{ __html: book.description }}
+            style={{
+              fontSize: '0.95rem',
+              lineHeight: '1.6',
+              color: 'var(--foreground)',
+              opacity: 0.9,
+              textAlign: 'left'
+            }}
+          />
         ) : (
           <p style={{ fontSize: '0.9rem', color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center' }}>No description available.</p>
         )}
