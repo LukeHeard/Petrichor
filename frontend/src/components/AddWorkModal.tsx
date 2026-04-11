@@ -200,7 +200,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
               </button>
             )}
             <h2 className="font-serif" style={{ fontSize: '1.5rem', marginTop: 0, marginBottom: 0 }}>
-              {previewWork ? "Goodreads Preview" : "Find on Goodreads"}
+              {previewWork ? "Goodreads Preview" : "Find a book..."}
             </h2>
           </div>
           <button onClick={() => {

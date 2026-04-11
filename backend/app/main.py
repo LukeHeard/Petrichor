@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Petrichor API")
 
+BLOCKED_TAGS = {"Friendship", "Science Fiction Fantasy"}
+
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
@@ -366,7 +368,9 @@ def list_tags(db: DatabaseManager = Depends(get_db)):
         result = conn.execute("MATCH (t:Tag) RETURN t.name")
         tags = []
         while result.has_next():
-            tags.append(result.get_next()[0])
+            tag_name = result.get_next()[0]
+            if tag_name not in BLOCKED_TAGS:
+                tags.append(tag_name)
         return sorted(list(set(tags))) # Return unique sorted tags
     except Exception as e:
         logger.error(f"Error listing tags: {e}")
@@ -381,3 +385,4 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
     except Exception as e:
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+

@@ -208,7 +208,8 @@ class GoodreadsScraper:
                 "adult", "book-club", "gave-up-on", "library", "audiobook", "abandoned", "audio",
                 "kindle", "ebook", "e-book", "paperback", "hardcover", "series", "to-buy", "re-read",
                 "reread", "dnf", "did-not-finish", "standalone", "novella", "novel", "borrowed",
-                "own-it", "all-time-favorites", "physical-copy", "wish-list", "half-price-books"
+                "own-it", "all-time-favorites", "physical-copy", "wish-list", "half-price-books",
+                "friendship", "science-fiction-fantasy"
             }
             
             cleaned_tags = []
