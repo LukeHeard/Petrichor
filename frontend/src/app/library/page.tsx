@@ -29,8 +29,43 @@ function LibraryContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("id-desc");
+  const [sortBy, setSortBy] = useState("added-desc");
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Persistence: Load settings on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("petrichor_library_settings");
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        if (settings.searchQuery !== undefined) setSearchQuery(settings.searchQuery);
+        if (settings.selectedStatuses !== undefined) setSelectedStatuses(settings.selectedStatuses);
+        if (settings.selectedTags !== undefined) setSelectedTags(settings.selectedTags);
+        if (settings.sortBy !== undefined) setSortBy(settings.sortBy);
+        if (settings.viewMode !== undefined) setViewMode(settings.viewMode);
+      } catch (err) {
+        console.error("Failed to parse saved settings", err);
+      }
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Persistence: Save settings on change
+  useEffect(() => {
+    if (!isInitialized) return;
+    const settings = { searchQuery, selectedStatuses, selectedTags, sortBy, viewMode };
+    localStorage.setItem("petrichor_library_settings", JSON.stringify(settings));
+  }, [searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, isInitialized]);
+
+  const resetSettings = useCallback(() => {
+    setSearchQuery("");
+    setSelectedStatuses([]);
+    setSelectedTags([]);
+    setSortBy("added-desc");
+    setViewMode("list");
+    localStorage.removeItem("petrichor_library_settings");
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -151,8 +186,13 @@ function LibraryContent() {
           onTagChange={setSelectedTags}
           onSortChange={setSortBy}
           onViewModeChange={setViewMode}
+          onReset={resetSettings}
           viewMode={viewMode}
           allTags={allTags}
+          searchQuery={searchQuery}
+          selectedStatuses={selectedStatuses}
+          selectedTags={selectedTags}
+          sortBy={sortBy}
         />
 
         {loading ? (

@@ -8,23 +8,29 @@ interface LibraryFiltersProps {
   onTagChange: (tags: string[]) => void;
   onSortChange: (sortBy: string) => void;
   onViewModeChange: (mode: 'list' | 'grid') => void;
+  onReset: () => void;
   viewMode: 'list' | 'grid';
   allTags: string[];
+  searchQuery: string;
+  selectedStatuses: string[];
+  selectedTags: string[];
+  sortBy: string;
 }
 
 export default function LibraryFilters({ 
-  onSearchChange, 
-  onStatusChange, 
-  onTagChange, 
+  onSearchChange,
+  onStatusChange,
+  onTagChange,
   onSortChange,
   onViewModeChange,
+  onReset,
   viewMode,
-  allTags
+  allTags,
+  searchQuery,
+  selectedStatuses: parentSelectedStatuses,
+  selectedTags: parentSelectedTags,
+  sortBy: parentSortBy
 }: LibraryFiltersProps) {
-  const [search, setSearch] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("added-desc"); // Default: Recently Added
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -44,23 +50,23 @@ export default function LibraryFilters({
     { label: "Year (Oldest)", value: "year-asc" },
   ];
 
-  const currentSortLabel = sortOptions.find(o => o.value === sortBy)?.label || "Sort";
+  const currentSortLabel = sortOptions.find(o => o.value === parentSortBy)?.label || "Sort";
 
   const handleStatusToggle = (status: string) => {
-    const newStatuses = selectedStatuses.includes(status)
-      ? selectedStatuses.filter(s => s !== status)
-      : [...selectedStatuses, status];
-    setSelectedStatuses(newStatuses);
+    const newStatuses = parentSelectedStatuses.includes(status)
+      ? parentSelectedStatuses.filter(s => s !== status)
+      : [...parentSelectedStatuses, status];
     onStatusChange(newStatuses);
   };
 
   const handleTagToggle = (tag: string) => {
-    const newTags = selectedTags.includes(tag)
-      ? selectedTags.filter(t => t !== tag)
-      : [...selectedTags, tag];
-    setSelectedTags(newTags);
+    const newTags = parentSelectedTags.includes(tag)
+      ? parentSelectedTags.filter(t => t !== tag)
+      : [...parentSelectedTags, tag];
     onTagChange(newTags);
   };
+  
+  const hasChanges = searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc" || viewMode !== "list";
 
   // Close sort dropdown on click outside
   useEffect(() => {
@@ -95,9 +101,8 @@ export default function LibraryFilters({
           <input 
             type="text"
             placeholder="Search title or author..."
-            value={search}
+            value={searchQuery}
             onChange={(e) => {
-              setSearch(e.target.value);
               onSearchChange(e.target.value);
             }}
             style={{
@@ -136,7 +141,7 @@ export default function LibraryFilters({
             onMouseEnter={(e) => e.currentTarget.style.color = 'var(--foreground)'}
             onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted)'}
           >
-            {currentSortLabel}
+          {currentSortLabel}
             <svg 
               style={{ transform: isSortOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
               xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -144,6 +149,31 @@ export default function LibraryFilters({
               <path d="m6 9 6 6 6-6"/>
             </svg>
           </button>
+          
+          {hasChanges && (
+            <button
+              onClick={onReset}
+              className="fade-in"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0.75rem 0.5rem',
+                color: 'var(--accent)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                opacity: 0.7,
+                transition: 'opacity 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+            >
+              Reset Filters
+            </button>
+          )}
 
           {isSortOpen && (
             <div style={{
@@ -168,19 +198,18 @@ export default function LibraryFilters({
                 <button
                   key={option.value}
                   onClick={() => {
-                    setSortBy(option.value);
                     onSortChange(option.value);
                     setIsSortOpen(false);
                   }}
                   style={{
                     padding: '0.6rem 0.75rem',
                     textAlign: 'left',
-                    background: sortBy === option.value ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                    background: parentSortBy === option.value ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
                     border: 'none',
                     borderRadius: '8px',
-                    color: sortBy === option.value ? 'var(--accent)' : 'var(--foreground)',
+                    color: parentSortBy === option.value ? 'var(--accent)' : 'var(--foreground)',
                     fontSize: '0.8rem',
-                    fontWeight: sortBy === option.value ? 600 : 500,
+                    fontWeight: parentSortBy === option.value ? 600 : 500,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease'
                   }}
@@ -257,9 +286,9 @@ export default function LibraryFilters({
               padding: '0.4rem 1rem',
               borderRadius: '20px',
               border: '1px solid',
-              borderColor: selectedStatuses.includes(status) ? 'var(--accent)' : 'var(--border)',
-              background: selectedStatuses.includes(status) ? 'var(--accent)' : 'transparent',
-              color: selectedStatuses.includes(status) ? 'var(--accent-foreground)' : 'var(--muted)',
+              borderColor: parentSelectedStatuses.includes(status) ? 'var(--accent)' : 'var(--border)',
+              background: parentSelectedStatuses.includes(status) ? 'var(--accent)' : 'transparent',
+              color: parentSelectedStatuses.includes(status) ? 'var(--accent-foreground)' : 'var(--muted)',
               fontSize: '0.75rem',
               fontWeight: 600,
               cursor: 'pointer',
@@ -320,9 +349,9 @@ export default function LibraryFilters({
                     padding: '0.3rem 0.75rem',
                     borderRadius: '8px',
                     border: '1px solid',
-                    borderColor: selectedTags.includes(tag) ? 'var(--accent)' : 'transparent',
-                    background: selectedTags.includes(tag) ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--muted-background)',
-                    color: selectedTags.includes(tag) ? 'var(--accent)' : 'var(--muted)',
+                    borderColor: parentSelectedTags.includes(tag) ? 'var(--accent)' : 'transparent',
+                    background: parentSelectedTags.includes(tag) ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--muted-background)',
+                    color: parentSelectedTags.includes(tag) ? 'var(--accent)' : 'var(--muted)',
                     fontSize: '0.7rem',
                     fontWeight: 500,
                     cursor: 'pointer',
