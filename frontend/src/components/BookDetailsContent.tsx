@@ -47,7 +47,7 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         </p>
       )}
 
-      {book.tags && book.tags.length > 0 ? (
+      {book.tags && book.tags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
           {book.tags.map(tag => (
             <span key={tag} style={{
@@ -65,8 +65,6 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
             </span>
           ))}
         </div>
-      ) : (
-        <p style={{ fontSize: '0.7rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '1.5rem', textAlign: 'center', opacity: 0.6 }}>No tag data available.</p>
       )}
 
       <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', justifyContent: 'center' }}>

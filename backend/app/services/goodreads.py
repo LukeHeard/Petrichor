@@ -167,31 +167,15 @@ class GoodreadsScraper:
             # Tags (Genres)
             tags = []
             genres_list = book_data.get("bookGenres", [])
-            logger.info(f"Found {len(genres_list)} genres in book_data for {gr_id}")
-            for genre_item in genres_list:
-                # genre_item could be a reference or a direct object
-                genre_obj = genre_item
-                if isinstance(genre_item, dict) and "__ref" in genre_item:
-                    genre_obj = apollo.get(genre_item["__ref"], {})
-                
-                # Inside the genre object, there might be a "genre" reference
-                genre_node_ref = genre_obj.get("genre", {})
-                if isinstance(genre_node_ref, dict) and "__ref" in genre_node_ref:
-                    genre_node = apollo.get(genre_node_ref["__ref"], {})
-                    genre_name = genre_node.get("name")
-                else:
-                    # Try direct name
-                    genre_name = genre_obj.get("name")
-
-                if genre_name:
-                    ignore_tags = {"to-read", "currently-reading", "read", "books-i-own", "favorites", "owned", "default", "adult", "book-club", "gave-up-on", "library", "audiobook", "abandoned"}
-                    if genre_name.lower() not in ignore_tags:
-                        tags.append(genre_name)
-                    else:
-                        logger.debug(f"Ignoring tag: {genre_name}")
-            
-            if not tags and genres_list:
-                logger.warning(f"No valid tags filtered from {len(genres_list)} genres for {gr_id}")
+            for genre_edge in genres_list:
+                genre_ref = genre_edge.get("genre", {}).get("__ref")
+                if genre_ref:
+                    genre_data = apollo.get(genre_ref, {})
+                    genre_name = genre_data.get("name")
+                    if genre_name:
+                        ignore_tags = {"to-read", "currently-reading", "read", "books-i-own", "favorites", "owned", "default", "adult", "book-club", "gave-up-on", "library", "audiobook", "abandoned"}
+                        if genre_name.lower() not in ignore_tags:
+                            tags.append(genre_name)
 
             # Year
             publish_year = 0
