@@ -10,6 +10,11 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# CJK detection helper
+def contains_cjk(text: str) -> bool:
+    # Matches Japanese (Hiragana, Katakana, Kanji)
+    return bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]', text))
+
 app = FastAPI(title="Petrichor API")
 
 # Setup CORS
@@ -46,7 +51,9 @@ def get_clean_tags(subjects: list[str], title: str = "") -> list[str]:
         "Redemption", "Quest", "Journey", "Hero", "Villain", "Antihero", "Chosen One", "Secret Identity",
         "Class Struggle", "Social Classes", "Caste System", "Revolution", "Resistance", "Conflict", "Society",
         "Existential", "Cosmic", "Love", "Obsession", "Family", "Friendship", "Tragedy", "Comedy", "Dark",
-        "Cozy", "Atmospheric", "Noir", "Surreal", "Absurdist", "Classic", "Modernist", "Postmodern", "Ecology"
+        "Cozy", "Atmospheric", "Noir", "Surreal", "Absurdist", "Classic", "Modernist", "Postmodern", "Ecology",
+        # Media types
+        "Manga", "Graphic Novel", "Comics", "Manhua", "Manhwa", "Slice Of Life"
     }
 
     # 2. Strict Blacklist for Places/Entities
@@ -108,32 +115,32 @@ def read_root():
 async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     
-    # 1. Enrich with description if missing and OLID exists
+    # 1. Enrich with description and tags if missing
     description = work.description or ""
-    if not description and work.openlibrary_id:
+    if not description and (work.openlibrary_id or work.isbn or work.google_books_id):
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
-                # OLID can be /works/OL... or just OL...
-                olid = work.openlibrary_id.replace("/works/", "")
-                res = await client.get(f"https://openlibrary.org/works/{olid}.json")
-                if res.is_success:
-                    data = res.json()
-                    desc_data = data.get("description", "")
-                    if isinstance(desc_data, dict):
-                        description = desc_data.get("value", "")
-                    else:
-                        description = desc_data
+            identifier = work.isbn or work.openlibrary_id or work.google_books_id
+            enriched = await enrich_work(identifier)
+            description = enriched.get("description", "")
+            # Also update tags if empty
+            if not work.tags:
+                work.tags = enriched.get("tags", [])
+            # Update IDs if found
+            if not work.openlibrary_id: work.openlibrary_id = enriched.get("openlibrary_id")
+            if not work.isbn: work.isbn = enriched.get("isbn")
         except Exception as e:
-            logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
+            logger.warning(f"Enrichment failed in create_work for {work.title}: {e}")
 
     try:
         # 1. Create Work node
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
+        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, google_books_id: $gbooks, isbn: $isbn, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
                 "title": work.title, 
                 "openlib": work.openlibrary_id or "", 
+                "gbooks": work.google_books_id or "",
+                "isbn": work.isbn or "",
                 "year": work.first_publish_year or 0,
                 "description_text": description,
                 "pages": work.page_count or 0,
@@ -174,7 +181,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # 1. Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at, w.google_books_id, w.isbn")
         works = []
         while result.has_next():
             row = result.get_next()
@@ -193,6 +200,8 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "review": row[11],
                 "personal_notes": row[12],
                 "created_at": row[13],
+                "google_books_id": row[14],
+                "isbn": row[15],
                 "tags": []
             })
 
@@ -219,7 +228,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at, w.google_books_id, w.isbn", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
@@ -227,27 +236,33 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         # Self-healing: If description is missing, try to fetch it now and save it
         stored_desc = row[4]
         olid = row[2]
-        if not stored_desc and olid:
+        gbooks_id = row[13]
+        isbn = row[14]
+
+        if not stored_desc and (olid or isbn or gbooks_id):
             logger.info(f"Self-healing: Fetching missing description for {row[1]}")
             try:
-                enriched = await enrich_work(olid)
+                # Use whatever identifier we have
+                enriched = await enrich_work(isbn or olid or gbooks_id)
                 new_desc = enriched.get("description", "")
                 if new_desc:
                     conn.execute("MATCH (w:Work) WHERE w.id = $id SET w.description = $desc", {"id": work_id, "desc": new_desc})
                     stored_desc = new_desc
             except Exception as e:
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
- 
+  
         # Fetch tags
         tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
         tags = []
         while tag_result.has_next():
             tags.append(tag_result.get_next()[0])
- 
+  
         return {
             "id": row[0], 
             "title": row[1], 
             "openlibrary_id": olid, 
+            "google_books_id": gbooks_id,
+            "isbn": isbn,
             "first_publish_year": row[3],
             "description": stored_desc,
             "page_count": row[5],
@@ -314,39 +329,79 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/enrich/{olid:path}")
-async def enrich_work(olid: str):
-    """Fetch deep metadata (description, etc.) for a specific OLID without saving it."""
+@app.get("/enrich/{identifier:path}")
+async def enrich_work(identifier: str):
+    """Fetch deep metadata (description, tags) from both Google Books and OpenLibrary."""
     headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
+    
+    # Identify what we have
+    isbn = identifier if len(identifier) in [10, 13] and identifier.isdigit() else None
+    olid = identifier if identifier.startswith("OL") else None
+    gbooks_id = identifier if not olid and not isbn else identifier
+    
+    description = ""
+    tags = []
+    olid_found = olid
+    isbn_found = isbn
+
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=15.0) as client:
+        # 1. Try Google Books for clean English description and ISBN
         try:
-            # Clean OLID
-            clean_olid = olid.replace("/works/", "")
-            res = await client.get(f"https://openlibrary.org/works/{clean_olid}.json")
-            if not res.is_success:
-                raise HTTPException(status_code=404, detail="Work not found in OpenLibrary")
+            gb_url = ""
+            if isbn: gb_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+            elif gbooks_id: gb_url = f"https://www.googleapis.com/books/v1/volumes/{gbooks_id}"
             
-            
-            data = res.json()
-            description = ""
-            desc_data = data.get("description", "")
-            if isinstance(desc_data, dict):
-                description = desc_data.get("value", "")
-            else:
-                description = desc_data
-            
-            # Extract tags from subjects
-            subjects = data.get("subjects", [])
-            tags = get_clean_tags(subjects, data.get("title", ""))
-                
-            return {
-                "openlibrary_id": olid,
-                "description": description,
-                "tags": tags
-            }
+            if gb_url:
+                res = await client.get(gb_url)
+                if res.is_success:
+                    data = res.json()
+                    item = data if "volumeInfo" in data else (data.get("items", [{}])[0])
+                    info = item.get("volumeInfo", {})
+                    if info:
+                        description = info.get("description", "")
+                        # Try to extract ISBN if we don't have it
+                        if not isbn_found:
+                            ids = info.get("industryIdentifiers", [])
+                            for id_obj in ids:
+                                if id_obj["type"] == "ISBN_13": isbn_found = id_obj["identifier"]
         except Exception as e:
-            logger.error(f"Enrichment error for {olid}: {e}")
-            raise HTTPException(status_code=502, detail="Failed to fetch details from OpenLibrary")
+            logger.warning(f"Google Books enrichment failed for {identifier}: {e}")
+
+        # 2. Try OpenLibrary for ISBN/OLID mapping and tags
+        try:
+            # If we only have an ISBN, find the OLID first
+            if isbn_found and not olid_found:
+                ol_lookup = await client.get(f"https://openlibrary.org/api/volumes/brief/isbn/{isbn_found}.json")
+                if ol_lookup.is_success:
+                    ol_data = ol_lookup.json()
+                    # OL returns a complex structure, try to find records
+                    records = ol_data.get("records", {})
+                    if records:
+                        first_record = list(records.values())[0]
+                        olid_found = first_record.get("work_key", "").replace("/works/", "")
+
+            # Now fetch the Work details for tags
+            if olid_found:
+                res = await client.get(f"https://openlibrary.org/works/{olid_found}.json")
+                if res.is_success:
+                    data = res.json()
+                    if not description:
+                        # Fallback description from OL
+                        desc_data = data.get("description", "")
+                        description = desc_data.get("value", desc_data) if isinstance(desc_data, dict) else desc_data
+                    
+                    subjects = data.get("subjects", [])
+                    tags = get_clean_tags(subjects, data.get("title", ""))
+        except Exception as e:
+            logger.warning(f"OpenLibrary enrichment failed for {identifier}: {e}")
+
+    return {
+        "openlibrary_id": olid_found,
+        "google_books_id": gbooks_id,
+        "isbn": isbn_found,
+        "description": description,
+        "tags": tags
+    }
 
 @app.delete("/works/{work_id}")
 def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
@@ -436,35 +491,54 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
 
 @app.get("/search")
 async def search_works(q: str = Query(..., min_length=1)):
-    # Standardize our request to OpenLibrary per their API guidelines
-    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
-    
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
+    """Search Google Books for high-quality English metadata."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
+            # We prefer English results
             response = await client.get(
-                "https://openlibrary.org/search.json",
-                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
+                "https://www.googleapis.com/books/v1/volumes",
+                params={"q": q, "maxResults": "10", "langRestrict": "en"}
             )
             response.raise_for_status()
             data = response.json()
             results = []
-            for doc in data.get("docs", []):
-                authors = doc.get("author_name", [])
-                primary_author = authors[0] if authors else ""
+            
+            for item in data.get("items", []):
+                info = item.get("volumeInfo", {})
+                authors = info.get("authors", [])
+                primary_author = authors[0] if authors else "Unknown Author"
+                
+                # Extract ISBN_13 if possible
+                isbn = ""
+                ids = info.get("industryIdentifiers", [])
+                for id_obj in ids:
+                    if id_obj["type"] == "ISBN_13":
+                        isbn = id_obj["identifier"]
+                        break
+                if not isbn and ids:
+                    isbn = ids[0]["identifier"]
+
+                # We don't have deep tags yet, but we can use categories as a start
+                categories = info.get("categories", [])
+                tags = get_clean_tags(categories, info.get("title", ""))
+
                 results.append({
-                    "title": doc.get("title", "Unknown Title"),
+                    "title": info.get("title", "Unknown Title"),
                     "author": primary_author,
-                    "first_publish_year": doc.get("first_publish_year"),
-                    "openlibrary_id": doc.get("key"),
-                    "page_count": doc.get("number_of_pages_median"),
-                    "rating_average": doc.get("ratings_average"),
-                    "rating_count": doc.get("ratings_count"),
-                    "tags": get_clean_tags(doc.get("subject", []), doc.get("title", ""))
+                    "first_publish_year": int(info.get("publishedDate", "0")[:4]) if info.get("publishedDate") else None,
+                    "google_books_id": item.get("id"),
+                    "isbn": isbn,
+                    "openlibrary_id": None, # Will be resolved during preview/enrich
+                    "page_count": info.get("pageCount"),
+                    "rating_average": info.get("averageRating"),
+                    "rating_count": info.get("ratingsCount"),
+                    "tags": tags,
+                    "is_cjk": contains_cjk(info.get("title", ""))
                 })
+            
+            # Sort to put English (Non-CJK) titles first
+            results.sort(key=lambda x: x["is_cjk"])
             return results
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"HTTPStatusError from OpenLibrary: {exc.response.status_code} - {exc.response.text}")
-            raise HTTPException(status_code=502, detail=f"OpenLibrary API returned error: {exc.response.status_code}")
         except Exception as e:
-            logger.exception(f"Unexpected error fetching from OpenLibrary: {e}")
+            logger.exception(f"Unexpected error fetching from Google Books: {e}")
             raise HTTPException(status_code=502, detail=f"External API error: {str(e)}")

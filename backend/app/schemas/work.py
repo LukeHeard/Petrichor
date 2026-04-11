@@ -4,6 +4,8 @@ from typing import Optional, List
 class WorkBase(BaseModel):
     title: str
     openlibrary_id: Optional[str] = None
+    google_books_id: Optional[str] = None
+    isbn: Optional[str] = None
     first_publish_year: Optional[int] = None
     description: Optional[str] = None
     page_count: Optional[int] = None
@@ -54,6 +56,8 @@ class SearchResult(BaseModel):
     author: str
     first_publish_year: Optional[int] = None
     openlibrary_id: Optional[str] = None
+    google_books_id: Optional[str] = None
+    isbn: Optional[str] = None
     tags: List[str] = []
     page_count: Optional[int] = None
     rating_average: Optional[float] = None
