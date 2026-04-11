@@ -221,10 +221,11 @@ function LibraryContent() {
           </div>
         ) : (
           <div className="library-grid">
-            {filteredAndSortedWorks.map((work) => (
+            {filteredAndSortedWorks.map((work, index) => (
               <BookCard 
                 key={work.id}
                 id={work.id}
+                index={index}
                 title={work.title}
                 author={work.author}
                 thumbnail_url={work.thumbnail_url}

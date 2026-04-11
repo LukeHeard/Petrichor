@@ -12,9 +12,10 @@ interface BookCardProps {
   status?: string;
   page_count?: number;
   current_page?: number;
+  index: number;
 }
 
-export default function BookCard({ id, title, thumbnail_url, author, status, page_count = 0, current_page = 0 }: BookCardProps) {
+export default function BookCard({ id, title, thumbnail_url, author, status, page_count = 0, current_page = 0, index }: BookCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -26,7 +27,11 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
   };
 
   return (
-    <div className="book-card" onClick={handleClick}>
+    <div 
+      className="book-card fade-in-up" 
+      onClick={handleClick}
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
       <div className="book-card-cover">
         {thumbnail_url ? (
           <Image
