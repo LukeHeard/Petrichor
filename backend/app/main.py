@@ -121,50 +121,6 @@ def pick_best_metadata(primary: str, alternatives: list[str]) -> str:
             return alt
     return primary
 
-def calculate_search_score(q: str, title: str, author: str, subjects: list[str], rating_count: int = 0) -> float:
-    """Calculate a relevance score for a search result."""
-    q_low = q.lower()
-    q_tokens = set(re.findall(r'\w+', q_low))
-    if not q_tokens: return 0.0
-    
-    title_low = title.lower()
-    author_low = author.lower()
-    
-    score = 0.0
-    
-    # 1. Title Matches (High Weight)
-    title_tokens = set(re.findall(r'\w+', title_low))
-    title_matches = q_tokens.intersection(title_tokens)
-    score += len(title_matches) * 10.0
-    
-    # Exact phrase in title bonus
-    if q_low in title_low:
-        score += 20.0
-        
-    # 2. Author Matches (Medium-High Weight)
-    author_tokens = set(re.findall(r'\w+', author_low))
-    author_matches = q_tokens.intersection(author_tokens)
-    score += len(author_matches) * 8.0
-    
-    # 3. Subject/Series Matches (Medium Weight)
-    # We check if query tokens appear in any subject string
-    subject_match_count = 0
-    for s in subjects:
-        s_low = s.lower()
-        s_tokens = set(re.findall(r'\w+', s_low))
-        if q_tokens.intersection(s_tokens):
-            subject_match_count += 1
-            if q_low in s_low: # Extra bonus for phrase match in subject (e.g. franchise name)
-                score += 5.0
-    
-    score += min(subject_match_count, 5) * 3.0
-    
-    # 4. Popularity Tie-breaker
-    # Add a tiny fraction of rating count to help rank established works higher among equals
-    score += min(rating_count / 1000.0, 1.0)
-    
-    return score
-
 @app.get("/")
 def read_root():
     return {"message": "Petrichor Personal Library API"}
@@ -535,17 +491,17 @@ async def search_works(q: str = Query(..., min_length=1)):
                 "https://openlibrary.org/search.json",
                 params={
                     "q": q, 
-                    "limit": "50",  # Fetch more for local scoring
+                    "limit": "10", 
                     "fields": "key,title,author_name,author_alternative_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject,editions"
                 }
             )
             response.raise_for_status()
             data = response.json()
-            scored_results = []
+            results = []
             for doc in data.get("docs", []):
                 # 1. Author picking
                 authors = doc.get("author_name", [])
-                primary_author = authors[0] if authors else "Unknown Author"
+                primary_author = authors[0] if authors else ""
                 alt_authors = doc.get("author_alternative_name", [])
                 author = pick_best_metadata(primary_author, alt_authors)
 
@@ -555,33 +511,17 @@ async def search_works(q: str = Query(..., min_length=1)):
                 edition_titles = [e.get("title") for e in editions_docs if e.get("title")]
                 final_title = pick_best_metadata(title, edition_titles)
 
-                # 3. Scoring
-                subjects = doc.get("subject", [])
-                rating_cnt = doc.get("ratings_count") or 0
-                score = calculate_search_score(q, final_title, author, subjects, rating_cnt)
-                
-                # Filter: If no tokens match title, author, or subjects, we likely don't want it
-                # Unless the query is very short
-                if score <= 0 and len(q) > 3:
-                    continue
-
-                scored_results.append({
+                results.append({
                     "title": final_title,
                     "author": author,
                     "first_publish_year": doc.get("first_publish_year"),
                     "openlibrary_id": doc.get("key"),
                     "page_count": doc.get("number_of_pages_median"),
                     "rating_average": doc.get("ratings_average"),
-                    "rating_count": rating_cnt,
-                    "tags": get_clean_tags(subjects, final_title),
-                    "score": score
+                    "rating_count": doc.get("ratings_count"),
+                    "tags": get_clean_tags(doc.get("subject", []), final_title)
                 })
-            
-            # Sort by score descending, then by rating count for popularity tie-break
-            scored_results.sort(key=lambda x: (x["score"], x["rating_count"]), reverse=True)
-            
-            # Return top 12
-            return scored_results[:12]
+            return results
         except httpx.HTTPStatusError as exc:
             logger.error(f"HTTPStatusError from OpenLibrary: {exc.response.status_code} - {exc.response.text}")
             raise HTTPException(status_code=502, detail=f"OpenLibrary API returned error: {exc.response.status_code}")
