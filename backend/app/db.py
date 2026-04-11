@@ -24,7 +24,7 @@ class DatabaseManager:
 
             # Node Tables
             node_tables = {
-                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, google_books_id STRING, isbn STRING, first_publish_year INT64, description STRING, page_count INT64, rating_average DOUBLE, rating_count INT64, personal_rating DOUBLE, status STRING, review STRING, personal_notes STRING, created_at INT64, PRIMARY KEY(id))",
+                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, openlibrary_id STRING, first_publish_year INT64, description STRING, page_count INT64, rating_average DOUBLE, rating_count INT64, personal_rating DOUBLE, status STRING, review STRING, personal_notes STRING, created_at INT64, PRIMARY KEY(id))",
                 "Tag": "CREATE NODE TABLE Tag(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
@@ -60,8 +60,6 @@ class DatabaseManager:
                 cols.append(row[1]) # Index 1 is the 'name' column
             
             new_cols = {
-                "google_books_id": "STRING",
-                "isbn": "STRING",
                 "description": "STRING",
                 "page_count": "INT64",
                 "rating_average": "DOUBLE",

@@ -14,8 +14,6 @@ interface SearchResult {
   author: string;
   first_publish_year?: number;
   openlibrary_id?: string;
-  google_books_id?: string;
-  isbn?: string;
   description?: string;
   page_count?: number;
   rating_average?: number;
@@ -28,7 +26,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
-  const [existingExternalIds, setExistingExternalIds] = useState<Set<string>>(new Set());
+  const [existingOlids, setExistingOlids] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
   const [previewWork, setPreviewWork] = useState<any | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -39,13 +37,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`);
       if (res.ok) {
         const data = await res.json();
-        const ids = new Set();
-        data.forEach((w: any) => {
-          if (w.openlibrary_id) ids.add(w.openlibrary_id);
-          if (w.isbn) ids.add(w.isbn);
-          if (w.google_books_id) ids.add(w.google_books_id);
-        });
-        setExistingExternalIds(ids as Set<string>);
+        const ids = new Set(data.map((w: any) => w.openlibrary_id).filter(Boolean));
+        setExistingOlids(ids as Set<string>);
       }
     } catch (err) {
       console.error("Failed to fetch existing library IDs", err);
@@ -88,20 +81,12 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
     }, 5000);
 
     try {
-      const identifier = result.isbn || result.google_books_id || result.openlibrary_id;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(identifier || "")}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.openlibrary_id || "")}`);
       clearTimeout(timer);
       
       if (res.ok) {
         const data = await res.json();
-        setPreviewWork({ 
-          ...result, 
-          description: data.description, 
-          tags: data.tags || result.tags,
-          openlibrary_id: data.openlibrary_id || result.openlibrary_id,
-          isbn: data.isbn || result.isbn,
-          google_books_id: data.google_books_id || result.google_books_id
-        });
+        setPreviewWork({ ...result, description: data.description, tags: data.tags || result.tags });
       } else {
         // Fallback if enrichment fails
         setPreviewWork({ ...result, description: "Description currently unavailable." });
@@ -137,8 +122,6 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         body: JSON.stringify({ 
           title: result.title, 
           openlibrary_id: result.openlibrary_id || null,
-          google_books_id: result.google_books_id || null,
-          isbn: result.isbn || null,
           first_publish_year: result.first_publish_year || 0,
           description: result.description || "",
           page_count: result.page_count || 0,
@@ -249,9 +232,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
                         {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
                       </p>
                     </div>
-                    {(res.isbn && existingExternalIds.has(res.isbn)) || 
-                     (res.openlibrary_id && existingExternalIds.has(res.openlibrary_id)) ||
-                     (res.google_books_id && existingExternalIds.has(res.google_books_id)) ? (
+                    {res.openlibrary_id && existingOlids.has(res.openlibrary_id) ? (
                       <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem', border: '1px solid transparent' }}>
                         In Library
                       </span>
@@ -278,9 +259,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
                 book={previewWork} 
                 actions={
                   <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
-                    {(previewWork.isbn && existingExternalIds.has(previewWork.isbn)) ||
-                     (previewWork.openlibrary_id && existingExternalIds.has(previewWork.openlibrary_id)) ||
-                     (previewWork.google_books_id && existingExternalIds.has(previewWork.google_books_id)) ? (
+                    {previewWork.openlibrary_id && existingOlids.has(previewWork.openlibrary_id) ? (
                       <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>Already in Library</p>
                     ) : (
                       <button 
