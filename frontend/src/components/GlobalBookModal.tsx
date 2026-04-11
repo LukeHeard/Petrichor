@@ -313,92 +313,62 @@ export default function GlobalBookModal() {
                             Edit Details
                           </button>
 
-                          {!isDeleting ? (
-                            <button
-                              onClick={() => setIsDeleting(true)}
-                              style={{
-                                background: 'none',
-                                border: '1px solid var(--border)',
-                                color: 'var(--muted)',
-                                padding: '0.5rem 1.25rem',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                transition: 'all 0.2s ease',
-                                fontFamily: 'var(--font-sans)',
-                                letterSpacing: '0.02em',
-                                opacity: 0.6
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.color = '#ff4444';
-                                e.currentTarget.style.borderColor = 'color-mix(in srgb, #ff4444 30%, transparent)';
-                                e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 5%, transparent)';
-                                e.currentTarget.style.opacity = '1';
-                              }}
-                              onMouseLeave={(e) => {
+                          <button
+                            onClick={async () => {
+                              if (!isDeleting) {
+                                setIsDeleting(true);
+                                return;
+                              }
+                              try {
+                                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
+                                if (res.ok) {
+                                  window.dispatchEvent(new Event("petrichor:workAdded"));
+                                  closeModal();
+                                }
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isDeleting) {
                                 e.currentTarget.style.color = 'var(--muted)';
                                 e.currentTarget.style.borderColor = 'var(--border)';
                                 e.currentTarget.style.backgroundColor = 'transparent';
                                 e.currentTarget.style.opacity = '0.6';
-                              }}
-                            >
-                              Remove from Library
-                            </button>
-                          ) : (
-                            <div style={{
+                              } else {
+                                setIsDeleting(false);
+                              }
+                            }}
+                            style={{
+                              background: isDeleting ? 'color-mix(in srgb, #ff4444 10%, transparent)' : 'none',
+                              border: '1px solid var(--border)',
+                              borderColor: isDeleting ? 'color-mix(in srgb, #ff4444 40%, transparent)' : 'var(--border)',
+                              color: isDeleting ? '#ff4444' : 'var(--muted)',
+                              padding: '0.5rem 1.25rem',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
                               display: 'flex',
-                              flexDirection: 'column',
                               alignItems: 'center',
-                              gap: '1rem',
-                              padding: '1.5rem',
-                              backgroundColor: 'color-mix(in srgb, #ff4444 5%, transparent)',
-                              borderRadius: '8px',
-                              border: '1px solid color-mix(in srgb, #ff4444 20%, transparent)',
-                              width: '100%',
-                              animation: 'fadeInUp 0.3s ease'
-                            }}>
-                              <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--foreground)' }}>Remove this work from library?</p>
-                              <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
-                                <button
-                                  onClick={() => setIsDeleting(false)}
-                                  className="btn-ghost"
-                                  style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem' }}
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
-                                      if (res.ok) {
-                                        window.dispatchEvent(new Event("petrichor:workAdded"));
-                                        closeModal();
-                                        setIsDeleting(false);
-                                      }
-                                    } catch (err) {
-                                      console.error(err);
-                                    }
-                                  }}
-                                  style={{
-                                    flex: 1,
-                                    padding: '0.5rem',
-                                    fontSize: '0.85rem',
-                                    backgroundColor: '#b91c1c',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  Yes, Remove
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                              gap: '0.5rem',
+                              transition: 'all 0.2s ease',
+                              fontFamily: 'var(--font-sans)',
+                              letterSpacing: '0.02em',
+                              opacity: isDeleting ? 1 : 0.6,
+                              minWidth: '160px', // Slightly wider to ensure "Remove from Library" fits
+                              justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isDeleting) {
+                                e.currentTarget.style.color = '#ff4444';
+                                e.currentTarget.style.borderColor = 'color-mix(in srgb, #ff4444 30%, transparent)';
+                                e.currentTarget.style.backgroundColor = 'color-mix(in srgb, #ff4444 5%, transparent)';
+                                e.currentTarget.style.opacity = '1';
+                              }
+                            }}
+                          >
+                            {isDeleting ? "Confirm?" : "Remove from Library"}
+                          </button>
                         </div>
                       </div>
                     }
