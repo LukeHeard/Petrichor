@@ -66,7 +66,7 @@ export default function LibraryFilters({
     onTagChange(newTags);
   };
   
-  const hasChanges = searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc" || viewMode !== "list";
+  const hasChanges = searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc";
 
   // Close sort dropdown on click outside
   useEffect(() => {
@@ -250,30 +250,33 @@ export default function LibraryFilters({
           </button>
         </div>
 
-        {hasChanges && (
-            <button
-              onClick={onReset}
-              className="fade-in"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '0.25rem 0.5rem',
-                color: 'var(--accent)',
-                fontSize: '0.65rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                opacity: 0.5,
-                transition: 'opacity 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
-            >
-            Reset Filters
-          </button>
-        )}
+        <button
+          onClick={onReset}
+          disabled={!hasChanges}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '0.25rem 0.5rem',
+            color: hasChanges ? 'var(--accent)' : 'var(--muted)',
+            fontSize: '0.65rem',
+            fontWeight: 800,
+            cursor: hasChanges ? 'pointer' : 'default',
+            fontFamily: 'var(--font-sans)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            opacity: hasChanges ? 0.7 : 0.3,
+            transition: 'all 0.2s ease',
+            marginTop: '0.1rem'
+          }}
+          onMouseEnter={(e) => {
+            if (hasChanges) e.currentTarget.style.opacity = '1';
+          }}
+          onMouseLeave={(e) => {
+            if (hasChanges) e.currentTarget.style.opacity = '0.7';
+          }}
+        >
+          Reset Filters
+        </button>
       </div>
     </div>
 
