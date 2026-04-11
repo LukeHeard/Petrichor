@@ -84,7 +84,8 @@ export default function LibraryFilters({
   }, []);
 
   return (
-    <div className="fade-in-up" style={{ 
+    <>
+      <div className="fade-in-up" style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       gap: '1.25rem', 
@@ -264,6 +265,7 @@ export default function LibraryFilters({
             <button
               onClick={onReset}
               disabled={!hasChanges}
+              suppressHydrationWarning
               style={{
                 background: 'none',
                 border: 'none',
@@ -284,19 +286,11 @@ export default function LibraryFilters({
               onMouseLeave={(e) => {
                 if (hasChanges) e.currentTarget.style.opacity = '0.7';
               }}
-            >
-              Reset Filters
-            </button>
+            ><span>Reset Filters</span></button>
           </div>
         </div>
     </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .sort-option-hover:hover {
-          background: color-mix(in srgb, var(--muted) 10%, transparent) !important;
-          padding-left: 1rem !important;
-        }
-      `}} />
 
       {/* Status Filter */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -388,5 +382,12 @@ export default function LibraryFilters({
         </div>
       )}
     </div>
+    <style dangerouslySetInnerHTML={{ __html: `
+      .sort-option-hover:hover {
+        background: color-mix(in srgb, var(--muted) 10%, transparent) !important;
+        padding-left: 1rem !important;
+      }
+    `}} />
+    </>
   );
 }
