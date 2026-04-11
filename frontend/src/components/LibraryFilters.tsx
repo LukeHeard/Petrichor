@@ -7,6 +7,8 @@ interface LibraryFiltersProps {
   onStatusChange: (statuses: string[]) => void;
   onTagChange: (tags: string[]) => void;
   onSortChange: (sortBy: string) => void;
+  onViewModeChange: (mode: 'list' | 'grid') => void;
+  viewMode: 'list' | 'grid';
   allTags: string[];
 }
 
@@ -15,6 +17,8 @@ export default function LibraryFilters({
   onStatusChange, 
   onTagChange, 
   onSortChange,
+  onViewModeChange,
+  viewMode,
   allTags
 }: LibraryFiltersProps) {
   const [search, setSearch] = useState("");
@@ -187,6 +191,52 @@ export default function LibraryFilters({
               ))}
             </div>
           )}
+        </div>
+        
+        {/* View Toggle */}
+        <div style={{ 
+          display: 'flex', 
+          background: 'var(--muted-background)', 
+          padding: '0.2rem', 
+          borderRadius: '8px',
+          marginLeft: 'auto'
+        }}>
+          <button
+            onClick={() => onViewModeChange('list')}
+            style={{
+              padding: '0.4rem 0.6rem',
+              border: 'none',
+              background: viewMode === 'list' ? 'var(--background)' : 'transparent',
+              color: viewMode === 'list' ? 'var(--accent)' : 'var(--muted)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+            title="List View"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <button
+            onClick={() => onViewModeChange('grid')}
+            style={{
+              padding: '0.4rem 0.6rem',
+              border: 'none',
+              background: viewMode === 'grid' ? 'var(--background)' : 'transparent',
+              color: viewMode === 'grid' ? 'var(--accent)' : 'var(--muted)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              boxShadow: viewMode === 'grid' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+            title="Grid View"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+          </button>
         </div>
       </div>
 

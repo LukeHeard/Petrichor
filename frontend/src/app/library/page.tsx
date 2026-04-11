@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useMemo } from "react";
 import LibraryItem from "@/components/LibraryItem";
+import BookCard from "@/components/BookCard";
 import LibraryFilters from "@/components/LibraryFilters";
 
 interface Work {
@@ -29,6 +30,7 @@ function LibraryContent() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("id-desc");
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -148,6 +150,8 @@ function LibraryContent() {
           onStatusChange={setSelectedStatuses}
           onTagChange={setSelectedTags}
           onSortChange={setSortBy}
+          onViewModeChange={setViewMode}
+          viewMode={viewMode}
           allTags={allTags}
         />
 
@@ -159,7 +163,7 @@ function LibraryContent() {
           <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
             <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>No books matching your filters.</p>
           </div>
-        ) : (
+        ) : viewMode === 'list' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {filteredAndSortedWorks.map((work, index) => (
               <LibraryItem 
@@ -170,6 +174,21 @@ function LibraryContent() {
                 author={work.author}
                 first_publish_year={work.first_publish_year}
                 personal_rating={work.personal_rating}
+                status={work.status}
+                page_count={work.page_count}
+                current_page={work.current_page}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="library-grid">
+            {filteredAndSortedWorks.map((work) => (
+              <BookCard 
+                key={work.id}
+                id={work.id}
+                title={work.title}
+                author={work.author}
+                thumbnail_url={work.thumbnail_url}
                 status={work.status}
                 page_count={work.page_count}
                 current_page={work.current_page}
