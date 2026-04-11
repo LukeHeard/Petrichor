@@ -111,6 +111,44 @@ def parse_gb_year(published_date: str) -> int:
     match = re.search(r'\d{4}', published_date)
     return int(match.group(0)) if match else 0
 
+async def get_best_match(title: str, author: str):
+    """Search for other editions to find better ratings or descriptions."""
+    params = {
+        "q": f'intitle:"{title}" inauthor:"{author}"',
+        "maxResults": 10,
+        "printType": "books",
+    }
+    if GOOGLE_BOOKS_API_KEY:
+        params["key"] = GOOGLE_BOOKS_API_KEY
+        
+    async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+        try:
+            res = await client.get(GOOGLE_BOOKS_BASE_URL, params=params)
+            if res.is_success:
+                data = res.json()
+                items = data.get("items", [])
+                
+                # Sort by ratingsCount descending
+                items_with_ratings = [i for i in items if i.get("volumeInfo", {}).get("ratingsCount")]
+                best_rating_item = None
+                if items_with_ratings:
+                    best_rating_item = max(items_with_ratings, key=lambda i: i.get("volumeInfo", {}).get("ratingsCount", 0))
+                
+                # Sort by description length descending
+                best_desc_item = None
+                items_with_desc = [i for i in items if i.get("volumeInfo", {}).get("description")]
+                if items_with_desc:
+                    best_desc_item = max(items_with_desc, key=lambda i: len(i.get("volumeInfo", {}).get("description", "")))
+                
+                return {
+                    "rating_average": best_rating_item.get("volumeInfo", {}).get("averageRating") if best_rating_item else None,
+                    "rating_count": best_rating_item.get("volumeInfo", {}).get("ratingsCount") if best_rating_item else None,
+                    "description": best_desc_item.get("volumeInfo", {}).get("description") if best_desc_item else None
+                }
+        except Exception as e:
+            logger.warning(f"Best match fallback failed: {e}")
+    return {}
+
 @app.get("/")
 def read_root():
     return {"message": "Petrichor Personal Library API"}
@@ -122,11 +160,16 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
     # 1. Enrich with description if missing and GB ID exists
     description = work.description or ""
     thumbnail = work.thumbnail_url or ""
-    if (not description or not thumbnail) and work.google_books_id:
+    rating_avg = work.rating_average or 0.0
+    rating_cnt = work.rating_count or 0
+    if (not description or not thumbnail or not rating_avg) and work.google_books_id:
         try:
             enriched = await enrich_work(work.google_books_id)
             description = description or enriched.get("description", "")
             thumbnail = thumbnail or enriched.get("thumbnail_url", "")
+            if not rating_avg:
+                rating_avg = enriched.get("rating_average") or 0.0
+                rating_cnt = enriched.get("rating_count") or 0
         except Exception as e:
             logger.warning(f"Failed to fetch enrichment for {work.google_books_id}: {e}")
 
@@ -142,8 +185,8 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 "year": work.first_publish_year or 0,
                 "description_text": description,
                 "pages": work.page_count or 0,
-                "rating_avg": work.rating_average or 0.0,
-                "rating_cnt": work.rating_count or 0,
+                "rating_avg": rating_avg,
+                "rating_cnt": rating_cnt,
                 "pers_rating": work.personal_rating or 0.0,
                 "status": work.status or "Owned",
                 "review": work.review or "",
@@ -230,11 +273,12 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
         
-        # Self-healing: If description or thumb is missing, try to fetch it now and save it
+        # Self-healing: If description, thumb, or rating is missing, try to fetch it now and save it
         stored_desc = row[5]
         stored_thumb = row[3]
+        stored_rating = row[7]
         gb_id = row[2]
-        if (not stored_desc or not stored_thumb) and gb_id:
+        if (not stored_desc or not stored_thumb or not stored_rating) and gb_id:
             logger.info(f"Self-healing: Fetching missing metadata for {row[1]}")
             try:
                 enriched = await enrich_work(gb_id)
@@ -248,6 +292,12 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
                     updates.append("w.thumbnail_url = $thumb")
                     params["thumb"] = enriched["thumbnail_url"]
                     stored_thumb = enriched["thumbnail_url"]
+                if not stored_rating and enriched.get("rating_average"):
+                    updates.append("w.rating_average = $r_avg")
+                    updates.append("w.rating_count = $r_cnt")
+                    params["r_avg"] = enriched["rating_average"]
+                    params["r_cnt"] = enriched["rating_count"]
+                    stored_rating = enriched["rating_average"]
                 
                 if updates:
                     conn.execute(f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(updates)}", params)
@@ -345,6 +395,18 @@ async def enrich_work(gb_id: str):
             vinfo = data.get("volumeInfo", {})
             
             description = vinfo.get("description", "")
+            rating_avg = vinfo.get("averageRating")
+            rating_cnt = vinfo.get("ratingsCount")
+            
+            # Fallback if rating or description is missing
+            if (not rating_avg or not description) and vinfo.get("title"):
+                fallback = await get_best_match(vinfo.get("title"), vinfo.get("authors", [""])[0])
+                if not rating_avg:
+                    rating_avg = fallback.get("rating_average")
+                    rating_cnt = fallback.get("rating_count")
+                if not description:
+                    description = fallback.get("description", "")
+
             # Extract thumbnail
             thumbnail = vinfo.get("imageLinks", {}).get("thumbnail", "")
             if thumbnail:
@@ -358,6 +420,8 @@ async def enrich_work(gb_id: str):
                 "google_books_id": gb_id,
                 "description": description,
                 "thumbnail_url": thumbnail,
+                "rating_average": rating_avg,
+                "rating_count": rating_cnt,
                 "tags": tags
             }
         except Exception as e:
