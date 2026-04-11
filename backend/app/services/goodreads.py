@@ -10,6 +10,18 @@ logger = logging.getLogger(__name__)
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+def clean_gr_image_url(url: str) -> str:
+    if not url:
+        return ""
+    # Remove size suffixes like ._SY75_, ._SX50_, ._UX200_, etc.
+    # Pattern: ._S[YX]\d+_ or ._U[X]\d+_
+    cleaned = re.sub(r'\._S[YX]\d+_', '', url)
+    cleaned = re.sub(r'\._U[X]\d+_', '', cleaned)
+    # Also handle // to https://
+    if cleaned.startswith("//"):
+        cleaned = "https:" + cleaned
+    return cleaned
+
 class GoodreadsScraper:
     BASE_URL = "https://www.goodreads.com"
     _executor = ThreadPoolExecutor(max_workers=5)
@@ -82,7 +94,7 @@ class GoodreadsScraper:
                 "author": author_matches[i].group(1) if i < len(author_matches) else "Unknown",
                 "rating_average": float(rating_matches[i].group(1)) if i < len(rating_matches) else 0.0,
                 "rating_count": int(rating_matches[i].group(2).replace(",", "")) if i < len(rating_matches) else 0,
-                "thumbnail_url": images[i] if i < len(images) else "",
+                "thumbnail_url": clean_gr_image_url(images[i]) if i < len(images) else "",
                 "first_publish_year": int(year_matches[i].group(1)) if i < len(year_matches) else 0
             })
             
@@ -150,7 +162,7 @@ class GoodreadsScraper:
                  authors_list = node.get("name", "Unknown")
 
             # Image
-            thumbnail = book_data.get("imageUrl", "")
+            thumbnail = clean_gr_image_url(book_data.get("imageUrl", ""))
 
             # Tags (Genres)
             tags = []
