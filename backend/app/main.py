@@ -56,7 +56,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
 
     try:
         # 1. Create Work node
-        query = "CREATE (w:Work {title: $title, goodreads_id: $gr_id, thumbnail_url: $thumb, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
+        query = "CREATE (w:Work {title: $title, goodreads_id: $gr_id, thumbnail_url: $thumb, first_publish_year: $year, description: $description_text, page_count: $pages, current_page: $curr_page, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
@@ -66,6 +66,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 "year": work.first_publish_year or 0,
                 "description_text": description,
                 "pages": work.page_count or 0,
+                "curr_page": work.current_page or 0,
                 "rating_avg": rating_avg,
                 "rating_cnt": rating_cnt,
                 "pers_rating": work.personal_rating or 0.0,
@@ -112,13 +113,14 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "first_publish_year": row[5],
                 "description": row[6],
                 "page_count": row[7],
-                "rating_average": row[8],
-                "rating_count": row[9],
-                "personal_rating": row[10],
-                "status": row[11],
-                "review": row[12],
-                "personal_notes": row[13],
-                "created_at": row[14],
+                "current_page": row[8],
+                "rating_average": row[9],
+                "rating_count": row[10],
+                "personal_rating": row[11],
+                "status": row[12],
+                "review": row[13],
+                "personal_notes": row[14],
+                "created_at": row[15],
                 "tags": []
             })
 
@@ -143,7 +145,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
@@ -215,13 +217,14 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "first_publish_year": row[4],
             "description": stored_desc,
             "page_count": stored_pages,
+            "current_page": row[7],
             "rating_average": stored_rating,
-            "rating_count": row[8],
-            "personal_rating": row[9],
-            "status": row[10],
-            "review": row[11],
-            "personal_notes": row[12],
-            "created_at": row[13],
+            "rating_count": row[9],
+            "personal_rating": row[10],
+            "status": row[11],
+            "review": row[12],
+            "personal_notes": row[13],
+            "created_at": row[14],
             "tags": tags
         }
     except Exception as e:
@@ -284,6 +287,9 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
         if work_update.status is not None:
             sets.append("w.status = $status")
             params["status"] = work_update.status
+        if work_update.current_page is not None:
+            sets.append("w.current_page = $curr_page")
+            params["curr_page"] = work_update.current_page
         if work_update.review is not None:
             sets.append("w.review = $review")
             params["review"] = work_update.review

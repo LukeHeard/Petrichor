@@ -14,6 +14,8 @@ interface Work {
   tags?: string[];
   personal_rating?: number;
   status?: string;
+  page_count?: number;
+  current_page?: number;
   created_at?: number;
 }
 
@@ -169,6 +171,8 @@ function LibraryContent() {
                 first_publish_year={work.first_publish_year}
                 personal_rating={work.personal_rating}
                 status={work.status}
+                page_count={work.page_count}
+                current_page={work.current_page}
               />
             ))}
           </div>

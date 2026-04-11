@@ -24,7 +24,7 @@ class DatabaseManager:
 
             # Node Tables
             node_tables = {
-                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, goodreads_id STRING, thumbnail_url STRING, first_publish_year INT64, description STRING, page_count INT64, rating_average DOUBLE, rating_count INT64, personal_rating DOUBLE, status STRING, review STRING, personal_notes STRING, created_at INT64, PRIMARY KEY(id))",
+                "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, goodreads_id STRING, thumbnail_url STRING, first_publish_year INT64, description STRING, page_count INT64, current_page INT64, rating_average DOUBLE, rating_count INT64, personal_rating DOUBLE, status STRING, review STRING, personal_notes STRING, created_at INT64, PRIMARY KEY(id))",
                 "Tag": "CREATE NODE TABLE Tag(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
@@ -61,14 +61,16 @@ class DatabaseManager:
             
             new_cols = {
                 "thumbnail_url": "STRING",
-                "goodreads_id": "STRING"
+                "goodreads_id": "STRING",
+                "current_page": "INT64"
             }
             
             for col_name, col_type in new_cols.items():
                 if col_name not in cols:
                     try:
-                        self.conn.execute(f"ALTER TABLE Work ADD {col_name} {col_type} DEFAULT ''")
-                        logger.info(f"Added {col_name} to Work table")
+                        default_val = "0" if col_type == "INT64" else "''"
+                        self.conn.execute(f"ALTER TABLE Work ADD {col_name} {col_type} DEFAULT {default_val}")
+                        logger.info(f"Added {col_name} ({col_type}) to Work table")
                     except Exception as e:
                         logger.error(f"Failed to add column {col_name}: {e}")
 

@@ -9,10 +9,12 @@ interface LibraryItemProps {
   first_publish_year?: number;
   personal_rating?: number;
   status?: string;
+  page_count?: number;
+  current_page?: number;
   index: number;
 }
 
-export default function LibraryItem({ id, title, author, first_publish_year, personal_rating, status, index }: LibraryItemProps) {
+export default function LibraryItem({ id, title, author, first_publish_year, personal_rating, status, page_count = 0, current_page = 0, index }: LibraryItemProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -63,6 +65,38 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
           <span style={{ fontSize: '0.7rem', color: 'var(--muted)', opacity: 0.3, fontWeight: 500 }}>/10</span>
         </div>
       </div>
+
+      {status === "Reading" && page_count > 0 && (
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: '1.25rem',
+          right: '1.25rem',
+          height: '2px',
+          background: 'color-mix(in srgb, var(--border) 30%, transparent)',
+          borderRadius: '1px',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            width: `${Math.min(100, (current_page / page_count) * 100)}%`,
+            height: '100%',
+            background: 'var(--accent)',
+            opacity: 0.8,
+            transition: 'width 0.4s ease'
+          }} />
+          <span style={{
+            position: 'absolute',
+            right: 0,
+            bottom: '4px',
+            fontSize: '0.6rem',
+            fontWeight: 700,
+            color: 'var(--accent)',
+            opacity: 0.6
+          }}>
+            {Math.round((current_page / page_count) * 100)}%
+          </span>
+        </div>
+      )}
     </div>
   );
 }

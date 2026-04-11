@@ -9,9 +9,12 @@ interface BookCardProps {
   goodreads_id?: string;
   thumbnail_url?: string;
   author?: string;
+  status?: string;
+  page_count?: number;
+  current_page?: number;
 }
 
-export default function BookCard({ id, title, thumbnail_url, author }: BookCardProps) {
+export default function BookCard({ id, title, thumbnail_url, author, status, page_count = 0, current_page = 0 }: BookCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -49,6 +52,16 @@ export default function BookCard({ id, title, thumbnail_url, author }: BookCardP
       <div className="book-card-info">
         <h3 className="font-serif" style={{ fontSize: '0.9rem', margin: '0.5rem 0 0.1rem 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h3>
         {author && <p style={{ fontSize: '0.75rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{author}</p>}
+        {status === "Reading" && page_count > 0 && (
+          <div style={{ marginTop: '0.6rem', width: '100%' }}>
+             <div style={{ height: '2px', width: '100%', background: 'var(--border)', borderRadius: '1px', overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, (current_page / page_count) * 100)}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.4s ease' }} />
+             </div>
+             <p style={{ fontSize: '0.6rem', color: 'var(--accent)', fontWeight: 700, textAlign: 'right', marginTop: '4px', opacity: 0.8 }}>
+                {Math.round((current_page / page_count) * 100)}%
+             </p>
+          </div>
+        )}
       </div>
     </div>
   );

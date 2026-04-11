@@ -20,6 +20,7 @@ interface FullWork {
   tags?: string[];
   personal_rating?: number;
   status?: string;
+  current_page?: number;
   review?: string;
   personal_notes?: string;
 }
@@ -408,6 +409,8 @@ export default function GlobalBookModal() {
                   workId={book.id}
                   initialStatus={book.status || "Owned"}
                   initialRating={book.personal_rating || 0}
+                  initialCurrentPage={book.current_page || 0}
+                  pageCount={book.page_count || 0}
                   initialReview={book.review || ""}
                   initialNotes={book.personal_notes || ""}
                 />
