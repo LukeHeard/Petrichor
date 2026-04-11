@@ -212,17 +212,38 @@ class GoodreadsScraper:
             }
             
             cleaned_tags = []
-            seen = set()
+            seen_words = set()
+            
             # Standardize for comparison
             def std(s): return s.lower().replace(" ", "-").replace("_", "-")
+            def get_words(s): return set(re.findall(r'[a-z0-9]+', s.lower()))
             
-            for t in tags:
+            # Sort by length so we process shorter, more fundamental tags first
+            sorted_tags = sorted(list(dict.fromkeys(tags)), key=len)
+            
+            for t in sorted_tags:
                 s_t = std(t)
-                if s_t not in ignore_tags and s_t not in seen:
-                    cleaned_tags.append(t)
-                    seen.add(s_t)
+                if s_t in ignore_tags:
+                    continue
+                
+                t_words = get_words(t)
+                if not t_words:
+                    continue
+                    
+                # If these words are already fully covered by the union of previously accepted tags, 
+                # this tag is likely a redundant combination (e.g. "Science Fiction Fantasy").
+                if t_words.issubset(seen_words):
+                    continue
+                
+                cleaned_tags.append(t)
+                seen_words.update(t_words)
             
-            tags = cleaned_tags
+            # Re-sort to original order or just keep the 8 most relevant ones
+            # bookGenres are usually first and most relevant, so let's preserve that preference if possible
+            # But the 'length' sort was useful for redundancy. 
+            # I'll re-filter based on the original list but checking against our finalized set.
+            final_tags = [t for t in tags if t in cleaned_tags]
+            tags = final_tags
 
             # Year
             publish_year = 0
