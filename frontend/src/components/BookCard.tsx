@@ -41,6 +41,61 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
             <span className="font-serif">{title}</span>
           </div>
         )}
+        
+        {/* Circular Progress Overlay */}
+        {status === "Reading" && page_count > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '0.75rem',
+            right: '0.75rem',
+            width: '32px',
+            height: '32px',
+            background: 'color-mix(in srgb, var(--background) 80%, transparent)',
+            backdropFilter: 'blur(8px)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 10
+          }}>
+            <svg height="32" width="32" style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
+              <circle
+                stroke="var(--border)"
+                fill="transparent"
+                strokeWidth="2"
+                r="13"
+                cx="16"
+                cy="16"
+                style={{ opacity: 0.2 }}
+              />
+              <circle
+                stroke="var(--accent)"
+                fill="transparent"
+                strokeWidth="2"
+                strokeDasharray={`${2 * Math.PI * 13}`}
+                style={{ 
+                  strokeDashoffset: (2 * Math.PI * 13) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 13),
+                  transition: 'stroke-dashoffset 0.6s ease',
+                  strokeLinecap: 'round'
+                }}
+                r="13"
+                cx="16"
+                cy="16"
+              />
+            </svg>
+            <span style={{ 
+              fontSize: '0.55rem', 
+              fontWeight: 800,
+              color: 'var(--accent)',
+              fontFamily: 'var(--font-sans)',
+              zIndex: 11
+            }}>
+              {Math.round((current_page / page_count) * 100)}%
+            </span>
+          </div>
+        )}
+
         <div className="book-card-hover">
           <div className="book-card-hover-content">
             <p className="font-serif" style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>{title}</p>
@@ -52,16 +107,6 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
       <div className="book-card-info">
         <h3 className="font-serif" style={{ fontSize: '0.9rem', margin: '0.5rem 0 0.1rem 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h3>
         {author && <p style={{ fontSize: '0.75rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{author}</p>}
-        {status === "Reading" && page_count > 0 && (
-          <div style={{ marginTop: '0.6rem', width: '100%' }}>
-             <div style={{ height: '2px', width: '100%', background: 'var(--border)', borderRadius: '1px', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, (current_page / page_count) * 100)}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.4s ease' }} />
-             </div>
-             <p style={{ fontSize: '0.6rem', color: 'var(--accent)', fontWeight: 700, textAlign: 'right', marginTop: '4px', opacity: 0.8 }}>
-                {Math.round((current_page / page_count) * 100)}%
-             </p>
-          </div>
-        )}
       </div>
     </div>
   );

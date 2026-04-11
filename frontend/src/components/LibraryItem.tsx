@@ -40,7 +40,47 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
       </div>
       
       <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', minWidth: '80px' }}>
-        {status && (
+        {status === "Reading" && page_count > 0 ? (
+          <div style={{ position: 'relative', width: '36px', height: '36px', marginBottom: '0.2rem' }}>
+            <svg height="36" width="36" style={{ transform: 'rotate(-90deg)' }}>
+              <circle
+                stroke="var(--border)"
+                fill="transparent"
+                strokeWidth="2.5"
+                r="15"
+                cx="18"
+                cy="18"
+                style={{ opacity: 0.2 }}
+              />
+              <circle
+                stroke="var(--accent)"
+                fill="transparent"
+                strokeWidth="2.5"
+                strokeDasharray={`${2 * Math.PI * 15}`}
+                style={{ 
+                  strokeDashoffset: (2 * Math.PI * 15) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 15),
+                  transition: 'stroke-dashoffset 0.6s ease',
+                  strokeLinecap: 'round'
+                }}
+                r="15"
+                cx="18"
+                cy="18"
+              />
+            </svg>
+            <span style={{ 
+              position: 'absolute', 
+              top: '50%', 
+              left: '50%', 
+              transform: 'translate(-50%, -50%)', 
+              fontSize: '0.65rem', 
+              fontWeight: 800,
+              color: 'var(--accent)',
+              fontFamily: 'var(--font-sans)'
+            }}>
+              {Math.round((current_page / page_count) * 100)}%
+            </span>
+          </div>
+        ) : status && (
           <span style={{ 
             fontSize: '0.6rem', 
             fontWeight: 700, 
@@ -65,38 +105,6 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
           <span style={{ fontSize: '0.7rem', color: 'var(--muted)', opacity: 0.3, fontWeight: 500 }}>/10</span>
         </div>
       </div>
-
-      {status === "Reading" && page_count > 0 && (
-        <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: '1.25rem',
-          right: '1.25rem',
-          height: '2px',
-          background: 'color-mix(in srgb, var(--border) 30%, transparent)',
-          borderRadius: '1px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${Math.min(100, (current_page / page_count) * 100)}%`,
-            height: '100%',
-            background: 'var(--accent)',
-            opacity: 0.8,
-            transition: 'width 0.4s ease'
-          }} />
-          <span style={{
-            position: 'absolute',
-            right: 0,
-            bottom: '4px',
-            fontSize: '0.6rem',
-            fontWeight: 700,
-            color: 'var(--accent)',
-            opacity: 0.6
-          }}>
-            {Math.round((current_page / page_count) * 100)}%
-          </span>
-        </div>
-      )}
     </div>
   );
 }
