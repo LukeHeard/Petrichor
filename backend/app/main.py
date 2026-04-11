@@ -298,3 +298,54 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
     except Exception as e:
         logger.error(f"Error updating work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/authors", response_model=schemas.Author)
+def create_author(author: schemas.AuthorCreate, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        # Use parameterized query to avoid injection
+        result = conn.execute("CREATE (a:Author {name: $name}) RETURN a.id, a.name", {"name": author.name})
+        if result.has_next():
+            row = result.get_next()
+            return {"id": row[0], "name": row[1]}
+        raise HTTPException(status_code=500, detail="Failed to create author")
+    except Exception as e:
+        logger.error(f"Error creating author: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/authors", response_model=list[schemas.Author])
+def list_authors(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        result = conn.execute("MATCH (a:Author) RETURN a.id, a.name")
+        authors = []
+        while result.has_next():
+            row = result.get_next()
+            authors.append({"id": row[0], "name": row[1]})
+        return authors
+    except Exception as e:
+        logger.error(f"Error listing authors: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/tags", response_model=list[str])
+def list_tags(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        result = conn.execute("MATCH (t:Tag) RETURN t.name")
+        tags = []
+        while result.has_next():
+            tags.append(result.get_next()[0])
+        return sorted(list(set(tags))) # Return unique sorted tags
+    except Exception as e:
+        logger.error(f"Error listing tags: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/works/{work_id}/authors/{author_id}")
+def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        conn.execute("MATCH (w:Work), (a:Author) WHERE w.id = $wid AND a.id = $aid CREATE (a)-[:WROTE]->(w)", {"wid": work_id, "aid": author_id})
+        return {"message": "Success"}
+    except Exception as e:
+        logger.error(f"Error linking author to work: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
