@@ -192,6 +192,7 @@ function LibraryContent() {
           selectedStatuses={selectedStatuses}
           selectedTags={selectedTags}
           sortBy={sortBy}
+          isInitialized={isInitialized}
         />
 
         {loading ? (

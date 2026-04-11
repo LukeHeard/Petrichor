@@ -15,6 +15,7 @@ interface LibraryFiltersProps {
   selectedStatuses: string[];
   selectedTags: string[];
   sortBy: string;
+  isInitialized: boolean;
 }
 
 export default function LibraryFilters({ 
@@ -29,7 +30,8 @@ export default function LibraryFilters({
   searchQuery,
   selectedStatuses: parentSelectedStatuses,
   selectedTags: parentSelectedTags,
-  sortBy: parentSortBy
+  sortBy: parentSortBy,
+  isInitialized
 }: LibraryFiltersProps) {
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -66,7 +68,7 @@ export default function LibraryFilters({
     onTagChange(newTags);
   };
   
-  const hasChanges = searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc";
+  const hasChanges = isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc");
 
   // Close sort dropdown on click outside
   useEffect(() => {
