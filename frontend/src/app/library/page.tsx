@@ -63,7 +63,6 @@ function LibraryContent() {
     setSelectedStatuses([]);
     setSelectedTags([]);
     setSortBy("added-desc");
-    setViewMode("list");
     localStorage.removeItem("petrichor_library_settings");
   }, []);
 

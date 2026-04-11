@@ -149,31 +149,6 @@ export default function LibraryFilters({
               <path d="m6 9 6 6 6-6"/>
             </svg>
           </button>
-          
-          {hasChanges && (
-            <button
-              onClick={onReset}
-              className="fade-in"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '0.75rem 0.5rem',
-                color: 'var(--accent)',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                opacity: 0.7,
-                transition: 'opacity 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-            >
-              Reset Filters
-            </button>
-          )}
 
           {isSortOpen && (
             <div style={{
@@ -222,14 +197,21 @@ export default function LibraryFilters({
           )}
         </div>
         
-        {/* View Toggle */}
+        {/* Combined View Toggle and Reset Button Container */}
         <div style={{ 
           display: 'flex', 
-          background: 'var(--muted-background)', 
-          padding: '0.2rem', 
-          borderRadius: '8px',
+          flexDirection: 'column', 
+          alignItems: 'flex-end', 
+          gap: '0.2rem',
           marginLeft: 'auto'
         }}>
+          {/* View Toggle */}
+          <div style={{ 
+            display: 'flex', 
+            background: 'var(--muted-background)', 
+            padding: '0.2rem', 
+            borderRadius: '8px'
+          }}>
           <button
             onClick={() => onViewModeChange('list')}
             style={{
@@ -267,7 +249,33 @@ export default function LibraryFilters({
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
           </button>
         </div>
+
+        {hasChanges && (
+            <button
+              onClick={onReset}
+              className="fade-in"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0.25rem 0.5rem',
+                color: 'var(--accent)',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                opacity: 0.5,
+                transition: 'opacity 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+            >
+            Reset Filters
+          </button>
+        )}
       </div>
+    </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         .sort-option-hover:hover {
