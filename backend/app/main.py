@@ -145,12 +145,19 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
         
-        # Self-healing
+        # Self-healing and Enrichment
+        tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
+        tags = []
+        while tag_result.has_next():
+            tags.append(tag_result.get_next()[0])
+
         stored_desc = row[5]
         stored_thumb = row[3]
         stored_rating = row[7]
         gr_id = row[2]
-        if (not stored_desc or not stored_thumb or not stored_rating) and gr_id:
+        
+        # Enrich if basic data is missing OR if tags are missing
+        if (not stored_desc or not stored_thumb or not stored_rating or not tags) and gr_id:
             try:
                 enriched = await GoodreadsScraper.get_details(gr_id)
                 if enriched:
@@ -173,13 +180,24 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
                     
                     if updates:
                         conn.execute(f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(updates)}", params)
+
+                    # Persist tags if we were missing them
+                    enriched_tags = enriched.get("tags", [])
+                    if not tags and enriched_tags:
+                        for tag_name in enriched_tags:
+                            # Use existing Tag or create new one
+                            tag_check = conn.execute("MATCH (t:Tag) WHERE t.name = $name RETURN t.id", {"name": tag_name})
+                            if tag_check.has_next():
+                                tag_id = tag_check.get_next()[0]
+                            else:
+                                tag_create = conn.execute("CREATE (t:Tag {name: $name}) RETURN t.id", {"name": tag_name})
+                                tag_id = tag_create.get_next()[0]
+                            
+                            # Create HAS_TAG relationship
+                            conn.execute("MATCH (w:Work), (t:Tag) WHERE w.id = $wid AND t.id = $tid MERGE (w)-[:HAS_TAG]->(t)", {"wid": work_id, "tid": tag_id})
+                            tags.append(tag_name)
             except Exception as e:
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
- 
-        tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
-        tags = []
-        while tag_result.has_next():
-            tags.append(tag_result.get_next()[0])
  
         return {
             "id": row[0], 

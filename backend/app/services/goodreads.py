@@ -116,7 +116,12 @@ class GoodreadsScraper:
             data = json.loads(match.group(1))
             apollo = data.get('props', {}).get('pageProps', {}).get('apolloState', {})
             
-            book_key = next((k for k in apollo.keys() if k.startswith("Book:")), None)
+            # Try to find the book matching the ID
+            book_key = next((k for k in apollo.keys() if k.startswith("Book:") and str(apollo[k].get("legacyId")) == gr_id), None)
+            if not book_key:
+                # Fallback to first Book key
+                book_key = next((k for k in apollo.keys() if k.startswith("Book:")), None)
+            
             if not book_key:
                 return None
             
@@ -164,18 +169,60 @@ class GoodreadsScraper:
             # Image
             thumbnail = clean_gr_image_url(book_data.get("imageUrl", ""))
 
-            # Tags (Genres)
+            # Tags (Genres & Themes)
             tags = []
+
+            # 1. Try bookGenres first (curated by Goodreads)
             genres_list = book_data.get("bookGenres", [])
             for genre_edge in genres_list:
-                genre_ref = genre_edge.get("genre", {}).get("__ref")
-                if genre_ref:
-                    genre_data = apollo.get(genre_ref, {})
+                genre_node = genre_edge.get("genre", {})
+                genre_name = None
+                
+                if "__ref" in genre_node:
+                    genre_data = apollo.get(genre_node["__ref"], {})
                     genre_name = genre_data.get("name")
-                    if genre_name:
-                        ignore_tags = {"to-read", "currently-reading", "read", "books-i-own", "favorites", "owned", "default", "adult", "book-club", "gave-up-on", "library", "audiobook", "abandoned"}
-                        if genre_name.lower() not in ignore_tags:
-                            tags.append(genre_name)
+                else:
+                    genre_name = genre_node.get("name")
+                
+                if genre_name:
+                    tags.append(genre_name)
+
+            # 2. Also check popularShelves for more variety (themes, etc.)
+            if work_ref:
+                work_data = apollo.get(work_ref, {})
+                shelves_list = work_data.get("popularShelves", [])
+                for shelf_item in shelves_list:
+                    shelf_name = None
+                    if "__ref" in shelf_item:
+                        shelf_data = apollo.get(shelf_item["__ref"], {})
+                        shelf_name = shelf_data.get("name")
+                    else:
+                        shelf_name = shelf_item.get("name")
+                        
+                    if shelf_name:
+                        tags.append(shelf_name)
+            
+            # 3. Filtering and deduplication
+            ignore_tags = {
+                "to-read", "currently-reading", "read", "books-i-own", "favorites", "owned", "default", 
+                "adult", "book-club", "gave-up-on", "library", "audiobook", "abandoned", "audio",
+                "kindle", "ebook", "e-book", "paperback", "hardcover", "series", "to-buy", "re-read",
+                "reread", "dnf", "did-not-finish", "standalone", "novella", "novel", "borrowed",
+                "own-it", "all-time-favorites", "physical-copy", "wish-list", "half-price-books"
+            }
+            
+            cleaned_tags = []
+            seen = set()
+            # Standardize for comparison
+            def std(s): return s.lower().replace(" ", "-").replace("_", "-")
+            
+            for t in tags:
+                s_t = std(t)
+                if s_t not in ignore_tags and s_t not in seen:
+                    cleaned_tags.append(t)
+                    seen.add(s_t)
+            
+            tags = cleaned_tags
 
             # Year
             publish_year = 0
