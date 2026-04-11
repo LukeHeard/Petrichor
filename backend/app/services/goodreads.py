@@ -245,8 +245,10 @@ class GoodreadsScraper:
             final_tags = [t for t in tags if t in cleaned_tags]
             tags = final_tags
 
-            # Year
+            # Year and Page Count
             publish_year = 0
+            page_count = book_data.get("numPages") or book_data.get("numberOfPages") or 0
+            
             details_field = book_data.get("details")
             if isinstance(details_field, dict):
                 if "__ref" in details_field:
@@ -254,8 +256,8 @@ class GoodreadsScraper:
                 else:
                     details_obj = details_field
                 
-                # Try numPages here too just in case
-                page_count = details_obj.get("numPages", 0)
+                if not page_count:
+                    page_count = details_obj.get("numPages") or details_obj.get("numberOfPages") or 0
                 
                 # Extract year from publicationTime (timestamp in ms)
                 pub_time = details_obj.get("publicationTime")

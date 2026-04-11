@@ -37,7 +37,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
     tags_to_save = work.tags or []
 
     # Enrichment if data is missing
-    if (not description or not thumbnail or not rating_avg) and goodreads_id:
+    if (not description or not thumbnail or not rating_avg or not work.page_count) and goodreads_id:
         try:
             enriched = await GoodreadsScraper.get_details(goodreads_id)
             if enriched:
@@ -46,6 +46,9 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 if not rating_avg:
                     rating_avg = enriched.get("rating_average") or 0.0
                     rating_cnt = enriched.get("rating_count") or 0
+                if not work.page_count:
+                    # Temporary override for query parameter
+                    work.page_count = enriched.get("page_count") or 0
                 if not tags_to_save:
                     tags_to_save = enriched.get("tags", [])
         except Exception as e:
@@ -154,10 +157,11 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         stored_desc = row[5]
         stored_thumb = row[3]
         stored_rating = row[7]
+        stored_pages = row[6]
         gr_id = row[2]
         
         # Enrich if basic data is missing OR if tags are missing
-        if (not stored_desc or not stored_thumb or not stored_rating or not tags) and gr_id:
+        if (not stored_desc or not stored_thumb or not stored_rating or not stored_pages or not tags) and gr_id:
             try:
                 enriched = await GoodreadsScraper.get_details(gr_id)
                 if enriched:
@@ -177,6 +181,10 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
                         params["r_avg"] = enriched["rating_average"]
                         params["r_cnt"] = enriched["rating_count"]
                         stored_rating = enriched["rating_average"]
+                    if not stored_pages and enriched.get("page_count"):
+                        updates.append("w.page_count = $p_count")
+                        params["p_count"] = enriched["page_count"]
+                        stored_pages = enriched["page_count"]
                     
                     if updates:
                         conn.execute(f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(updates)}", params)
@@ -206,8 +214,8 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "thumbnail_url": stored_thumb,
             "first_publish_year": row[4],
             "description": stored_desc,
-            "page_count": row[6],
-            "rating_average": row[7],
+            "page_count": stored_pages,
+            "rating_average": stored_rating,
             "rating_count": row[8],
             "personal_rating": row[9],
             "status": row[10],
