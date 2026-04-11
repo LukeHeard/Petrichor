@@ -201,7 +201,11 @@ function LibraryContent() {
           )
         ) : filteredAndSortedWorks.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-            <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>No books matching your filters.</p>
+            <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+              {works.length === 0 
+                ? "No books in your library, add one using the + below!" 
+                : "No books matching your filters."}
+            </p>
           </div>
         ) : viewMode === 'list' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
