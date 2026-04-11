@@ -44,7 +44,9 @@ export default function PersonalLibraryControls({
   progressRef.current = currentPage;
 
   const [inputWidth, setInputWidth] = useState(0);
+  const [progressInputWidth, setProgressInputWidth] = useState(0);
   const measureRef = useRef<HTMLSpanElement>(null);
+  const measureProgressRef = useRef<HTMLSpanElement>(null);
   const reviewRefUI = useRef<HTMLTextAreaElement>(null);
   const notesRefUI = useRef<HTMLTextAreaElement>(null);
 
@@ -94,6 +96,12 @@ export default function PersonalLibraryControls({
       setInputWidth(measureRef.current.offsetWidth);
     }
   }, [editValue, isEditingRating, rating]);
+
+  useEffect(() => {
+    if (measureProgressRef.current) {
+      setProgressInputWidth(measureProgressRef.current.offsetWidth);
+    }
+  }, [progressEditValue, isEditingProgress, currentPage]);
 
   // Debounced slider update + Save on unmount
   useEffect(() => {
@@ -188,6 +196,18 @@ export default function PersonalLibraryControls({
       }}>
         {isEditingRating ? (editValue || " ") : (rating > 0 ? rating.toFixed(1) : "—")}
       </span>
+      
+      <span ref={measureProgressRef} style={{
+        position: 'absolute',
+        visibility: 'hidden',
+        whiteSpace: 'pre',
+        fontSize: '1.5rem',
+        fontWeight: 600,
+        fontFamily: 'var(--font-serif)',
+        pointerEvents: 'none'
+      }}>
+        {isEditingProgress ? (progressEditValue || " ") : currentPage}
+      </span>
 
       {/* Status Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -240,33 +260,67 @@ export default function PersonalLibraryControls({
               style={{ cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}
             >
               {isEditingProgress ? (
-                <input 
-                  autoFocus
-                  type="text"
-                  value={progressEditValue}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (/^\d*$/.test(val)) setProgressEditValue(val);
-                  }}
-                  onBlur={() => {
-                    setIsEditingProgress(false);
-                    const num = parseInt(progressEditValue);
-                    if (!isNaN(num)) {
-                      const finalNum = Math.min(pageCount, Math.max(0, num));
-                      setCurrentPage(finalNum);
-                      saveChanges({ current_page: finalNum });
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') e.currentTarget.blur();
-                    else if (e.key === 'Escape') setIsEditingProgress(false);
-                  }}
-                  style={{
-                    fontSize: '1.5rem', fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', borderBottom: '2px solid var(--accent)', width: '60px', textAlign: 'right', outline: 'none', padding: 0, fontFamily: 'var(--font-serif)'
-                  }}
-                />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline' }}>
+                  <input 
+                    autoFocus
+                    type="text"
+                    value={progressEditValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^\d*$/.test(val)) setProgressEditValue(val);
+                    }}
+                    onBlur={() => {
+                      setIsEditingProgress(false);
+                      const num = parseInt(progressEditValue);
+                      if (!isNaN(num)) {
+                        const finalNum = Math.min(pageCount, Math.max(0, num));
+                        setCurrentPage(finalNum);
+                        saveChanges({ current_page: finalNum });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur();
+                      else if (e.key === 'Escape') setIsEditingProgress(false);
+                    }}
+                    style={{
+                      fontSize: '1.5rem', 
+                      fontWeight: 600, 
+                      color: 'var(--accent)', 
+                      background: 'none', 
+                      border: 'none', 
+                      width: `${Math.max(progressInputWidth, 20)}px`, 
+                      textAlign: 'right', 
+                      outline: 'none', 
+                      padding: 0, 
+                      margin: 0,
+                      fontFamily: 'var(--font-serif)',
+                      transition: 'width 0.1s ease-out'
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '-2px',
+                    left: '0',
+                    right: '0',
+                    height: '2px',
+                    background: 'var(--accent)',
+                    borderRadius: '1px',
+                    animation: 'fadeInHorizontal 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards'
+                  }} />
+                </div>
               ) : (
-                <span style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--accent)', fontFamily: 'var(--font-serif)' }}>{currentPage}</span>
+                <span style={{ 
+                  fontSize: '1.5rem', 
+                  fontWeight: 600, 
+                  color: 'var(--accent)', 
+                  fontFamily: 'var(--font-serif)',
+                  transition: 'opacity 0.3s ease',
+                  display: 'inline-block',
+                  minWidth: `${Math.max(progressInputWidth, 20)}px`,
+                  textAlign: 'right'
+                }}>
+                  {currentPage}
+                </span>
               )}
               <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>of {pageCount}</span>
               <span style={{ color: 'var(--muted)', fontSize: '0.8rem', opacity: 0.6, marginLeft: '0.5rem' }}>

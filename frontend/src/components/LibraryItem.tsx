@@ -41,30 +41,30 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
       
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         {status === "Reading" && page_count > 0 && (
-          <div style={{ position: 'relative', width: '32px', height: '32px' }}>
-            <svg height="32" width="32" style={{ transform: 'rotate(-90deg)' }}>
+          <div style={{ position: 'relative', width: '40px', height: '40px' }}>
+            <svg height="40" width="40" style={{ transform: 'rotate(-90deg)' }}>
               <circle
                 stroke="var(--border)"
                 fill="transparent"
                 strokeWidth="2"
-                r="14"
-                cx="16"
-                cy="16"
+                r="17"
+                cx="20"
+                cy="20"
                 style={{ opacity: 0.2 }}
               />
               <circle
                 stroke="var(--accent)"
                 fill="transparent"
                 strokeWidth="2"
-                strokeDasharray={`${2 * Math.PI * 14}`}
+                strokeDasharray={`${2 * Math.PI * 17}`}
                 style={{ 
-                  strokeDashoffset: (2 * Math.PI * 14) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 14),
+                  strokeDashoffset: (2 * Math.PI * 17) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 17),
                   transition: 'stroke-dashoffset 0.6s ease',
                   strokeLinecap: 'round'
                 }}
-                r="14"
-                cx="16"
-                cy="16"
+                r="17"
+                cx="20"
+                cy="20"
               />
             </svg>
             <span style={{ 
@@ -72,7 +72,7 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
               top: '50%', 
               left: '50%', 
               transform: 'translate(-50%, -50%)', 
-              fontSize: '0.6rem', 
+              fontSize: '0.65rem', 
               fontWeight: 800,
               color: 'var(--accent)',
               fontFamily: 'var(--font-sans)'

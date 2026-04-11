@@ -57,30 +57,30 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
         </div>
         
         {status === "Reading" && page_count > 0 && (
-          <div style={{ position: 'relative', width: '28px', height: '28px', marginTop: '0.6rem', marginLeft: '0.5rem', flexShrink: 0 }}>
-            <svg height="28" width="28" style={{ transform: 'rotate(-90deg)' }}>
+          <div style={{ position: 'relative', width: '34px', height: '34px', marginTop: '0.6rem', marginLeft: '0.5rem', flexShrink: 0 }}>
+            <svg height="34" width="34" style={{ transform: 'rotate(-90deg)' }}>
               <circle
                 stroke="var(--border)"
                 fill="transparent"
                 strokeWidth="2"
-                r="12"
-                cx="14"
-                cy="14"
+                r="15"
+                cx="17"
+                cy="17"
                 style={{ opacity: 0.2 }}
               />
               <circle
                 stroke="var(--accent)"
                 fill="transparent"
                 strokeWidth="2"
-                strokeDasharray={`${2 * Math.PI * 12}`}
+                strokeDasharray={`${2 * Math.PI * 15}`}
                 style={{ 
-                  strokeDashoffset: (2 * Math.PI * 12) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 12),
+                  strokeDashoffset: (2 * Math.PI * 15) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 15),
                   transition: 'stroke-dashoffset 0.6s ease',
                   strokeLinecap: 'round'
                 }}
-                r="12"
-                cx="14"
-                cy="14"
+                r="15"
+                cx="17"
+                cy="17"
               />
             </svg>
             <span style={{ 
@@ -88,7 +88,7 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
               top: '50%', 
               left: '50%', 
               transform: 'translate(-50%, -50%)', 
-              fontSize: '0.5rem', 
+              fontSize: '0.55rem', 
               fontWeight: 800,
               color: 'var(--accent)',
               fontFamily: 'var(--font-sans)'

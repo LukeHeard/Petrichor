@@ -158,7 +158,7 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
 
         stored_desc = row[5]
         stored_thumb = row[3]
-        stored_rating = row[7]
+        stored_rating = row[8]
         stored_pages = row[6]
         gr_id = row[2]
         
