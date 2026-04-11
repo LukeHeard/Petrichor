@@ -100,27 +100,6 @@ def get_clean_tags(subjects: list[str], title: str = "") -> list[str]:
     sorted_tags = sorted(list(cleaned), key=lambda x: (x not in priority_genres, x))
     return [t for t in sorted_tags if t][:8]
 
-def has_cjk(text: str) -> bool:
-    """Check if a string contains Chinese, Japanese, or Korean characters."""
-    if not text:
-        return False
-    return any(
-        '\u4e00' <= char <= '\u9fff' or  # CJK Unified Ideographs
-        '\u3040' <= char <= '\u309f' or  # Hiragana
-        '\u30a0' <= char <= '\u30ff' or  # Katakana
-        '\uac00' <= char <= '\ud7af'     # Hangul
-        for char in text
-    )
-
-def pick_best_metadata(primary: str, alternatives: list[str]) -> str:
-    """Pick the best metadata (preferring Latin script if primary is CJK)."""
-    if not primary or not has_cjk(primary):
-        return primary
-    for alt in alternatives:
-        if alt and not has_cjk(alt):
-            return alt
-    return primary
-
 @app.get("/")
 def read_root():
     return {"message": "Petrichor Personal Library API"}
@@ -144,19 +123,6 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                         description = desc_data.get("value", "")
                     else:
                         description = desc_data
-                    
-                    # If description is still missing or is Japanese, try editions
-                    if (not description or has_cjk(description)):
-                        logger.info(f"Falling back to editions for description of {olid}")
-                        editions_res = await client.get(f"https://openlibrary.org/works/{olid}/editions.json?limit=10")
-                        if editions_res.is_success:
-                            ed_data = editions_res.json()
-                            for ed in ed_data.get("entries", []):
-                                ed_desc = ed.get("description", "")
-                                if isinstance(ed_desc, dict): ed_desc = ed_desc.get("value", "")
-                                if ed_desc and not has_cjk(ed_desc):
-                                    description = ed_desc
-                                    break
         except Exception as e:
             logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
 
@@ -369,18 +335,6 @@ async def enrich_work(olid: str):
             else:
                 description = desc_data
             
-            # If description is missing or non-English, try editions
-            if (not description or has_cjk(description)):
-                editions_res = await client.get(f"https://openlibrary.org/works/{clean_olid}/editions.json?limit=10")
-                if editions_res.is_success:
-                    ed_data = editions_res.json()
-                    for ed in ed_data.get("entries", []):
-                        ed_desc = ed.get("description", "")
-                        if isinstance(ed_desc, dict): ed_desc = ed_desc.get("value", "")
-                        if ed_desc and not has_cjk(ed_desc):
-                            description = ed_desc
-                            break
-
             # Extract tags from subjects
             subjects = data.get("subjects", [])
             tags = get_clean_tags(subjects, data.get("title", ""))
@@ -489,37 +443,23 @@ async def search_works(q: str = Query(..., min_length=1)):
         try:
             response = await client.get(
                 "https://openlibrary.org/search.json",
-                params={
-                    "q": q, 
-                    "limit": "10", 
-                    "fields": "key,title,author_name,author_alternative_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject,editions"
-                }
+                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
             )
             response.raise_for_status()
             data = response.json()
             results = []
             for doc in data.get("docs", []):
-                # 1. Author picking
                 authors = doc.get("author_name", [])
                 primary_author = authors[0] if authors else ""
-                alt_authors = doc.get("author_alternative_name", [])
-                author = pick_best_metadata(primary_author, alt_authors)
-
-                # 2. Title picking (from editions if primary is CJK)
-                title = doc.get("title", "Unknown Title")
-                editions_docs = doc.get("editions", {}).get("docs", [])
-                edition_titles = [e.get("title") for e in editions_docs if e.get("title")]
-                final_title = pick_best_metadata(title, edition_titles)
-
                 results.append({
-                    "title": final_title,
-                    "author": author,
+                    "title": doc.get("title", "Unknown Title"),
+                    "author": primary_author,
                     "first_publish_year": doc.get("first_publish_year"),
                     "openlibrary_id": doc.get("key"),
                     "page_count": doc.get("number_of_pages_median"),
                     "rating_average": doc.get("ratings_average"),
                     "rating_count": doc.get("ratings_count"),
-                    "tags": get_clean_tags(doc.get("subject", []), final_title)
+                    "tags": get_clean_tags(doc.get("subject", []), doc.get("title", ""))
                 })
             return results
         except httpx.HTTPStatusError as exc:
