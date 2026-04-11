@@ -6,11 +6,12 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 interface BookCardProps {
   id: number;
   title: string;
-  openlibrary_id?: string;
+  google_books_id?: string;
+  thumbnail_url?: string;
   author?: string;
 }
 
-export default function BookCard({ id, title, openlibrary_id, author }: BookCardProps) {
+export default function BookCard({ id, title, thumbnail_url, author }: BookCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -24,9 +25,9 @@ export default function BookCard({ id, title, openlibrary_id, author }: BookCard
   return (
     <div className="book-card" onClick={handleClick}>
       <div className="book-card-cover">
-        {openlibrary_id ? (
+        {thumbnail_url ? (
           <Image
-            src={`https://covers.openlibrary.org/b/olid/${openlibrary_id}-L.jpg`}
+            src={thumbnail_url}
             alt={title}
             fill
             sizes="(max-width: 768px) 50vw, 33vw"

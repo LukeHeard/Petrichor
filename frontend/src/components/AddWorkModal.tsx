@@ -13,7 +13,8 @@ interface SearchResult {
   title: string;
   author: string;
   first_publish_year?: number;
-  openlibrary_id?: string;
+  google_books_id?: string;
+  thumbnail_url?: string;
   description?: string;
   page_count?: number;
   rating_average?: number;
@@ -26,7 +27,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
-  const [existingOlids, setExistingOlids] = useState<Set<string>>(new Set());
+  const [existingGbids, setExistingGbids] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
   const [previewWork, setPreviewWork] = useState<any | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -37,8 +38,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`);
       if (res.ok) {
         const data = await res.json();
-        const ids = new Set(data.map((w: any) => w.openlibrary_id).filter(Boolean));
-        setExistingOlids(ids as Set<string>);
+        const ids = new Set(data.map((w: any) => w.google_books_id).filter(Boolean));
+        setExistingGbids(ids as Set<string>);
       }
     } catch (err) {
       console.error("Failed to fetch existing library IDs", err);
@@ -67,7 +68,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       setSearchResults(data);
       setHasSearched(true);
     } catch (err: any) {
-      setError("Failed to search OpenLibrary.");
+      setError("Failed to search Google Books.");
       console.error(err);
     } finally {
       setIsSearching(false);
@@ -81,7 +82,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
     }, 5000);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.openlibrary_id || "")}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.google_books_id || "")}`);
       clearTimeout(timer);
       
       if (res.ok) {
@@ -121,7 +122,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           title: result.title, 
-          openlibrary_id: result.openlibrary_id || null,
+          google_books_id: result.google_books_id || null,
+          thumbnail_url: result.thumbnail_url || null,
           first_publish_year: result.first_publish_year || 0,
           description: result.description || "",
           page_count: result.page_count || 0,
@@ -232,7 +234,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
                         {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
                       </p>
                     </div>
-                    {res.openlibrary_id && existingOlids.has(res.openlibrary_id) ? (
+                    {res.google_books_id && existingGbids.has(res.google_books_id) ? (
                       <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem', border: '1px solid transparent' }}>
                         In Library
                       </span>
@@ -259,7 +261,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
                 book={previewWork} 
                 actions={
                   <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
-                    {previewWork.openlibrary_id && existingOlids.has(previewWork.openlibrary_id) ? (
+                    {previewWork.google_books_id && existingGbids.has(previewWork.google_books_id) ? (
                       <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>Already in Library</p>
                     ) : (
                       <button 

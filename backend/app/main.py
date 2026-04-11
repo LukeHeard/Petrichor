@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import re
+import os
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 import logging
@@ -9,6 +10,10 @@ import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Constants
+GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKSS_API_KEY")
+GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1/volumes"
 
 app = FastAPI(title="Petrichor API")
 
@@ -100,6 +105,12 @@ def get_clean_tags(subjects: list[str], title: str = "") -> list[str]:
     sorted_tags = sorted(list(cleaned), key=lambda x: (x not in priority_genres, x))
     return [t for t in sorted_tags if t][:8]
 
+def parse_gb_year(published_date: str) -> int:
+    if not published_date:
+        return 0
+    match = re.search(r'\d{4}', published_date)
+    return int(match.group(0)) if match else 0
+
 @app.get("/")
 def read_root():
     return {"message": "Petrichor Personal Library API"}
@@ -108,32 +119,26 @@ def read_root():
 async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     
-    # 1. Enrich with description if missing and OLID exists
+    # 1. Enrich with description if missing and GB ID exists
     description = work.description or ""
-    if not description and work.openlibrary_id:
+    thumbnail = work.thumbnail_url or ""
+    if (not description or not thumbnail) and work.google_books_id:
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
-                # OLID can be /works/OL... or just OL...
-                olid = work.openlibrary_id.replace("/works/", "")
-                res = await client.get(f"https://openlibrary.org/works/{olid}.json")
-                if res.is_success:
-                    data = res.json()
-                    desc_data = data.get("description", "")
-                    if isinstance(desc_data, dict):
-                        description = desc_data.get("value", "")
-                    else:
-                        description = desc_data
+            enriched = await enrich_work(work.google_books_id)
+            description = description or enriched.get("description", "")
+            thumbnail = thumbnail or enriched.get("thumbnail_url", "")
         except Exception as e:
-            logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
+            logger.warning(f"Failed to fetch enrichment for {work.google_books_id}: {e}")
 
     try:
         # 1. Create Work node
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
+        query = "CREATE (w:Work {title: $title, google_books_id: $gb_id, thumbnail_url: $thumb, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
                 "title": work.title, 
-                "openlib": work.openlibrary_id or "", 
+                "gb_id": work.google_books_id or "", 
+                "thumb": thumbnail,
                 "year": work.first_publish_year or 0,
                 "description_text": description,
                 "pages": work.page_count or 0,
@@ -174,25 +179,26 @@ def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
         # 1. Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.google_books_id, w.thumbnail_url, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at")
         works = []
         while result.has_next():
             row = result.get_next()
             works.append({
                 "id": row[0], 
                 "title": row[1], 
-                "openlibrary_id": row[2], 
-                "author": row[3],
-                "first_publish_year": row[4],
-                "description": row[5],
-                "page_count": row[6],
-                "rating_average": row[7],
-                "rating_count": row[8],
-                "personal_rating": row[9],
-                "status": row[10],
-                "review": row[11],
-                "personal_notes": row[12],
-                "created_at": row[13],
+                "google_books_id": row[2], 
+                "thumbnail_url": row[3],
+                "author": row[4],
+                "first_publish_year": row[5],
+                "description": row[6],
+                "page_count": row[7],
+                "rating_average": row[8],
+                "rating_count": row[9],
+                "personal_rating": row[10],
+                "status": row[11],
+                "review": row[12],
+                "personal_notes": row[13],
+                "created_at": row[14],
                 "tags": []
             })
 
@@ -219,22 +225,32 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.google_books_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
         
-        # Self-healing: If description is missing, try to fetch it now and save it
-        stored_desc = row[4]
-        olid = row[2]
-        if not stored_desc and olid:
-            logger.info(f"Self-healing: Fetching missing description for {row[1]}")
+        # Self-healing: If description or thumb is missing, try to fetch it now and save it
+        stored_desc = row[5]
+        stored_thumb = row[3]
+        gb_id = row[2]
+        if (not stored_desc or not stored_thumb) and gb_id:
+            logger.info(f"Self-healing: Fetching missing metadata for {row[1]}")
             try:
-                enriched = await enrich_work(olid)
-                new_desc = enriched.get("description", "")
-                if new_desc:
-                    conn.execute("MATCH (w:Work) WHERE w.id = $id SET w.description = $desc", {"id": work_id, "desc": new_desc})
-                    stored_desc = new_desc
+                enriched = await enrich_work(gb_id)
+                updates = []
+                params = {"id": work_id}
+                if not stored_desc and enriched.get("description"):
+                    updates.append("w.description = $desc")
+                    params["desc"] = enriched["description"]
+                    stored_desc = enriched["description"]
+                if not stored_thumb and enriched.get("thumbnail_url"):
+                    updates.append("w.thumbnail_url = $thumb")
+                    params["thumb"] = enriched["thumbnail_url"]
+                    stored_thumb = enriched["thumbnail_url"]
+                
+                if updates:
+                    conn.execute(f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(updates)}", params)
             except Exception as e:
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
  
@@ -247,17 +263,18 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         return {
             "id": row[0], 
             "title": row[1], 
-            "openlibrary_id": olid, 
-            "first_publish_year": row[3],
+            "google_books_id": gb_id, 
+            "thumbnail_url": stored_thumb,
+            "first_publish_year": row[4],
             "description": stored_desc,
-            "page_count": row[5],
-            "rating_average": row[6],
-            "rating_count": row[7],
-            "personal_rating": row[8],
-            "status": row[9],
-            "review": row[10],
-            "personal_notes": row[11],
-            "created_at": row[12],
+            "page_count": row[6],
+            "rating_average": row[7],
+            "rating_count": row[8],
+            "personal_rating": row[9],
+            "status": row[10],
+            "review": row[11],
+            "personal_notes": row[12],
+            "created_at": row[13],
             "tags": tags
         }
     except Exception as e:
@@ -314,39 +331,38 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/enrich/{olid:path}")
-async def enrich_work(olid: str):
-    """Fetch deep metadata (description, etc.) for a specific OLID without saving it."""
-    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
+@app.get("/enrich/{gb_id:path}")
+async def enrich_work(gb_id: str):
+    """Fetch deep metadata (description, thumbnail, tags) for a specific Google Books Volume ID."""
+    params = {"key": GOOGLE_BOOKS_API_KEY} if GOOGLE_BOOKS_API_KEY else {}
+    async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
         try:
-            # Clean OLID
-            clean_olid = olid.replace("/works/", "")
-            res = await client.get(f"https://openlibrary.org/works/{clean_olid}.json")
+            res = await client.get(f"{GOOGLE_BOOKS_BASE_URL}/{gb_id}", params=params)
             if not res.is_success:
-                raise HTTPException(status_code=404, detail="Work not found in OpenLibrary")
-            
+                raise HTTPException(status_code=404, detail="Volume not found in Google Books")
             
             data = res.json()
-            description = ""
-            desc_data = data.get("description", "")
-            if isinstance(desc_data, dict):
-                description = desc_data.get("value", "")
-            else:
-                description = desc_data
+            vinfo = data.get("volumeInfo", {})
             
-            # Extract tags from subjects
-            subjects = data.get("subjects", [])
-            tags = get_clean_tags(subjects, data.get("title", ""))
+            description = vinfo.get("description", "")
+            # Extract thumbnail
+            thumbnail = vinfo.get("imageLinks", {}).get("thumbnail", "")
+            if thumbnail:
+                thumbnail = thumbnail.replace("http://", "https://")
+            
+            # Extract tags from categories
+            categories = vinfo.get("categories", [])
+            tags = get_clean_tags(categories, vinfo.get("title", ""))
                 
             return {
-                "openlibrary_id": olid,
+                "google_books_id": gb_id,
                 "description": description,
+                "thumbnail_url": thumbnail,
                 "tags": tags
             }
         except Exception as e:
-            logger.error(f"Enrichment error for {olid}: {e}")
-            raise HTTPException(status_code=502, detail="Failed to fetch details from OpenLibrary")
+            logger.error(f"Enrichment error for {gb_id}: {e}")
+            raise HTTPException(status_code=502, detail="Failed to fetch details from Google Books")
 
 @app.delete("/works/{work_id}")
 def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
@@ -436,35 +452,45 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
 
 @app.get("/search")
 async def search_works(q: str = Query(..., min_length=1)):
-    # Standardize our request to OpenLibrary per their API guidelines
-    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
+    params = {
+        "q": q,
+        "maxResults": 10,
+        "printType": "books",
+    }
+    if GOOGLE_BOOKS_API_KEY:
+        params["key"] = GOOGLE_BOOKS_API_KEY
     
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
         try:
-            response = await client.get(
-                "https://openlibrary.org/search.json",
-                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
-            )
+            response = await client.get(GOOGLE_BOOKS_BASE_URL, params=params)
             response.raise_for_status()
             data = response.json()
             results = []
-            for doc in data.get("docs", []):
-                authors = doc.get("author_name", [])
-                primary_author = authors[0] if authors else ""
+            for item in data.get("items", []):
+                vinfo = item.get("volumeInfo", {})
+                authors = vinfo.get("authors", [])
+                primary_author = authors[0] if authors else "Unknown Author"
+                
+                # Image thumbnail
+                thumb = vinfo.get("imageLinks", {}).get("thumbnail", "")
+                if thumb:
+                    thumb = thumb.replace("http://", "https://")
+
                 results.append({
-                    "title": doc.get("title", "Unknown Title"),
+                    "title": vinfo.get("title", "Unknown Title"),
                     "author": primary_author,
-                    "first_publish_year": doc.get("first_publish_year"),
-                    "openlibrary_id": doc.get("key"),
-                    "page_count": doc.get("number_of_pages_median"),
-                    "rating_average": doc.get("ratings_average"),
-                    "rating_count": doc.get("ratings_count"),
-                    "tags": get_clean_tags(doc.get("subject", []), doc.get("title", ""))
+                    "first_publish_year": parse_gb_year(vinfo.get("publishedDate", "")),
+                    "google_books_id": item.get("id"),
+                    "thumbnail_url": thumb,
+                    "page_count": vinfo.get("pageCount"),
+                    "rating_average": vinfo.get("averageRating"),
+                    "rating_count": vinfo.get("ratingsCount"),
+                    "tags": get_clean_tags(vinfo.get("categories", []), vinfo.get("title", ""))
                 })
             return results
         except httpx.HTTPStatusError as exc:
-            logger.error(f"HTTPStatusError from OpenLibrary: {exc.response.status_code} - {exc.response.text}")
-            raise HTTPException(status_code=502, detail=f"OpenLibrary API returned error: {exc.response.status_code}")
+            logger.error(f"HTTPStatusError from Google Books: {exc.response.status_code} - {exc.response.text}")
+            raise HTTPException(status_code=502, detail=f"Google Books API returned error: {exc.response.status_code}")
         except Exception as e:
-            logger.exception(f"Unexpected error fetching from OpenLibrary: {e}")
+            logger.exception(f"Unexpected error fetching from Google Books: {e}")
             raise HTTPException(status_code=502, detail=f"External API error: {str(e)}")

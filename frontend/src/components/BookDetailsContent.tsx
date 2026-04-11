@@ -9,7 +9,8 @@ interface BookDetailsContentProps {
     page_count?: number;
     rating_average?: number;
     rating_count?: number;
-    openlibrary_id?: string;
+    google_books_id?: string;
+    thumbnail_url?: string;
     id?: number;
     tags?: string[];
   };
@@ -19,6 +20,23 @@ interface BookDetailsContentProps {
 export default function BookDetailsContent({ book, actions }: BookDetailsContentProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeInUp 0.3s ease' }}>
+      {book.thumbnail_url && (
+        <div style={{ 
+          width: '120px', 
+          height: '180px', 
+          position: 'relative', 
+          marginBottom: '1.5rem',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+          borderRadius: '4px',
+          overflow: 'hidden'
+        }}>
+          <img 
+            src={book.thumbnail_url} 
+            alt={book.title} 
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          />
+        </div>
+      )}
       <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
       <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
         {book.author}
@@ -83,13 +101,13 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         )}
       </div>
 
-      {(book.id || book.openlibrary_id) && (
+      {(book.id || book.google_books_id) && (
         <>
           <div className="thin-divider" style={{ margin: '1.5rem 0 0.5rem 0' }} />
           <p style={{ color: 'var(--muted)', fontSize: '0.65rem', marginBottom: '1.5rem', letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', gap: '0.75rem', opacity: 0.5 }}>
             {book.id && <span>Internal ID: {book.id}</span>}
-            {book.openlibrary_id && (
-              <span>OLID: {book.openlibrary_id.replace('/works/', '')}</span>
+            {book.google_books_id && (
+              <span>Google Books ID: {book.google_books_id}</span>
             )}
           </p>
         </>
