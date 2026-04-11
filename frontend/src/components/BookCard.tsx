@@ -42,60 +42,6 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
           </div>
         )}
         
-        {/* Circular Progress Overlay */}
-        {status === "Reading" && page_count > 0 && (
-          <div style={{
-            position: 'absolute',
-            top: '0.75rem',
-            right: '0.75rem',
-            width: '32px',
-            height: '32px',
-            background: 'color-mix(in srgb, var(--background) 80%, transparent)',
-            backdropFilter: 'blur(8px)',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 10
-          }}>
-            <svg height="32" width="32" style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
-              <circle
-                stroke="var(--border)"
-                fill="transparent"
-                strokeWidth="2"
-                r="13"
-                cx="16"
-                cy="16"
-                style={{ opacity: 0.2 }}
-              />
-              <circle
-                stroke="var(--accent)"
-                fill="transparent"
-                strokeWidth="2"
-                strokeDasharray={`${2 * Math.PI * 13}`}
-                style={{ 
-                  strokeDashoffset: (2 * Math.PI * 13) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 13),
-                  transition: 'stroke-dashoffset 0.6s ease',
-                  strokeLinecap: 'round'
-                }}
-                r="13"
-                cx="16"
-                cy="16"
-              />
-            </svg>
-            <span style={{ 
-              fontSize: '0.55rem', 
-              fontWeight: 800,
-              color: 'var(--accent)',
-              fontFamily: 'var(--font-sans)',
-              zIndex: 11
-            }}>
-              {Math.round((current_page / page_count) * 100)}%
-            </span>
-          </div>
-        )}
-
         <div className="book-card-hover">
           <div className="book-card-hover-content">
             <p className="font-serif" style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>{title}</p>
@@ -104,9 +50,53 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
           </div>
         </div>
       </div>
-      <div className="book-card-info">
-        <h3 className="font-serif" style={{ fontSize: '0.9rem', margin: '0.5rem 0 0.1rem 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h3>
-        {author && <p style={{ fontSize: '0.75rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{author}</p>}
+      <div className="book-card-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 className="font-serif" style={{ fontSize: '0.9rem', margin: '0.5rem 0 0.1rem 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h3>
+          {author && <p style={{ fontSize: '0.75rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{author}</p>}
+        </div>
+        
+        {status === "Reading" && page_count > 0 && (
+          <div style={{ position: 'relative', width: '28px', height: '28px', marginTop: '0.6rem', marginLeft: '0.5rem', flexShrink: 0 }}>
+            <svg height="28" width="28" style={{ transform: 'rotate(-90deg)' }}>
+              <circle
+                stroke="var(--border)"
+                fill="transparent"
+                strokeWidth="2"
+                r="12"
+                cx="14"
+                cy="14"
+                style={{ opacity: 0.2 }}
+              />
+              <circle
+                stroke="var(--accent)"
+                fill="transparent"
+                strokeWidth="2"
+                strokeDasharray={`${2 * Math.PI * 12}`}
+                style={{ 
+                  strokeDashoffset: (2 * Math.PI * 12) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 12),
+                  transition: 'stroke-dashoffset 0.6s ease',
+                  strokeLinecap: 'round'
+                }}
+                r="12"
+                cx="14"
+                cy="14"
+              />
+            </svg>
+            <span style={{ 
+              position: 'absolute', 
+              top: '50%', 
+              left: '50%', 
+              transform: 'translate(-50%, -50%)', 
+              fontSize: '0.5rem', 
+              fontWeight: 800,
+              color: 'var(--accent)',
+              fontFamily: 'var(--font-sans)'
+            }}>
+              {Math.round((current_page / page_count) * 100)}%
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

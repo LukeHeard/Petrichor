@@ -39,32 +39,32 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
         </p>
       </div>
       
-      <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', minWidth: '80px' }}>
-        {status === "Reading" && page_count > 0 ? (
-          <div style={{ position: 'relative', width: '36px', height: '36px', marginBottom: '0.2rem' }}>
-            <svg height="36" width="36" style={{ transform: 'rotate(-90deg)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        {status === "Reading" && page_count > 0 && (
+          <div style={{ position: 'relative', width: '32px', height: '32px' }}>
+            <svg height="32" width="32" style={{ transform: 'rotate(-90deg)' }}>
               <circle
                 stroke="var(--border)"
                 fill="transparent"
-                strokeWidth="2.5"
-                r="15"
-                cx="18"
-                cy="18"
+                strokeWidth="2"
+                r="14"
+                cx="16"
+                cy="16"
                 style={{ opacity: 0.2 }}
               />
               <circle
                 stroke="var(--accent)"
                 fill="transparent"
-                strokeWidth="2.5"
-                strokeDasharray={`${2 * Math.PI * 15}`}
+                strokeWidth="2"
+                strokeDasharray={`${2 * Math.PI * 14}`}
                 style={{ 
-                  strokeDashoffset: (2 * Math.PI * 15) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 15),
+                  strokeDashoffset: (2 * Math.PI * 14) - (Math.min(100, (current_page / page_count) * 100) / 100) * (2 * Math.PI * 14),
                   transition: 'stroke-dashoffset 0.6s ease',
                   strokeLinecap: 'round'
                 }}
-                r="15"
-                cx="18"
-                cy="18"
+                r="14"
+                cx="16"
+                cy="16"
               />
             </svg>
             <span style={{ 
@@ -72,7 +72,7 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
               top: '50%', 
               left: '50%', 
               transform: 'translate(-50%, -50%)', 
-              fontSize: '0.65rem', 
+              fontSize: '0.6rem', 
               fontWeight: 800,
               color: 'var(--accent)',
               fontFamily: 'var(--font-sans)'
@@ -80,29 +80,33 @@ export default function LibraryItem({ id, title, author, first_publish_year, per
               {Math.round((current_page / page_count) * 100)}%
             </span>
           </div>
-        ) : status && (
-          <span style={{ 
-            fontSize: '0.6rem', 
-            fontWeight: 700, 
-            letterSpacing: '0.1em', 
-            textTransform: 'uppercase', 
-            color: 'var(--muted)',
-            opacity: 0.8
-          }}>
-            {status}
-          </span>
         )}
-        
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.15rem' }}>
-          <span className="font-serif" style={{ 
-            fontSize: '1.1rem', 
-            fontWeight: 600, 
-            color: personal_rating && personal_rating > 0 ? 'var(--accent)' : 'var(--muted)',
-            opacity: personal_rating && personal_rating > 0 ? 1 : 0.4
-          }}>
-            {personal_rating && personal_rating > 0 ? personal_rating.toFixed(1) : "—"}
-          </span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--muted)', opacity: 0.3, fontWeight: 500 }}>/10</span>
+
+        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', minWidth: '70px' }}>
+          {status && (
+            <span style={{ 
+              fontSize: '0.6rem', 
+              fontWeight: 700, 
+              letterSpacing: '0.1em', 
+              textTransform: 'uppercase', 
+              color: 'var(--muted)',
+              opacity: 0.8
+            }}>
+              {status}
+            </span>
+          )}
+          
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.15rem' }}>
+            <span className="font-serif" style={{ 
+              fontSize: '1.05rem', 
+              fontWeight: 600, 
+              color: personal_rating && personal_rating > 0 ? 'var(--accent)' : 'var(--muted)',
+              opacity: personal_rating && personal_rating > 0 ? 1 : 0.4
+            }}>
+              {personal_rating && personal_rating > 0 ? personal_rating.toFixed(1) : "—"}
+            </span>
+            <span style={{ fontSize: '0.65rem', color: 'var(--muted)', opacity: 0.3, fontWeight: 500 }}>/10</span>
+          </div>
         </div>
       </div>
     </div>
