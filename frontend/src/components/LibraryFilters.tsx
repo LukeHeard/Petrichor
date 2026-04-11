@@ -271,19 +271,19 @@ export default function LibraryFilters({
           }}>
             <button
               onClick={onReset}
-              disabled={!canReset}
+              disabled={!isMounted || !canReset}
               style={{
                 background: 'none',
                 border: 'none',
                 padding: '0.25rem 0.5rem',
-                color: canReset ? 'var(--accent)' : 'var(--muted)',
+                color: (isMounted && canReset) ? 'var(--accent)' : 'var(--muted)',
                 fontSize: '0.65rem',
                 fontWeight: 800,
-                cursor: canReset ? 'pointer' : 'default',
+                cursor: (isMounted && canReset) ? 'pointer' : 'default',
                 fontFamily: 'var(--font-sans)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
-                opacity: canReset ? 0.7 : 0.3,
+                opacity: (isMounted && canReset) ? 0.7 : 0.3,
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
