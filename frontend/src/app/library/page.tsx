@@ -2,17 +2,21 @@
 
 import { useEffect, useState, useCallback, Suspense, useMemo } from "react";
 import LibraryItem from "@/components/LibraryItem";
+import BookCard from "@/components/BookCard";
 import LibraryFilters from "@/components/LibraryFilters";
 
 interface Work {
   id: number;
   title: string;
-  openlibrary_id?: string;
+  goodreads_id?: string;
+  thumbnail_url?: string;
   author?: string;
   first_publish_year?: number;
   tags?: string[];
   personal_rating?: number;
   status?: string;
+  page_count?: number;
+  current_page?: number;
   created_at?: number;
 }
 
@@ -25,7 +29,42 @@ function LibraryContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("id-desc");
+  const [sortBy, setSortBy] = useState("added-desc");
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Persistence: Load settings on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("petrichor_library_settings");
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        if (settings.searchQuery !== undefined) setSearchQuery(settings.searchQuery);
+        if (settings.selectedStatuses !== undefined) setSelectedStatuses(settings.selectedStatuses);
+        if (settings.selectedTags !== undefined) setSelectedTags(settings.selectedTags);
+        if (settings.sortBy !== undefined) setSortBy(settings.sortBy);
+        if (settings.viewMode !== undefined) setViewMode(settings.viewMode);
+      } catch (err) {
+        console.error("Failed to parse saved settings", err);
+      }
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Persistence: Save settings on change
+  useEffect(() => {
+    if (!isInitialized) return;
+    const settings = { searchQuery, selectedStatuses, selectedTags, sortBy, viewMode };
+    localStorage.setItem("petrichor_library_settings", JSON.stringify(settings));
+  }, [searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, isInitialized]);
+
+  const resetSettings = useCallback(() => {
+    setSearchQuery("");
+    setSelectedStatuses([]);
+    setSelectedTags([]);
+    setSortBy("added-desc");
+    localStorage.removeItem("petrichor_library_settings");
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -145,7 +184,15 @@ function LibraryContent() {
           onStatusChange={setSelectedStatuses}
           onTagChange={setSelectedTags}
           onSortChange={setSortBy}
+          onViewModeChange={setViewMode}
+          onReset={resetSettings}
+          viewMode={viewMode}
           allTags={allTags}
+          searchQuery={searchQuery}
+          selectedStatuses={selectedStatuses}
+          selectedTags={selectedTags}
+          sortBy={sortBy}
+          isInitialized={isInitialized}
         />
 
         {loading ? (
@@ -154,9 +201,13 @@ function LibraryContent() {
           )
         ) : filteredAndSortedWorks.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-            <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>No books matching your filters.</p>
+            <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+              {works.length === 0 
+                ? "No books in your library, add one using the + below!" 
+                : "No books matching your filters."}
+            </p>
           </div>
-        ) : (
+        ) : viewMode === 'list' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {filteredAndSortedWorks.map((work, index) => (
               <LibraryItem 
@@ -168,6 +219,24 @@ function LibraryContent() {
                 first_publish_year={work.first_publish_year}
                 personal_rating={work.personal_rating}
                 status={work.status}
+                page_count={work.page_count}
+                current_page={work.current_page}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="library-grid">
+            {filteredAndSortedWorks.map((work, index) => (
+              <BookCard 
+                key={work.id}
+                id={work.id}
+                index={index}
+                title={work.title}
+                author={work.author}
+                thumbnail_url={work.thumbnail_url}
+                status={work.status}
+                page_count={work.page_count}
+                current_page={work.current_page}
               />
             ))}
           </div>

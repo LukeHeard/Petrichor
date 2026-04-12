@@ -6,16 +6,29 @@ interface PersonalLibraryControlsProps {
   workId: number;
   initialStatus: string;
   initialRating: number;
+  initialCurrentPage?: number;
+  pageCount?: number;
   initialReview?: string;
   initialNotes?: string;
 }
 
-export default function PersonalLibraryControls({ workId, initialStatus, initialRating, initialReview = "", initialNotes = "" }: PersonalLibraryControlsProps) {
+export default function PersonalLibraryControls({ 
+  workId, 
+  initialStatus, 
+  initialRating, 
+  initialCurrentPage = 0,
+  pageCount = 0,
+  initialReview = "", 
+  initialNotes = "" 
+}: PersonalLibraryControlsProps) {
   const [status, setStatus] = useState(initialStatus || "Owned");
   const [rating, setRating] = useState(initialRating || 0);
+  const [currentPage, setCurrentPage] = useState(initialCurrentPage);
   const [review, setReview] = useState(initialReview);
   const [notes, setNotes] = useState(initialNotes);
   const [isEditingRating, setIsEditingRating] = useState(false);
+  const [isEditingProgress, setIsEditingProgress] = useState(false);
+  const [progressEditValue, setProgressEditValue] = useState("");
   const [editValue, setEditValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -27,13 +40,17 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
   reviewRef.current = review;
   const notesRef = useRef(notes);
   notesRef.current = notes;
+  const progressRef = useRef(currentPage);
+  progressRef.current = currentPage;
 
   const [inputWidth, setInputWidth] = useState(0);
+  const [progressInputWidth, setProgressInputWidth] = useState(0);
   const measureRef = useRef<HTMLSpanElement>(null);
+  const measureProgressRef = useRef<HTMLSpanElement>(null);
   const reviewRefUI = useRef<HTMLTextAreaElement>(null);
   const notesRefUI = useRef<HTMLTextAreaElement>(null);
 
-  const saveChanges = useCallback(async (updates: { status?: string; personal_rating?: number; review?: string; personal_notes?: string }) => {
+  const saveChanges = useCallback(async (updates: { status?: string; personal_rating?: number; review?: string; personal_notes?: string; current_page?: number }) => {
     setIsSaving(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
@@ -79,6 +96,12 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
       setInputWidth(measureRef.current.offsetWidth);
     }
   }, [editValue, isEditingRating, rating]);
+
+  useEffect(() => {
+    if (measureProgressRef.current) {
+      setProgressInputWidth(measureProgressRef.current.offsetWidth);
+    }
+  }, [progressEditValue, isEditingProgress, currentPage]);
 
   // Debounced slider update + Save on unmount
   useEffect(() => {
@@ -140,6 +163,25 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
     };
   }, [notes, initialNotes, saveChanges, workId]);
 
+  // Debounced Progress update
+  useEffect(() => {
+    if (currentPage === initialCurrentPage) return;
+    const timer = setTimeout(() => {
+      saveChanges({ current_page: currentPage });
+    }, 1500);
+    return () => {
+      clearTimeout(timer);
+      if (progressRef.current !== initialCurrentPage) {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ current_page: progressRef.current }),
+          keepalive: true
+        });
+      }
+    };
+  }, [currentPage, initialCurrentPage, saveChanges, workId]);
+
   return (
     <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1rem 0' }}>
       {/* Hidden measurement span */}
@@ -153,6 +195,18 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
         pointerEvents: 'none'
       }}>
         {isEditingRating ? (editValue || " ") : (rating > 0 ? rating.toFixed(1) : "—")}
+      </span>
+      
+      <span ref={measureProgressRef} style={{
+        position: 'absolute',
+        visibility: 'hidden',
+        whiteSpace: 'pre',
+        fontSize: '1.5rem',
+        fontWeight: 600,
+        fontFamily: 'var(--font-serif)',
+        pointerEvents: 'none'
+      }}>
+        {isEditingProgress ? (progressEditValue || " ") : currentPage}
       </span>
 
       {/* Status Section */}
@@ -190,6 +244,100 @@ export default function PersonalLibraryControls({ workId, initialStatus, initial
           ))}
         </div>
       </div>
+
+      {/* Progress Section (Visible only when Reading) */}
+      {status === "Reading" && pageCount > 0 && (
+        <div className="fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <p className="section-label" style={{ marginBottom: 0 }}>Progress</p>
+            <div 
+              onClick={() => {
+                if (!isEditingProgress) {
+                  setIsEditingProgress(true);
+                  setProgressEditValue(currentPage > 0 ? currentPage.toString() : "");
+                }
+              }}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}
+            >
+              {isEditingProgress ? (
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline' }}>
+                  <input 
+                    autoFocus
+                    type="text"
+                    value={progressEditValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^\d*$/.test(val)) setProgressEditValue(val);
+                    }}
+                    onBlur={() => {
+                      setIsEditingProgress(false);
+                      const num = parseInt(progressEditValue);
+                      if (!isNaN(num)) {
+                        const finalNum = Math.min(pageCount, Math.max(0, num));
+                        setCurrentPage(finalNum);
+                        saveChanges({ current_page: finalNum });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur();
+                      else if (e.key === 'Escape') setIsEditingProgress(false);
+                    }}
+                    style={{
+                      fontSize: '1.5rem', 
+                      fontWeight: 600, 
+                      color: 'var(--accent)', 
+                      background: 'none', 
+                      border: 'none', 
+                      width: `${Math.max(progressInputWidth, 20)}px`, 
+                      textAlign: 'right', 
+                      outline: 'none', 
+                      padding: 0, 
+                      margin: 0,
+                      fontFamily: 'var(--font-serif)',
+                      transition: 'width 0.1s ease-out'
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '-2px',
+                    left: '0',
+                    right: '0',
+                    height: '2px',
+                    background: 'var(--accent)',
+                    borderRadius: '1px',
+                    animation: 'fadeInHorizontal 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards'
+                  }} />
+                </div>
+              ) : (
+                <span style={{ 
+                  fontSize: '1.5rem', 
+                  fontWeight: 600, 
+                  color: 'var(--accent)', 
+                  fontFamily: 'var(--font-serif)',
+                  transition: 'opacity 0.3s ease',
+                  display: 'inline-block',
+                  minWidth: `${Math.max(progressInputWidth, 20)}px`,
+                  textAlign: 'right'
+                }}>
+                  {currentPage}
+                </span>
+              )}
+              <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>of {pageCount}</span>
+              <span style={{ color: 'var(--muted)', fontSize: '0.8rem', opacity: 0.6, marginLeft: '0.5rem' }}>
+                ({Math.round((currentPage / pageCount) * 100)}%)
+              </span>
+            </div>
+          </div>
+          <div style={{ width: '100%', height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ 
+              width: `${(currentPage / pageCount) * 100}%`, 
+              height: '100%', 
+              background: 'var(--accent)', 
+              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)' 
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Rating Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

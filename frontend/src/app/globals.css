@@ -115,6 +115,29 @@ a {
   margin: 1.5rem 0;
 }
 
+.description-content p {
+  margin-bottom: 1.25rem;
+}
+
+.description-content p:last-child {
+  margin-bottom: 0;
+}
+
+.description-content b, .description-content strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.description-content i, .description-content em {
+  font-style: italic;
+}
+
+.description-content br {
+  display: block;
+  content: "";
+  margin-top: 0.5rem;
+}
+
 /* Minimalist floating nav bar */
 .bottom-nav {
   position: fixed;
@@ -306,6 +329,7 @@ a {
   padding: 1.25rem 0.5rem;
   border-top: 1px solid var(--border);
   cursor: pointer;
+  position: relative;
   transition: background-color 0.2s ease, padding 0.2s ease, transform 0.2s ease;
   border-radius: 4px;
 }

@@ -1,144 +1,76 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
-import re
-from .db import get_db, DatabaseManager
-from .schemas import work as schemas
+import os
 import logging
 import time
+from .db import get_db, DatabaseManager
+from .schemas import work as schemas
+from .services.goodreads import GoodreadsScraper
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Petrichor API")
 
+BLOCKED_TAGS = {"Friendship", "Science Fiction Fantasy"}
+
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Tag cleaning helper (Extensive Whitelist approach)
-def get_clean_tags(subjects: list[str], title: str = "") -> list[str]:
-    if not subjects:
-        return []
-    
-    # Title words for redundancy filtering
-    title_words = set(re.findall(r'\w+', title.lower())) if title else set()
-    
-    # 1. Broad Categories & Tribes (Keywords that signal a valid Genre/Trope)
-    valid_categories = {
-        # Core Genres
-        "Fiction", "Nonfiction", "Fantasy", "Science Fiction", "Sci Fi", "Horror", "Mystery", "Thriller", 
-        "Suspense", "Romance", "Historical", "Adventure", "Western", "Musical", "Documentary",
-        # Subgenres/Tropes
-        "Dystopia", "Utopia", "Apocalypt", "Space Opera", "Cyberpunk", "Steampunk", "Solarpunk", "Hopepunk",
-        "Grimdark", "High Fantasy", "Urban Fantasy", "Magical Realism", "Gothic", "Noir", "Hardboiled",
-        "Coming Of Age", "Young Adult", "New Adult", "Paranormal", "Supernatural", "Psychological",
-        "Philosophical", "Experimental", "Satire", "Allegory", "Mythology", "Folklore", "Fairy Tale",
-        "Military", "Police", "Legal", "Medical", "Politics", "Diplomacy", "War", "Espionage", "Crime",
-        "Detective", "Heist", "Time Travel", "Multiverse", "Artificial Intelligence", "Robot", "Alien",
-        "First Contact", "Space Travel", "Interplanetary", "Dimension", "Alternate History", "Survival",
-        "Self Discovery", "Identity", "Loneliness", "Grief", "Loss", "Hope", "Revenge", "Betrayal",
-        "Redemption", "Quest", "Journey", "Hero", "Villain", "Antihero", "Chosen One", "Secret Identity",
-        "Class Struggle", "Social Classes", "Caste System", "Revolution", "Resistance", "Conflict", "Society",
-        "Existential", "Cosmic", "Love", "Obsession", "Family", "Friendship", "Tragedy", "Comedy", "Dark",
-        "Cozy", "Atmospheric", "Noir", "Surreal", "Absurdist", "Classic", "Modernist", "Postmodern", "Ecology"
-    }
-
-    # 2. Strict Blacklist for Places/Entities
-    blacklist = {"Deutsch", "German", "English", "Englisch", "Amerikanisch", "New York", "London", "America", "Nyt", "Bestseller", "Award", "Series", "Franchise", "Form"}
-
-    # 3. Words to strip from tags (e.g. "Adventure Stories" -> "Adventure")
-    strip_words = {"Stories", "Literature", "Review", "Novels", "Work", "Books", "Edition"}
-    
-    cleaned = set()
-    for s in subjects:
-        # Clean: Strip parentheses and punctuation
-        s_base = re.sub(r'\(.*?\)', '', s).strip()
-        norm = s_base.replace("-", " ").title().replace(",", "").strip()
-        
-        # Avoid redundancy with title
-        norm_low = norm.lower()
-        if title:
-            if norm_low == title.lower(): continue
-            tag_words = set(re.findall(r'\w+', norm_low))
-            if tag_words and tag_words.issubset(title_words): continue
-
-        # Filter: Must match a valid category word
-        # We check if any of our valid_categories is a substring or word in the tag
-        matched_cat = None
-        # Sort categories by length descending to catch most specific first (e.g. Science Fiction before Fiction)
-        for cat in sorted(list(valid_categories), key=len, reverse=True):
-            if cat.lower() in norm_low:
-                matched_cat = cat
-                break
-        
-        if not matched_cat:
-            continue
-            
-        # 5. Blacklist check
-        if any(b.lower() in norm_low for b in blacklist):
-            continue
-
-        # 6. Canonical Mapping: Use the official name from our category list
-        # This groups "Dystopian", "Dystopias", etc under "Dystopia"
-        norm = matched_cat
-        
-        if not norm: continue
-            
-        # Final normalization
-        if "Sci Fi" in norm: norm = "Science Fiction"
-        
-        cleaned.add(norm)
-    
-    # Priority sorting (Genres first)
-    priority_genres = {"Fiction", "Fantasy", "Science Fiction", "Dystopia", "Young Adult", "Adventure", "Thriller", "Mystery", "Horror", "Romance"}
-    sorted_tags = sorted(list(cleaned), key=lambda x: (x not in priority_genres, x))
-    return [t for t in sorted_tags if t][:8]
-
 @app.get("/")
 def read_root():
-    return {"message": "Petrichor Personal Library API"}
+    return {"message": "Petrichor Personal Library API - Goodreads Edition"}
 
 @app.post("/works", response_model=schemas.Work)
 async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     
-    # 1. Enrich with description if missing and OLID exists
+    goodreads_id = work.goodreads_id
     description = work.description or ""
-    if not description and work.openlibrary_id:
+    thumbnail = work.thumbnail_url or ""
+    rating_avg = work.rating_average or 0.0
+    rating_cnt = work.rating_count or 0
+    tags_to_save = work.tags or []
+
+    # Enrichment if data is missing
+    if (not description or not thumbnail or not rating_avg or not work.page_count) and goodreads_id:
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
-                # OLID can be /works/OL... or just OL...
-                olid = work.openlibrary_id.replace("/works/", "")
-                res = await client.get(f"https://openlibrary.org/works/{olid}.json")
-                if res.is_success:
-                    data = res.json()
-                    desc_data = data.get("description", "")
-                    if isinstance(desc_data, dict):
-                        description = desc_data.get("value", "")
-                    else:
-                        description = desc_data
+            enriched = await GoodreadsScraper.get_details(goodreads_id)
+            if enriched:
+                description = description or enriched.get("description", "")
+                thumbnail = thumbnail or enriched.get("thumbnail_url", "")
+                if not rating_avg:
+                    rating_avg = enriched.get("rating_average") or 0.0
+                    rating_cnt = enriched.get("rating_count") or 0
+                if not work.page_count:
+                    # Temporary override for query parameter
+                    work.page_count = enriched.get("page_count") or 0
+                if not tags_to_save:
+                    tags_to_save = enriched.get("tags", [])
         except Exception as e:
-            logger.warning(f"Failed to fetch description for {work.openlibrary_id}: {e}")
+            logger.warning(f"Failed to fetch enrichment for {goodreads_id}: {e}")
 
     try:
         # 1. Create Work node
-        query = "CREATE (w:Work {title: $title, openlibrary_id: $openlib, first_publish_year: $year, description: $description_text, page_count: $pages, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
+        query = "CREATE (w:Work {title: $title, goodreads_id: $gr_id, thumbnail_url: $thumb, first_publish_year: $year, description: $description_text, page_count: $pages, current_page: $curr_page, rating_average: $rating_avg, rating_count: $rating_cnt, personal_rating: $pers_rating, status: $status, review: $review, personal_notes: $notes, created_at: $created}) RETURN w.id"
         result = conn.execute(
             query,
             parameters={
                 "title": work.title, 
-                "openlib": work.openlibrary_id or "", 
+                "gr_id": goodreads_id or "", 
+                "thumb": thumbnail,
                 "year": work.first_publish_year or 0,
                 "description_text": description,
                 "pages": work.page_count or 0,
-                "rating_avg": work.rating_average or 0.0,
-                "rating_cnt": work.rating_count or 0,
+                "curr_page": work.current_page or 0,
+                "rating_avg": rating_avg,
+                "rating_cnt": rating_cnt,
                 "pers_rating": work.personal_rating or 0.0,
                 "status": work.status or "Owned",
                 "review": work.review or "",
@@ -151,9 +83,7 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
         work_id = result.get_next()[0]
 
         # 2. Handle Tags
-        tags_to_save = work.tags or []
         for tag_name in tags_to_save:
-            # Match or create Tag
             tag_res = conn.execute("MATCH (t:Tag) WHERE t.name = $name RETURN t.id", {"name": tag_name})
             if tag_res.has_next():
                 tag_id = tag_res.get_next()[0]
@@ -161,7 +91,6 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
                 tag_create = conn.execute("CREATE (t:Tag {name: $name}) RETURN t.id", {"name": tag_name})
                 tag_id = tag_create.get_next()[0]
             
-            # Link Work to Tag
             conn.execute("MATCH (w:Work), (t:Tag) WHERE w.id = $wid AND t.id = $tid CREATE (w)-[:HAS_TAG]->(t)", {"wid": work_id, "tid": tag_id})
 
         return await get_work(work_id, db)
@@ -173,31 +102,30 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
 def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        # 1. Match Work and optionally join with Author via WROTE relationship.
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.openlibrary_id, a.name, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, a.name, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at")
         works = []
         while result.has_next():
             row = result.get_next()
             works.append({
                 "id": row[0], 
                 "title": row[1], 
-                "openlibrary_id": row[2], 
-                "author": row[3],
-                "first_publish_year": row[4],
-                "description": row[5],
-                "page_count": row[6],
-                "rating_average": row[7],
-                "rating_count": row[8],
-                "personal_rating": row[9],
-                "status": row[10],
-                "review": row[11],
-                "personal_notes": row[12],
-                "created_at": row[13],
+                "goodreads_id": row[2], 
+                "thumbnail_url": row[3],
+                "author": row[4],
+                "first_publish_year": row[5],
+                "description": row[6],
+                "page_count": row[7],
+                "current_page": row[8],
+                "rating_average": row[9],
+                "rating_count": row[10],
+                "personal_rating": row[11],
+                "status": row[12],
+                "review": row[13],
+                "personal_notes": row[14],
+                "created_at": row[15],
                 "tags": []
             })
 
-        # 2. Fetch ALL work-tag relationships and map them
-        # Note: We fetch all because Kuzu's Python driver currently has issues with list parameters in the IN clause
         tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) RETURN w.id, t.name")
         tag_map = {}
         while tag_result.has_next():
@@ -219,56 +147,198 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.openlibrary_id, w.first_publish_year, w.description, w.page_count, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
         
-        # Self-healing: If description is missing, try to fetch it now and save it
-        stored_desc = row[4]
-        olid = row[2]
-        if not stored_desc and olid:
-            logger.info(f"Self-healing: Fetching missing description for {row[1]}")
-            try:
-                enriched = await enrich_work(olid)
-                new_desc = enriched.get("description", "")
-                if new_desc:
-                    conn.execute("MATCH (w:Work) WHERE w.id = $id SET w.description = $desc", {"id": work_id, "desc": new_desc})
-                    stored_desc = new_desc
-            except Exception as e:
-                logger.warning(f"Self-healing failed for {work_id}: {e}")
- 
-        # Fetch tags
+        # Self-healing and Enrichment
         tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
         tags = []
         while tag_result.has_next():
             tags.append(tag_result.get_next()[0])
+
+        stored_desc = row[5]
+        stored_thumb = row[3]
+        stored_rating = row[8]
+        stored_pages = row[6]
+        gr_id = row[2]
+        
+        # Enrich if basic data is missing OR if tags are missing
+        if (not stored_desc or not stored_thumb or not stored_rating or not stored_pages or not tags) and gr_id:
+            try:
+                enriched = await GoodreadsScraper.get_details(gr_id)
+                if enriched:
+                    updates = []
+                    params = {"id": work_id}
+                    if not stored_desc and enriched.get("description"):
+                        updates.append("w.description = $desc")
+                        params["desc"] = enriched["description"]
+                        stored_desc = enriched["description"]
+                    if not stored_thumb and enriched.get("thumbnail_url"):
+                        updates.append("w.thumbnail_url = $thumb")
+                        params["thumb"] = enriched["thumbnail_url"]
+                        stored_thumb = enriched["thumbnail_url"]
+                    if not stored_rating and enriched.get("rating_average"):
+                        updates.append("w.rating_average = $r_avg")
+                        updates.append("w.rating_count = $r_cnt")
+                        params["r_avg"] = enriched["rating_average"]
+                        params["r_cnt"] = enriched["rating_count"]
+                        stored_rating = enriched["rating_average"]
+                    if not stored_pages and enriched.get("page_count"):
+                        updates.append("w.page_count = $p_count")
+                        params["p_count"] = enriched["page_count"]
+                        stored_pages = enriched["page_count"]
+                    
+                    if updates:
+                        conn.execute(f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(updates)}", params)
+
+                    # Persist tags if we were missing them
+                    enriched_tags = enriched.get("tags", [])
+                    if not tags and enriched_tags:
+                        for tag_name in enriched_tags:
+                            # Use existing Tag or create new one
+                            tag_check = conn.execute("MATCH (t:Tag) WHERE t.name = $name RETURN t.id", {"name": tag_name})
+                            if tag_check.has_next():
+                                tag_id = tag_check.get_next()[0]
+                            else:
+                                tag_create = conn.execute("CREATE (t:Tag {name: $name}) RETURN t.id", {"name": tag_name})
+                                tag_id = tag_create.get_next()[0]
+                            
+                            # Create HAS_TAG relationship
+                            conn.execute("MATCH (w:Work), (t:Tag) WHERE w.id = $wid AND t.id = $tid MERGE (w)-[:HAS_TAG]->(t)", {"wid": work_id, "tid": tag_id})
+                            tags.append(tag_name)
+            except Exception as e:
+                logger.warning(f"Self-healing failed for {work_id}: {e}")
  
         return {
             "id": row[0], 
             "title": row[1], 
-            "openlibrary_id": olid, 
-            "first_publish_year": row[3],
+            "goodreads_id": gr_id, 
+            "thumbnail_url": stored_thumb,
+            "first_publish_year": row[4],
             "description": stored_desc,
-            "page_count": row[5],
-            "rating_average": row[6],
-            "rating_count": row[7],
-            "personal_rating": row[8],
-            "status": row[9],
-            "review": row[10],
-            "personal_notes": row[11],
-            "created_at": row[12],
+            "page_count": stored_pages,
+            "current_page": row[7],
+            "rating_average": stored_rating,
+            "rating_count": row[9],
+            "personal_rating": row[10],
+            "status": row[11],
+            "review": row[12],
+            "personal_notes": row[13],
+            "created_at": row[14],
             "tags": tags
         }
     except Exception as e:
         logger.error(f"Error getting work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/enrich/{gr_id:path}")
+async def enrich_work(gr_id: str):
+    """Fetch deep metadata from Goodreads for a specific ID."""
+    try:
+        data = await GoodreadsScraper.get_details(gr_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Book not found on Goodreads")
+        return data
+    except Exception as e:
+        logger.error(f"Enrichment error for {gr_id}: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch details from Goodreads")
+
+@app.get("/search")
+async def search_works(q: str = Query(..., min_length=1)):
+    try:
+        results = await GoodreadsScraper.search(q)
+        return results
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to search Goodreads")
+
+@app.delete("/works/{work_id}")
+def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} DETACH DELETE w")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error deleting work: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/works/{work_id}", response_model=schemas.Work)
+async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        check = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id", {"id": work_id})
+        if not check.has_next():
+            raise HTTPException(status_code=404, detail="Work not found")
+        
+        sets = []
+        params = {"id": work_id}
+        if work_update.title is not None:
+            sets.append("w.title = $new_title")
+            params["new_title"] = work_update.title
+        if work_update.first_publish_year is not None:
+            sets.append("w.first_publish_year = $publish_year")
+            params["publish_year"] = work_update.first_publish_year
+        if work_update.description is not None:
+            sets.append("w.description = $description_text")
+            params["description_text"] = work_update.description
+        if work_update.personal_rating is not None:
+            sets.append("w.personal_rating = $pers_rating")
+            params["pers_rating"] = work_update.personal_rating
+        if work_update.status is not None:
+            sets.append("w.status = $status")
+            params["status"] = work_update.status
+        if work_update.current_page is not None:
+            sets.append("w.current_page = $curr_page")
+            params["curr_page"] = work_update.current_page
+        if work_update.review is not None:
+            sets.append("w.review = $review")
+            params["review"] = work_update.review
+        if work_update.personal_notes is not None:
+            sets.append("w.personal_notes = $notes")
+            params["notes"] = work_update.personal_notes
+        
+        if sets:
+            query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)}"
+            conn.execute(query, params)
+            
+        if work_update.tags is not None:
+            current_tags_res = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
+            current_tags = []
+            while current_tags_res.has_next():
+                current_tags.append(current_tags_res.get_next()[0])
+            
+            new_tags = set(work_update.tags)
+            old_tags = set(current_tags)
+            
+            to_add = new_tags - old_tags
+            for tag_name in to_add:
+                tag_check = conn.execute("MATCH (t:Tag) WHERE t.name = $name RETURN t.id", {"name": tag_name})
+                if tag_check.has_next():
+                    tag_id = tag_check.get_next()[0]
+                else:
+                    tag_create = conn.execute("CREATE (t:Tag {name: $name}) RETURN t.id", {"name": tag_name})
+                    tag_id = tag_create.get_next()[0]
+                conn.execute("MATCH (w:Work), (t:Tag) WHERE w.id = $wid AND t.id = $tid CREATE (w)-[:HAS_TAG]->(t)", {"wid": work_id, "tid": tag_id})
+            
+            to_remove = old_tags - new_tags
+            for tag_name in to_remove:
+                conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) WHERE w.id = $wid AND t.name = $tname DELETE r", {"wid": work_id, "tname": tag_name})
+        
+        return await get_work(work_id, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating work: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/authors", response_model=schemas.Author)
 def create_author(author: schemas.AuthorCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute(f"CREATE (a:Author {{name: '{author.name}'}}) RETURN a.id, a.name")
+        # Use parameterized query to avoid injection
+        result = conn.execute("CREATE (a:Author {name: $name}) RETURN a.id, a.name", {"name": author.name})
         if result.has_next():
             row = result.get_next()
             return {"id": row[0], "name": row[1]}
@@ -298,7 +368,9 @@ def list_tags(db: DatabaseManager = Depends(get_db)):
         result = conn.execute("MATCH (t:Tag) RETURN t.name")
         tags = []
         while result.has_next():
-            tags.append(result.get_next()[0])
+            tag_name = result.get_next()[0]
+            if tag_name not in BLOCKED_TAGS:
+                tags.append(tag_name)
         return sorted(list(set(tags))) # Return unique sorted tags
     except Exception as e:
         logger.error(f"Error listing tags: {e}")
@@ -308,163 +380,9 @@ def list_tags(db: DatabaseManager = Depends(get_db)):
 def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        conn.execute(f"MATCH (w:Work), (a:Author) WHERE w.id = {work_id} AND a.id = {author_id} CREATE (a)-[:WROTE]->(w)")
+        conn.execute("MATCH (w:Work), (a:Author) WHERE w.id = $wid AND a.id = $aid CREATE (a)-[:WROTE]->(w)", {"wid": work_id, "aid": author_id})
         return {"message": "Success"}
     except Exception as e:
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/enrich/{olid:path}")
-async def enrich_work(olid: str):
-    """Fetch deep metadata (description, etc.) for a specific OLID without saving it."""
-    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
-        try:
-            # Clean OLID
-            clean_olid = olid.replace("/works/", "")
-            res = await client.get(f"https://openlibrary.org/works/{clean_olid}.json")
-            if not res.is_success:
-                raise HTTPException(status_code=404, detail="Work not found in OpenLibrary")
-            
-            
-            data = res.json()
-            description = ""
-            desc_data = data.get("description", "")
-            if isinstance(desc_data, dict):
-                description = desc_data.get("value", "")
-            else:
-                description = desc_data
-            
-            # Extract tags from subjects
-            subjects = data.get("subjects", [])
-            tags = get_clean_tags(subjects, data.get("title", ""))
-                
-            return {
-                "openlibrary_id": olid,
-                "description": description,
-                "tags": tags
-            }
-        except Exception as e:
-            logger.error(f"Enrichment error for {olid}: {e}")
-            raise HTTPException(status_code=502, detail="Failed to fetch details from OpenLibrary")
-
-@app.delete("/works/{work_id}")
-def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
-    conn = db.get_connection()
-    try:
-        conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} DETACH DELETE w")
-        return {"status": "success"}
-    except Exception as e:
-        logger.error(f"Error deleting work: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.patch("/works/{work_id}", response_model=schemas.Work)
-async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: DatabaseManager = Depends(get_db)):
-    conn = db.get_connection()
-    try:
-        # Check if work exists
-        check = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id", {"id": work_id})
-        if not check.has_next():
-            raise HTTPException(status_code=404, detail="Work not found")
-        
-        # Build SET clause
-        sets = []
-        params = {"id": work_id}
-        
-        if work_update.title is not None:
-            sets.append("w.title = $new_title")
-            params["new_title"] = work_update.title
-        if work_update.first_publish_year is not None:
-            sets.append("w.first_publish_year = $publish_year")
-            params["publish_year"] = work_update.first_publish_year
-        if work_update.description is not None:
-            sets.append("w.description = $description_text")
-            params["description_text"] = work_update.description
-        if work_update.personal_rating is not None:
-            sets.append("w.personal_rating = $pers_rating")
-            params["pers_rating"] = work_update.personal_rating
-        if work_update.status is not None:
-            sets.append("w.status = $status")
-            params["status"] = work_update.status
-        if work_update.review is not None:
-            sets.append("w.review = $review")
-            params["review"] = work_update.review
-        if work_update.personal_notes is not None:
-            sets.append("w.personal_notes = $notes")
-            params["notes"] = work_update.personal_notes
-        
-        if sets:
-            query = f"MATCH (w:Work) WHERE w.id = $id SET {', '.join(sets)}"
-            conn.execute(query, params)
-            
-        # Handle Tags if provided
-        if work_update.tags is not None:
-            # 1. Get current tags
-            current_tags_res = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
-            current_tags = []
-            while current_tags_res.has_next():
-                current_tags.append(current_tags_res.get_next()[0])
-            
-            new_tags = set(work_update.tags)
-            old_tags = set(current_tags)
-            
-            # Tags to add
-            to_add = new_tags - old_tags
-            for tag_name in to_add:
-                # Match or create Tag node
-                tag_check = conn.execute("MATCH (t:Tag) WHERE t.name = $name RETURN t.id", {"name": tag_name})
-                if tag_check.has_next():
-                    tag_id = tag_check.get_next()[0]
-                else:
-                    tag_create = conn.execute("CREATE (t:Tag {name: $name}) RETURN t.id", {"name": tag_name})
-                    tag_id = tag_create.get_next()[0]
-                
-                # Create relationship
-                conn.execute("MATCH (w:Work), (t:Tag) WHERE w.id = $wid AND t.id = $tid CREATE (w)-[:HAS_TAG]->(t)", {"wid": work_id, "tid": tag_id})
-            
-            # Tags to remove
-            to_remove = old_tags - new_tags
-            for tag_name in to_remove:
-                conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) WHERE w.id = $wid AND t.name = $tname DELETE r", {"wid": work_id, "tname": tag_name})
-        
-        return await get_work(work_id, db)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating work: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/search")
-async def search_works(q: str = Query(..., min_length=1)):
-    # Standardize our request to OpenLibrary per their API guidelines
-    headers = {"User-Agent": "PetrichorLibraryApp/1.0 (test@example.com)"}
-    
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0) as client:
-        try:
-            response = await client.get(
-                "https://openlibrary.org/search.json",
-                params={"q": q, "limit": "10", "fields": "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count,subject"}
-            )
-            response.raise_for_status()
-            data = response.json()
-            results = []
-            for doc in data.get("docs", []):
-                authors = doc.get("author_name", [])
-                primary_author = authors[0] if authors else ""
-                results.append({
-                    "title": doc.get("title", "Unknown Title"),
-                    "author": primary_author,
-                    "first_publish_year": doc.get("first_publish_year"),
-                    "openlibrary_id": doc.get("key"),
-                    "page_count": doc.get("number_of_pages_median"),
-                    "rating_average": doc.get("ratings_average"),
-                    "rating_count": doc.get("ratings_count"),
-                    "tags": get_clean_tags(doc.get("subject", []), doc.get("title", ""))
-                })
-            return results
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"HTTPStatusError from OpenLibrary: {exc.response.status_code} - {exc.response.text}")
-            raise HTTPException(status_code=502, detail=f"OpenLibrary API returned error: {exc.response.status_code}")
-        except Exception as e:
-            logger.exception(f"Unexpected error fetching from OpenLibrary: {e}")
-            raise HTTPException(status_code=502, detail=f"External API error: {str(e)}")

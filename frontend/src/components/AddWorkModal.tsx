@@ -13,7 +13,8 @@ interface SearchResult {
   title: string;
   author: string;
   first_publish_year?: number;
-  openlibrary_id?: string;
+  goodreads_id?: string;
+  thumbnail_url?: string;
   description?: string;
   page_count?: number;
   rating_average?: number;
@@ -26,10 +27,9 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
-  const [existingOlids, setExistingOlids] = useState<Set<string>>(new Set());
+  const [existingIds, setExistingIds] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
   const [previewWork, setPreviewWork] = useState<any | null>(null);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   // Fetch current library to check for duplicates
   const fetchLibraryIds = async () => {
@@ -37,8 +37,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`);
       if (res.ok) {
         const data = await res.json();
-        const ids = new Set(data.map((w: any) => w.openlibrary_id).filter(Boolean));
-        setExistingOlids(ids as Set<string>);
+        const ids = new Set(data.map((w: any) => w.goodreads_id).filter(Boolean));
+        setExistingIds(ids as Set<string>);
       }
     } catch (err) {
       console.error("Failed to fetch existing library IDs", err);
@@ -67,7 +67,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       setSearchResults(data);
       setHasSearched(true);
     } catch (err: any) {
-      setError("Failed to search OpenLibrary.");
+      setError("Failed to search Goodreads.");
       console.error(err);
     } finally {
       setIsSearching(false);
@@ -77,18 +77,25 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   const handlePreview = async (result: SearchResult) => {
     setError("");
     let timer = setTimeout(() => {
-      setError("Taking longer than usual to fetch details...");
-    }, 5000);
+      setError("Taking longer than usual to fetch details from Goodreads...");
+    }, 8000);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.openlibrary_id || "")}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.goodreads_id || "")}`);
       clearTimeout(timer);
       
       if (res.ok) {
         const data = await res.json();
-        setPreviewWork({ ...result, description: data.description, tags: data.tags || result.tags });
+        setPreviewWork({ 
+          ...result, 
+          description: data.description, 
+          tags: data.tags && data.tags.length > 0 ? data.tags : result.tags,
+          page_count: data.page_count || result.page_count,
+          first_publish_year: data.first_publish_year || result.first_publish_year,
+          rating_average: data.rating_average || result.rating_average,
+          rating_count: data.rating_count || result.rating_count
+        });
       } else {
-        // Fallback if enrichment fails
         setPreviewWork({ ...result, description: "Description currently unavailable." });
       }
     } catch (err) {
@@ -98,7 +105,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   };
 
   const selectResult = async (result: SearchResult) => {
-    setIsSearching(true); // Borrowing to show loading state
+    setIsSearching(true);
     setError("");
 
     try {
@@ -121,7 +128,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           title: result.title, 
-          openlibrary_id: result.openlibrary_id || null,
+          goodreads_id: result.goodreads_id || null,
+          thumbnail_url: result.thumbnail_url || null,
           first_publish_year: result.first_publish_year || 0,
           description: result.description || "",
           page_count: result.page_count || 0,
@@ -192,7 +200,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
               </button>
             )}
             <h2 className="font-serif" style={{ fontSize: '1.5rem', marginTop: 0, marginBottom: 0 }}>
-              {previewWork ? "Book Preview" : "Find Book"}
+              {previewWork ? "Goodreads Preview" : "Find a book..."}
             </h2>
           </div>
           <button onClick={() => {
@@ -205,7 +213,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
           }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1 }}>&times;</button>
         </div>
 
-        {error && <div style={{ color: '#b91c1c', marginBottom: '1rem', fontSize: '0.9rem', fontStyle: 'italic' }}>{error}</div>}
+        {error && <div style={{ color: '#b91c1c', marginBottom: '1rem', fontSize: '0.9rem', fontStyle: 'italic', padding: '0 1.5rem' }}>{error}</div>}
 
         <div style={{ position: 'relative', overflow: 'hidden', minHeight: '200px', padding: '0 1.5rem 2rem' }}>
           {!previewWork ? (
@@ -213,7 +221,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
               <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
                 <input 
                   type="text" 
-                  placeholder="Title, author, or ISBN..." 
+                  placeholder="Title or author..." 
                   value={searchQuery} 
                   onChange={e => setSearchQuery(e.target.value)} 
                   style={inputStyle}
@@ -226,14 +234,14 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {searchResults.map((res, i) => (
                   <div key={i} className="book-row" style={{ padding: '0.75rem 0.75rem', cursor: 'pointer' }} onClick={() => handlePreview(res)}>
-                    <div style={{ pointerEvents: 'none' }}>
+                    <div style={{ pointerEvents: 'none', flex: 1 }}>
                       <h3 className="font-serif" style={{ fontSize: '1.1rem', margin: 0 }}>{res.title}</h3>
                       <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
                         {res.author} {res.first_publish_year ? `(${res.first_publish_year})` : ''}
                       </p>
                     </div>
-                    {res.openlibrary_id && existingOlids.has(res.openlibrary_id) ? (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem', border: '1px solid transparent' }}>
+                    {res.goodreads_id && existingIds.has(res.goodreads_id) ? (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic', padding: '0.3rem 0.75rem' }}>
                         In Library
                       </span>
                     ) : (
@@ -259,7 +267,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
                 book={previewWork} 
                 actions={
                   <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
-                    {previewWork.openlibrary_id && existingOlids.has(previewWork.openlibrary_id) ? (
+                    {previewWork.goodreads_id && existingIds.has(previewWork.goodreads_id) ? (
                       <p style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>Already in Library</p>
                     ) : (
                       <button 

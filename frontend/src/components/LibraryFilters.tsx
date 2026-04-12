@@ -7,22 +7,35 @@ interface LibraryFiltersProps {
   onStatusChange: (statuses: string[]) => void;
   onTagChange: (tags: string[]) => void;
   onSortChange: (sortBy: string) => void;
+  onViewModeChange: (mode: 'list' | 'grid') => void;
+  onReset: () => void;
+  viewMode: 'list' | 'grid';
   allTags: string[];
+  searchQuery: string;
+  selectedStatuses: string[];
+  selectedTags: string[];
+  sortBy: string;
+  isInitialized: boolean;
 }
 
 export default function LibraryFilters({ 
-  onSearchChange, 
-  onStatusChange, 
-  onTagChange, 
+  onSearchChange,
+  onStatusChange,
+  onTagChange,
   onSortChange,
-  allTags
+  onViewModeChange,
+  onReset,
+  viewMode,
+  allTags,
+  searchQuery,
+  selectedStatuses: parentSelectedStatuses,
+  selectedTags: parentSelectedTags,
+  sortBy: parentSortBy,
+  isInitialized
 }: LibraryFiltersProps) {
-  const [search, setSearch] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("added-desc"); // Default: Recently Added
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
   const statuses = ["Owned", "Reading", "Finished", "DNF"];
@@ -40,26 +53,27 @@ export default function LibraryFilters({
     { label: "Year (Oldest)", value: "year-asc" },
   ];
 
-  const currentSortLabel = sortOptions.find(o => o.value === sortBy)?.label || "Sort";
+  const currentSortLabel = sortOptions.find(o => o.value === parentSortBy)?.label || "Sort";
 
   const handleStatusToggle = (status: string) => {
-    const newStatuses = selectedStatuses.includes(status)
-      ? selectedStatuses.filter(s => s !== status)
-      : [...selectedStatuses, status];
-    setSelectedStatuses(newStatuses);
+    const newStatuses = parentSelectedStatuses.includes(status)
+      ? parentSelectedStatuses.filter(s => s !== status)
+      : [...parentSelectedStatuses, status];
     onStatusChange(newStatuses);
   };
 
   const handleTagToggle = (tag: string) => {
-    const newTags = selectedTags.includes(tag)
-      ? selectedTags.filter(t => t !== tag)
-      : [...selectedTags, tag];
-    setSelectedTags(newTags);
+    const newTags = parentSelectedTags.includes(tag)
+      ? parentSelectedTags.filter(t => t !== tag)
+      : [...parentSelectedTags, tag];
     onTagChange(newTags);
   };
+  
+  const hasChanges = isMounted && isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc");
 
   // Close sort dropdown on click outside
   useEffect(() => {
+    setIsMounted(true);
     const handleClickOutside = (event: MouseEvent) => {
       if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
         setIsSortOpen(false);
@@ -70,7 +84,8 @@ export default function LibraryFilters({
   }, []);
 
   return (
-    <div className="fade-in-up" style={{ 
+    <>
+      <div className="fade-in-up" style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       gap: '1.25rem', 
@@ -91,9 +106,8 @@ export default function LibraryFilters({
           <input 
             type="text"
             placeholder="Search title or author..."
-            value={search}
+            value={searchQuery}
             onChange={(e) => {
-              setSearch(e.target.value);
               onSearchChange(e.target.value);
             }}
             style={{
@@ -132,7 +146,7 @@ export default function LibraryFilters({
             onMouseEnter={(e) => e.currentTarget.style.color = 'var(--foreground)'}
             onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted)'}
           >
-            {currentSortLabel}
+          {currentSortLabel}
             <svg 
               style={{ transform: isSortOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
               xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -164,19 +178,18 @@ export default function LibraryFilters({
                 <button
                   key={option.value}
                   onClick={() => {
-                    setSortBy(option.value);
                     onSortChange(option.value);
                     setIsSortOpen(false);
                   }}
                   style={{
                     padding: '0.6rem 0.75rem',
                     textAlign: 'left',
-                    background: sortBy === option.value ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                    background: parentSortBy === option.value ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
                     border: 'none',
                     borderRadius: '8px',
-                    color: sortBy === option.value ? 'var(--accent)' : 'var(--foreground)',
+                    color: parentSortBy === option.value ? 'var(--accent)' : 'var(--foreground)',
                     fontSize: '0.8rem',
-                    fontWeight: sortBy === option.value ? 600 : 500,
+                    fontWeight: parentSortBy === option.value ? 600 : 500,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease'
                   }}
@@ -188,14 +201,96 @@ export default function LibraryFilters({
             </div>
           )}
         </div>
-      </div>
+        
+        {/* View Toggle and Reset Button Wrapper */}
+        <div style={{ 
+          marginLeft: 'auto', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'flex-end',
+          position: 'relative'
+        }}>
+          {/* View Toggle */}
+          <div style={{ 
+            display: 'flex', 
+            background: 'var(--muted-background)', 
+            padding: '0.2rem', 
+            borderRadius: '8px'
+          }}>
+            <button
+              onClick={() => onViewModeChange('list')}
+              style={{
+                padding: '0.4rem 0.6rem',
+                border: 'none',
+                background: viewMode === 'list' ? 'var(--background)' : 'transparent',
+                color: viewMode === 'list' ? 'var(--accent)' : 'var(--muted)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+              title="List View"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+            <button
+              onClick={() => onViewModeChange('grid')}
+              style={{
+                padding: '0.4rem 0.6rem',
+                border: 'none',
+                background: viewMode === 'grid' ? 'var(--background)' : 'transparent',
+                color: viewMode === 'grid' ? 'var(--accent)' : 'var(--muted)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                boxShadow: viewMode === 'grid' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+              title="Grid View"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            </button>
+          </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .sort-option-hover:hover {
-          background: color-mix(in srgb, var(--muted) 10%, transparent) !important;
-          padding-left: 1rem !important;
-        }
-      `}} />
+          {/* Reset Button - Positioned absolutely below to not disrupt toggle alignment */}
+          <div style={{ 
+            position: 'absolute',
+            top: 'calc(100% + 0.4rem)',
+            right: 0,
+            whiteSpace: 'nowrap'
+          }}>
+            <button
+              onClick={onReset}
+              disabled={!hasChanges}
+              suppressHydrationWarning
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0.25rem 0.5rem',
+                color: hasChanges ? 'var(--accent)' : 'var(--muted)',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                cursor: hasChanges ? 'pointer' : 'default',
+                fontFamily: 'var(--font-sans)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                opacity: hasChanges ? 0.7 : 0.3,
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (hasChanges) e.currentTarget.style.opacity = '1';
+              }}
+              onMouseLeave={(e) => {
+                if (hasChanges) e.currentTarget.style.opacity = '0.7';
+              }}
+            ><span>Reset Filters</span></button>
+          </div>
+        </div>
+    </div>
+
 
       {/* Status Filter */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -207,9 +302,9 @@ export default function LibraryFilters({
               padding: '0.4rem 1rem',
               borderRadius: '20px',
               border: '1px solid',
-              borderColor: selectedStatuses.includes(status) ? 'var(--accent)' : 'var(--border)',
-              background: selectedStatuses.includes(status) ? 'var(--accent)' : 'transparent',
-              color: selectedStatuses.includes(status) ? 'var(--accent-foreground)' : 'var(--muted)',
+              borderColor: parentSelectedStatuses.includes(status) ? 'var(--accent)' : 'var(--border)',
+              background: parentSelectedStatuses.includes(status) ? 'var(--accent)' : 'transparent',
+              color: parentSelectedStatuses.includes(status) ? 'var(--accent-foreground)' : 'var(--muted)',
               fontSize: '0.75rem',
               fontWeight: 600,
               cursor: 'pointer',
@@ -270,9 +365,9 @@ export default function LibraryFilters({
                     padding: '0.3rem 0.75rem',
                     borderRadius: '8px',
                     border: '1px solid',
-                    borderColor: selectedTags.includes(tag) ? 'var(--accent)' : 'transparent',
-                    background: selectedTags.includes(tag) ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--muted-background)',
-                    color: selectedTags.includes(tag) ? 'var(--accent)' : 'var(--muted)',
+                    borderColor: parentSelectedTags.includes(tag) ? 'var(--accent)' : 'transparent',
+                    background: parentSelectedTags.includes(tag) ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--muted-background)',
+                    color: parentSelectedTags.includes(tag) ? 'var(--accent)' : 'var(--muted)',
                     fontSize: '0.7rem',
                     fontWeight: 500,
                     cursor: 'pointer',
@@ -287,5 +382,12 @@ export default function LibraryFilters({
         </div>
       )}
     </div>
+    <style dangerouslySetInnerHTML={{ __html: `
+      .sort-option-hover:hover {
+        background: color-mix(in srgb, var(--muted) 10%, transparent) !important;
+        padding-left: 1rem !important;
+      }
+    `}} />
+    </>
   );
 }

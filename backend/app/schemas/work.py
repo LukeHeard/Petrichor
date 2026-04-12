@@ -3,10 +3,12 @@ from typing import Optional, List
 
 class WorkBase(BaseModel):
     title: str
-    openlibrary_id: Optional[str] = None
+    goodreads_id: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     first_publish_year: Optional[int] = None
     description: Optional[str] = None
     page_count: Optional[int] = None
+    current_page: Optional[int] = 0
     rating_average: Optional[float] = None
     rating_count: Optional[int] = None
     personal_rating: Optional[float] = 0.0
@@ -24,6 +26,7 @@ class WorkUpdate(BaseModel):
     description: Optional[str] = None
     personal_rating: Optional[float] = None
     status: Optional[str] = None
+    current_page: Optional[int] = None
     review: Optional[str] = None
     personal_notes: Optional[str] = None
     tags: Optional[List[str]] = None
@@ -53,8 +56,10 @@ class SearchResult(BaseModel):
     title: str
     author: str
     first_publish_year: Optional[int] = None
-    openlibrary_id: Optional[str] = None
+    goodreads_id: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     tags: List[str] = []
     page_count: Optional[int] = None
+    current_page: Optional[int] = 0
     rating_average: Optional[float] = None
     rating_count: Optional[int] = None
