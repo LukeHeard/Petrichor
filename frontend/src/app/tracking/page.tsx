@@ -29,12 +29,20 @@ export default function Tracking() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewSession, setViewSession] = useState<ReadingSession | null>(null);
 
-  // Form State
+  // Form State (New Session)
   const [selectedWorkId, setSelectedWorkId] = useState<string>("");
   const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
   const [startPage, setStartPage] = useState("");
   const [endPage, setEndPage] = useState("");
   const [minutesRead, setMinutesRead] = useState("");
+
+  // Edit State
+  const [isEditingSession, setIsEditingSession] = useState(false);
+  const [editDate, setEditDate] = useState("");
+  const [editStartPage, setEditStartPage] = useState("");
+  const [editEndPage, setEditEndPage] = useState("");
+  const [editMinutesRead, setEditMinutesRead] = useState("");
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
 
   const fetchTrackingData = async () => {
     try {
@@ -167,6 +175,51 @@ export default function Tracking() {
   const handleCoverClick = (e: React.MouseEvent, session: ReadingSession) => {
     e.stopPropagation();
     setViewSession(session);
+    setIsEditingSession(false);
+    setIsDeletingSession(false);
+    setEditDate(session.date);
+    setEditStartPage(String(session.start_page));
+    setEditEndPage(String(session.end_page));
+    setEditMinutesRead(String(session.minutes_read));
+  };
+
+  const handleUpdateSession = async () => {
+    if (!viewSession) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions/${viewSession.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: editDate,
+          start_page: parseInt(editStartPage),
+          end_page: parseInt(editEndPage),
+          minutes_read: parseInt(editMinutesRead)
+        })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setViewSession(updated);
+        setIsEditingSession(false);
+        fetchTrackingData();
+      }
+    } catch (err) {
+      console.error("Failed to update session", err);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!viewSession) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions/${viewSession.id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setViewSession(null);
+        fetchTrackingData();
+      }
+    } catch (err) {
+      console.error("Failed to delete session", err);
+    }
   };
 
   return (
@@ -176,7 +229,10 @@ export default function Tracking() {
           <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Tracking</span></h1>
           <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Reading Calendar & Goals</p>
         </div>
-        <button className="btn-primary" onClick={() => setIsModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button className="btn-primary" onClick={() => {
+          setIsModalOpen(true);
+          setLogDate(new Date().toISOString().split('T')[0]);
+        }} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>+</span> Log Reading
         </button>
       </header>
@@ -251,7 +307,31 @@ export default function Tracking() {
 
       {viewSession && (
         <div className="modal-overlay" onClick={() => setViewSession(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
+            <button 
+              onClick={() => {
+                setIsEditingSession(!isEditingSession);
+                setIsDeletingSession(false);
+              }}
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: isEditingSession ? 'var(--accent)' : 'var(--muted)',
+                padding: '0.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10
+              }}
+              title="Edit session"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+
             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
               {viewSession.work_thumbnail_url && (
                 <img 
@@ -263,38 +343,74 @@ export default function Tracking() {
                 />
               )}
               <div style={{ flex: 1 }}>
-                <h3 style={{ marginBottom: '1rem', lineHeight: 1.2 }}>{viewSession.work_title}</h3>
+                <h3 style={{ marginBottom: '1rem', lineHeight: 1.2, paddingRight: '2rem' }}>{viewSession.work_title}</h3>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Started</span>
-                    <span style={{ fontWeight: 600 }}>Page {viewSession.start_page}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</span>
-                    <span style={{ fontWeight: 600 }}>Page {viewSession.end_page}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pages Read</span>
-                    <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{viewSession.end_page - viewSession.start_page}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time Read</span>
-                    <span style={{ fontWeight: 600 }}>{viewSession.minutes_read} min</span>
-                  </div>
+                  {isEditingSession ? (
+                    <>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '0.7rem' }}>Date</label>
+                        <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                          <label style={{ fontSize: '0.7rem' }}>Start Page</label>
+                          <input type="number" value={editStartPage} onChange={e => setStartPage(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+                        </div>
+                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                          <label style={{ fontSize: '0.7rem' }}>End Page</label>
+                          <input type="number" value={editEndPage} onChange={e => setEndPage(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+                        </div>
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '0.7rem' }}>Time Read (min)</label>
+                        <input type="number" value={editMinutesRead} onChange={e => setMinutesRead(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Started</span>
+                        <span style={{ fontWeight: 600 }}>Page {viewSession.start_page}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</span>
+                        <span style={{ fontWeight: 600 }}>Page {viewSession.end_page}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pages Read</span>
+                        <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{viewSession.end_page - viewSession.start_page}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time Read</span>
+                        <span style={{ fontWeight: 600 }}>{viewSession.minutes_read} min</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
             
             <div className="modal-actions" style={{ marginTop: '2rem' }}>
-              <button 
-                type="button" 
-                className="btn-primary" 
-                style={{ width: '100%' }}
-                onClick={() => setViewSession(null)}
-              >
-                Close
-              </button>
+              {isEditingSession ? (
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <button type="button" className="btn-primary" style={{ width: '100%' }} onClick={handleUpdateSession}>Save Changes</button>
+                  <button 
+                    type="button" 
+                    className="btn-ghost" 
+                    style={{ width: '100%', color: isDeletingSession ? '#ff4444' : 'var(--muted)' }} 
+                    onMouseLeave={() => setIsDeletingSession(false)}
+                    onClick={() => {
+                      if (isDeletingSession) handleDeleteSession();
+                      else setIsDeletingSession(true);
+                    }}
+                  >
+                    {isDeletingSession ? "Confirm Delete?" : "Remove Session"}
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="btn-primary" style={{ width: '100%' }} onClick={() => setViewSession(null)}>Close</button>
+              )}
             </div>
           </div>
         </div>

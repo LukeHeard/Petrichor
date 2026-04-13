@@ -19,5 +19,11 @@ class ReadingSession(ReadingSessionBase):
     class Config:
         from_attributes = True
 
+class ReadingSessionUpdate(BaseModel):
+    date: Optional[str] = None
+    start_page: Optional[int] = None
+    end_page: Optional[int] = None
+    minutes_read: Optional[int] = None
+
 class TrackingSessionResponse(BaseModel):
     sessions: list[ReadingSession]
