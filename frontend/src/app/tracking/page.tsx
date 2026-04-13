@@ -63,8 +63,8 @@ export default function Tracking() {
       if (worksRes.ok) {
         const worksData = await worksRes.json();
         worksData.sort((a: Work, b: Work) => {
-          if (a.status === "Currently Reading" && b.status !== "Currently Reading") return -1;
-          if (b.status === "Currently Reading" && a.status !== "Currently Reading") return 1;
+          if (a.status === "Reading" && b.status !== "Reading") return -1;
+          if (b.status === "Reading" && a.status !== "Reading") return 1;
           return a.title.localeCompare(b.title);
         });
         setWorks(worksData);
@@ -178,7 +178,7 @@ export default function Tracking() {
     const work = works.find(w => String(w.id) === workId);
     if (work) {
       if (work.status === "Reading") {
-        setStartPage(String(work.current_page || 0));
+        setStartPage(String((work.current_page || 0) + 1));
       } else {
         setStartPage("0");
       }
@@ -476,7 +476,7 @@ export default function Tracking() {
                 <select value={selectedWorkId} onChange={e => handleWorkSelection(e.target.value)} required>
                   <option value="" disabled>Select a book...</option>
                   {works.map(w => (
-                    <option key={w.id} value={w.id}>{w.title} {w.status === 'Reading' ? '(Reading)' : ''}</option>
+                    <option key={w.id} value={w.id}>{w.title}</option>
                   ))}
                 </select>
               </div>
