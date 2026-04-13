@@ -189,8 +189,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       backdropFilter: 'blur(5px)',
       WebkitBackdropFilter: 'blur(5px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 2000, padding: '1rem',
-      cursor: 'pointer'
+      zIndex: 2000, padding: '1rem'
     }}>
       <div 
         onClick={e => e.stopPropagation()}
@@ -199,8 +198,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
         background: 'var(--background)',
         border: '1px solid var(--border)',
         padding: 0,
-        borderRadius: '8px',
-        cursor: 'default'
+        borderRadius: '8px'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'flex-start', padding: '2rem 1.5rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

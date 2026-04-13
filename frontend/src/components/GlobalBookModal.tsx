@@ -138,8 +138,7 @@ export default function GlobalBookModal() {
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      zIndex: 3000, padding: '1rem',
-      cursor: 'pointer'
+      zIndex: 3000, padding: '1rem'
     }}>
       <div 
         onClick={e => e.stopPropagation()}
@@ -152,8 +151,7 @@ export default function GlobalBookModal() {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        animation: 'fadeInUp 0.3s ease',
-        cursor: 'default'
+        animation: 'fadeInUp 0.3s ease'
       }}>
         <button onClick={closeModal} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1, zIndex: 10 }}>&times;</button>
 
