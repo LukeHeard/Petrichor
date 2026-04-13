@@ -306,31 +306,66 @@ export default function Tracking() {
       </section>
 
       {viewSession && (
-        <div className="modal-overlay" onClick={() => setViewSession(null)}>
+        <div className="modal-overlay" onClick={() => { setViewSession(null); setIsEditingSession(false); setIsDeletingSession(false); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
-            <button 
-              onClick={() => {
-                setIsEditingSession(!isEditingSession);
-                setIsDeletingSession(false);
-              }}
-              style={{
-                position: 'absolute',
-                top: '1.25rem',
-                right: '1.25rem',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: isEditingSession ? 'var(--accent)' : 'var(--muted)',
-                padding: '0.25rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 10
-              }}
-              title="Edit session"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
+              {isEditingSession && (
+                <button 
+                  onClick={() => {
+                    if (isDeletingSession) handleDeleteSession();
+                    else setIsDeletingSession(true);
+                  }}
+                  onMouseLeave={() => setIsDeletingSession(false)}
+                  style={{
+                    background: isDeletingSession ? '#ff4444' : 'none',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    color: isDeletingSession ? 'white' : 'var(--muted)',
+                    padding: isDeletingSession ? '2px 8px' : '0.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Delete session"
+                >
+                  {isDeletingSession ? "CONFIRM?" : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                  )}
+                </button>
+              )}
+              
+              <button 
+                onClick={() => {
+                  if (isEditingSession) {
+                    handleUpdateSession();
+                  } else {
+                    setIsEditingSession(true);
+                  }
+                  setIsDeletingSession(false);
+                }}
+                style={{
+                  background: isEditingSession ? 'var(--accent)' : 'none',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  color: isEditingSession ? 'var(--accent-foreground)' : 'var(--muted)',
+                  padding: isEditingSession ? '2px 8px' : '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  transition: 'all 0.2s ease'
+                }}
+                title={isEditingSession ? "Save changes" : "Edit session"}
+              >
+                {isEditingSession ? "SAVE" : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
+              </button>
+            </div>
 
             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
               {viewSession.work_thumbnail_url && (
@@ -343,74 +378,73 @@ export default function Tracking() {
                 />
               )}
               <div style={{ flex: 1 }}>
-                <h3 style={{ marginBottom: '1rem', lineHeight: 1.2, paddingRight: '2rem' }}>{viewSession.work_title}</h3>
+                <h3 style={{ marginBottom: '1rem', lineHeight: 1.2, paddingRight: '4rem' }}>{viewSession.work_title}</h3>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {isEditingSession ? (
-                    <>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label style={{ fontSize: '0.7rem' }}>Date</label>
-                        <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</span>
+                    {isEditingSession ? (
+                      <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground)', textAlign: 'right', fontWeight: 600, fontSize: '0.9rem', width: '130px', outline: 'none' }} />
+                    ) : (
+                      <span style={{ fontWeight: 600 }}>{viewSession.date}</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Started</span>
+                    {isEditingSession ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page</span>
+                        <input type="number" value={editStartPage} onChange={e => setEditStartPage(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground)', textAlign: 'right', fontWeight: 600, fontSize: '0.9rem', width: '60px', outline: 'none' }} />
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                          <label style={{ fontSize: '0.7rem' }}>Start Page</label>
-                          <input type="number" value={editStartPage} onChange={e => setStartPage(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
-                        </div>
-                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                          <label style={{ fontSize: '0.7rem' }}>End Page</label>
-                          <input type="number" value={editEndPage} onChange={e => setEndPage(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
-                        </div>
+                    ) : (
+                      <span style={{ fontWeight: 600 }}>Page {viewSession.start_page}</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</span>
+                    {isEditingSession ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page</span>
+                        <input type="number" value={editEndPage} onChange={e => setEditEndPage(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground)', textAlign: 'right', fontWeight: 600, fontSize: '0.9rem', width: '60px', outline: 'none' }} />
                       </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label style={{ fontSize: '0.7rem' }}>Time Read (min)</label>
-                        <input type="number" value={editMinutesRead} onChange={e => setMinutesRead(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+                    ) : (
+                      <span style={{ fontWeight: 600 }}>Page {viewSession.end_page}</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pages Read</span>
+                    <span style={{ fontWeight: 600, color: 'var(--accent)' }}>
+                      {isEditingSession ? (parseInt(editEndPage) - parseInt(editStartPage)) || 0 : viewSession.end_page - viewSession.start_page}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time Read</span>
+                    {isEditingSession ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input type="number" value={editMinutesRead} onChange={e => setEditMinutesRead(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--foreground)', textAlign: 'right', fontWeight: 600, fontSize: '0.9rem', width: '50px', outline: 'none' }} />
+                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>min</span>
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Started</span>
-                        <span style={{ fontWeight: 600 }}>Page {viewSession.start_page}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</span>
-                        <span style={{ fontWeight: 600 }}>Page {viewSession.end_page}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pages Read</span>
-                        <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{viewSession.end_page - viewSession.start_page}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time Read</span>
-                        <span style={{ fontWeight: 600 }}>{viewSession.minutes_read} min</span>
-                      </div>
-                    </>
-                  )}
+                    ) : (
+                      <span style={{ fontWeight: 600 }}>{viewSession.minutes_read} min</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
             
             <div className="modal-actions" style={{ marginTop: '2rem' }}>
-              {isEditingSession ? (
-                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <button type="button" className="btn-primary" style={{ width: '100%' }} onClick={handleUpdateSession}>Save Changes</button>
-                  <button 
-                    type="button" 
-                    className="btn-ghost" 
-                    style={{ width: '100%', color: isDeletingSession ? '#ff4444' : 'var(--muted)' }} 
-                    onMouseLeave={() => setIsDeletingSession(false)}
-                    onClick={() => {
-                      if (isDeletingSession) handleDeleteSession();
-                      else setIsDeletingSession(true);
-                    }}
-                  >
-                    {isDeletingSession ? "Confirm Delete?" : "Remove Session"}
-                  </button>
-                </div>
-              ) : (
-                <button type="button" className="btn-primary" style={{ width: '100%' }} onClick={() => setViewSession(null)}>Close</button>
-              )}
+              <button 
+                type="button" 
+                className="btn-primary" 
+                style={{ width: '100%' }}
+                onClick={() => setViewSession(null)}
+              >
+                {isEditingSession ? "Cancel" : "Close"}
+              </button>
             </div>
           </div>
         </div>
