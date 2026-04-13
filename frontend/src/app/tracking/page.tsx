@@ -69,8 +69,8 @@ export default function Tracking() {
         setWorks(worksData);
         if (lastWorkId) {
           setSelectedWorkId(lastWorkId);
-        } else if (worksData.length > 0) {
-          setSelectedWorkId(String(worksData[0].id));
+        } else {
+          setSelectedWorkId("");
         }
       }
     } catch (err) {
@@ -456,6 +456,7 @@ export default function Tracking() {
               <div className="form-group">
                 <label>Book</label>
                 <select value={selectedWorkId} onChange={e => setSelectedWorkId(e.target.value)} required>
+                  <option value="" disabled>Select a book...</option>
                   {works.map(w => (
                     <option key={w.id} value={w.id}>{w.title} {w.status === 'Currently Reading' ? '(Reading)' : ''}</option>
                   ))}
