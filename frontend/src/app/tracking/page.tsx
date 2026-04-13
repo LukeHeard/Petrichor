@@ -349,11 +349,12 @@ export default function Tracking() {
                   borderRadius: '4px',
                   cursor: 'pointer',
                   color: (isEditingSession || isDeletingSession) ? (isDeletingSession ? 'white' : 'var(--accent-foreground)') : 'var(--muted)',
-                  padding: (isEditingSession || isDeletingSession) ? '2px 10px' : '0.25rem',
+                  padding: (isEditingSession || isDeletingSession) ? '0.35rem 10px' : '0.25rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '0.7rem',
+                  lineHeight: 1,
                   fontWeight: 800,
                   transition: 'all 0.2s ease',
                   minWidth: (isEditingSession || isDeletingSession) ? '50px' : 'auto'
