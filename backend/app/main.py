@@ -6,6 +6,8 @@ import time
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 from .schemas import tracking as tracking_schemas
+from .schemas import stats as stats_schemas
+from datetime import datetime, timedelta
 from .services.goodreads import GoodreadsScraper
 
 logging.basicConfig(level=logging.INFO)
@@ -529,4 +531,120 @@ def delete_session(session_id: int, db: DatabaseManager = Depends(get_db)):
         return {"message": "Reading session deleted"}
     except Exception as e:
         logger.error(f"Error deleting reading session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/stats", response_model=stats_schemas.StatsResponse)
+def get_stats(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: DatabaseManager = Depends(get_db)
+):
+    conn = db.get_connection()
+    try:
+        # Default range: last 30 days if not provided
+        if not end_date:
+            end_date = datetime.now().strftime("%Y-%m-%d")
+        if not start_date:
+            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+        # 1. Summary & Library Totals
+        # Total works
+        res_total = conn.execute("MATCH (w:Work) RETURN count(w)")
+        total_books = res_total.get_next()[0] if res_total.has_next() else 0
+
+        # Finished works
+        res_finished = conn.execute("MATCH (w:Work) WHERE w.status = 'Finished' RETURN count(w)")
+        finished_books = res_finished.get_next()[0] if res_finished.has_next() else 0
+
+        # Average rating (Library-wide)
+        res_rating = conn.execute("MATCH (w:Work) WHERE w.personal_rating > 0 RETURN avg(w.personal_rating)")
+        avg_rating = res_rating.get_next()[0] if res_rating.has_next() else 0.0
+
+        # 2. Period-specific metrics (Sessions)
+        session_query = """
+        MATCH (s:ReadingSession)
+        WHERE s.date >= $start AND s.date <= $end
+        RETURN s.date, s.start_page, s.end_page, s.minutes_read
+        ORDER BY s.date
+        """
+        res_sessions = conn.execute(session_query, {"start": start_date, "end": end_date})
+        
+        daily_metrics = {}
+        total_pages_period = 0
+        total_minutes_period = 0
+        
+        while res_sessions.has_next():
+            row = res_sessions.get_next()
+            s_date, s_start, s_end, s_mins = row[0], row[1], row[2], row[3]
+            pages = max(0, s_end - s_start)
+            mins = s_mins or 0
+            
+            if s_date not in daily_metrics:
+                daily_metrics[s_date] = {"pages": 0, "minutes": 0}
+            
+            daily_metrics[s_date]["pages"] += pages
+            daily_metrics[s_date]["minutes"] += mins
+            total_pages_period += pages
+            total_minutes_period += mins
+
+        # Fill in gaps for daily activity chart
+        daily_activity = []
+        fmt = "%Y-%m-%d"
+        curr = datetime.strptime(start_date, fmt)
+        end = datetime.strptime(end_date, fmt)
+        while curr <= end:
+            d_str = curr.strftime(fmt)
+            daily_activity.append({
+                "date": d_str,
+                "pages": daily_metrics.get(d_str, {}).get("pages", 0),
+                "minutes": daily_metrics.get(d_str, {}).get("minutes", 0)
+            })
+            curr += timedelta(days=1)
+
+        # 3. Distributions
+        # Tag distribution
+        tag_res = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) RETURN t.name, count(w) ORDER BY count(w) DESC LIMIT 10")
+        tag_distribution = []
+        while tag_res.has_next():
+            row = tag_res.get_next()
+            tag_distribution.append({"label": row[0], "value": row[1]})
+
+        # Rating distribution
+        rating_res = conn.execute("MATCH (w:Work) WHERE w.personal_rating > 0 RETURN w.personal_rating, count(w) ORDER BY w.personal_rating")
+        rating_distribution = []
+        while rating_res.has_next():
+            row = rating_res.get_next()
+            rating_distribution.append({"label": str(row[0]), "value": row[1]})
+
+        # 4. Currently Reading
+        cr_res = conn.execute("MATCH (w:Work) WHERE w.status = 'Reading' RETURN w.id, w.title, w.thumbnail_url, w.page_count, w.current_page")
+        currently_reading = []
+        while cr_res.has_next():
+            row = cr_res.get_next()
+            wid, wtitle, wthumb, wpages, wcurr = row[0], row[1], row[2], row[3], row[4]
+            progress = (wcurr / wpages * 100) if wpages > 0 else 0
+            currently_reading.append({
+                "id": wid,
+                "title": wtitle,
+                "thumbnail_url": wthumb,
+                "page_count": wpages,
+                "current_page": wcurr,
+                "progress_percentage": round(progress, 1)
+            })
+
+        return {
+            "summary": {
+                "total_books": total_books,
+                "finished_books": finished_books,
+                "total_pages_period": total_pages_period,
+                "total_minutes_period": total_minutes_period,
+                "average_rating": round(avg_rating, 2)
+            },
+            "daily_activity": daily_activity,
+            "tag_distribution": tag_distribution,
+            "rating_distribution": rating_distribution,
+            "currently_reading": currently_reading
+        }
+    except Exception as e:
+        logger.error(f"Error generating stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
