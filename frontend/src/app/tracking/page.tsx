@@ -309,9 +309,9 @@ export default function Tracking() {
         <div className="modal-overlay" onClick={() => { setViewSession(null); setIsEditingSession(false); setIsDeletingSession(false); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
             <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.4rem', zIndex: 10 }}>
-              {isEditingSession && (
+              {isEditingSession && !isDeletingSession && (
                 <button 
-                  onClick={() => setIsDeletingSession(!isDeletingSession)}
+                  onClick={() => setIsDeletingSession(true)}
                   style={{
                     background: 'none',
                     border: 'none',
