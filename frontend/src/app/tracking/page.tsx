@@ -32,13 +32,14 @@ export default function Tracking() {
 
   // Form State (New Session)
   const [selectedWorkId, setSelectedWorkId] = useState<string>("");
-  const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
+  const [logDate, setLogDate] = useState("");
   const [startPage, setStartPage] = useState("");
   const [endPage, setEndPage] = useState("");
   const [minutesRead, setMinutesRead] = useState("");
 
   // Edit State
   const [isEditingSession, setIsEditingSession] = useState(false);
+  const [focusedSessionIds, setFocusedSessionIds] = useState<Record<string, number>>({});
   const [editDate, setEditDate] = useState("");
   const [editStartPage, setEditStartPage] = useState("");
   const [editEndPage, setEditEndPage] = useState("");
@@ -231,6 +232,18 @@ export default function Tracking() {
     }
   };
 
+  const handleStackClick = (e: React.MouseEvent, dateStr: string, workId: number, session: ReadingSession, isFront: boolean) => {
+    e.stopPropagation();
+    if (isFront) {
+      handleCoverClick(e, session);
+    } else {
+      setFocusedSessionIds(prev => ({
+        ...prev,
+        [`${dateStr}-${workId}`]: session.id
+      }));
+    }
+  };
+
   const handleDeleteSession = async () => {
     if (!viewSession) return;
     try {
@@ -289,8 +302,15 @@ export default function Tracking() {
             const totalPages = daySessions.reduce((acc, s) => acc + (s.end_page - s.start_page), 0);
             const isToday = dateStr === todayStr;
 
-            // Unique sessions having thumbnails (to show cover)
-            const booksRead = Array.from(new Map(daySessions.filter(s => s.work_thumbnail_url).map(s => [s.work_id, s])).values());
+            // Group sessions by work_id for this day
+            const sessionsByBook = daySessions.reduce((acc, s) => {
+              if (!s.work_thumbnail_url) return acc;
+              if (!acc[s.work_id]) acc[s.work_id] = [];
+              acc[s.work_id].push(s);
+              return acc;
+            }, {} as Record<number, ReadingSession[]>);
+
+            const bookIds = Object.keys(sessionsByBook).map(Number);
 
             return (
               <div 
@@ -308,18 +328,59 @@ export default function Tracking() {
                 )}
                 
                 <div className="calendar-activity-summary">
-                  {booksRead.length > 0 && (
+                  {bookIds.length > 0 && (
                     <div className="calendar-book-covers">
-                      {booksRead.map(session => (
-                        <img 
-                          key={session.id} 
-                          src={session.work_thumbnail_url} 
-                          alt={session.work_title}
-                          className="calendar-cover-thumb"
-                          onClick={(e) => handleCoverClick(e, session)}
-                          title={session.work_title}
-                        />
-                      ))}
+                      {bookIds.map(workId => {
+                        const bookSessions = sessionsByBook[workId];
+                        const key = `${dateStr}-${workId}`;
+                        const frontId = focusedSessionIds[key] || bookSessions[0]?.id;
+                        
+                        if (bookSessions.length === 1) {
+                          return (
+                            <img 
+                              key={bookSessions[0].id} 
+                              src={bookSessions[0].work_thumbnail_url} 
+                              alt={bookSessions[0].work_title}
+                              className="calendar-cover-stack-item is-front"
+                              style={{ position: 'relative' }}
+                              onClick={(e) => handleCoverClick(e, bookSessions[0])}
+                              title={bookSessions[0].work_title}
+                            />
+                          );
+                        }
+
+                        return (
+                          <div key={workId} className="calendar-cover-stack">
+                            {bookSessions.map((session, idx) => {
+                              const frontIdx = bookSessions.findIndex(s => s.id === frontId);
+                              const isFront = session.id === frontId;
+                              
+                              let className = "calendar-cover-stack-item";
+                              if (isFront) {
+                                className += " is-front";
+                              } else if (idx < frontIdx) {
+                                className += " is-behind-left";
+                              } else {
+                                className += " is-behind-right";
+                              }
+
+                              return (
+                                <img 
+                                  key={session.id} 
+                                  src={session.work_thumbnail_url} 
+                                  alt={session.work_title}
+                                  className={className}
+                                  onClick={(e) => handleStackClick(e, dateStr, workId, session, isFront)}
+                                  style={{ 
+                                    zIndex: isFront ? 10 : 5 - Math.abs(idx - frontIdx)
+                                  }}
+                                  title={`${session.work_title} (Session ${idx + 1})`}
+                                />
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

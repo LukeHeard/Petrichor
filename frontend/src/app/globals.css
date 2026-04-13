@@ -510,23 +510,49 @@ a {
 .calendar-book-covers {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 8px;
+  justify-content: flex-start;
+  margin-top: auto;
 }
 
-.calendar-cover-thumb {
-  width: 28px;
-  height: 42px;
-  border-radius: 2px;
+.calendar-cover-stack {
+  position: relative;
+  width: 32px;
+  height: 48px;
+}
+
+.calendar-cover-stack-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 48px;
   object-fit: cover;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), z-index 0.3s step-end, box-shadow 0.3s ease;
   cursor: pointer;
-  transition: transform 0.2s ease;
 }
 
-.calendar-cover-thumb:hover {
-  transform: scale(1.1);
+.calendar-cover-stack-item:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+.calendar-cover-stack-item.is-front {
   z-index: 10;
+  transform: translate(0, 0) rotate(0deg);
+}
+
+.calendar-cover-stack-item.is-behind-right {
+  z-index: 5;
+  transform: translate(6px, 6px) rotate(3deg);
+  opacity: 0.9;
+}
+
+.calendar-cover-stack-item.is-behind-left {
+  z-index: 5;
+  transform: translate(-6px, 6px) rotate(-3deg);
+  opacity: 0.9;
 }
 
 /* Tracking Log Modal Forms */
