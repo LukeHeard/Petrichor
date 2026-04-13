@@ -206,7 +206,8 @@ export default function Tracking() {
     setModalSessions(relatedSessions);
     
     const clickedIdx = relatedSessions.findIndex(s => s.id === session.id);
-    setActiveSessionIndex(clickedIdx >= 0 ? clickedIdx : 0);
+    // User requested to open the first log by default
+    setActiveSessionIndex(0);
     
     setIsEditingSession(false);
     setIsDeletingSession(false);
@@ -360,7 +361,7 @@ export default function Tracking() {
 
       {modalSessions.length > 0 && (
         <div className="modal-overlay" onClick={() => { setModalSessions([]); setIsEditingSession(false); setIsDeletingSession(false); }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', background: 'transparent', border: 'none', boxShadow: 'none', height: '520px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', background: 'transparent', border: 'none', boxShadow: 'none', height: '360px' }}>
             
             <div className="modal-card-stack">
               {modalSessions.map((session, idx) => {

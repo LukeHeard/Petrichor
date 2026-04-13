@@ -535,13 +535,13 @@ a {
 
 .modal-deck-card.is-behind-right {
   z-index: 10;
-  transform: translate(12px, 12px) rotate(2deg);
+  transform: translate(8px, 8px) rotate(1.5deg);
   opacity: 0.8;
 }
 
 .modal-deck-card.is-behind-left {
   z-index: 10;
-  transform: translate(-12px, 12px) rotate(-2deg);
+  transform: translate(-8px, 8px) rotate(-1.5deg);
   opacity: 0.8;
 }
 
