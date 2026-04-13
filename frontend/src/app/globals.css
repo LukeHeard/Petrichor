@@ -451,8 +451,14 @@ a {
   flex-direction: column;
   position: relative;
   background-color: transparent;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.calendar-cell:hover {
+  background-color: var(--muted-background);
+  transform: translateZ(0);
+  z-index: 2;
 }
 
 
