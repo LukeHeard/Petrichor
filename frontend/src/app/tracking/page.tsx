@@ -250,8 +250,8 @@ export default function Tracking() {
       </section>
 
       {viewSession && (
-        <div className="modal-overlay" onClick={() => setViewSession(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+        <div className="modal-overlay" onClick={() => setViewSession(null)} style={{ cursor: 'pointer' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', cursor: 'default' }}>
             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
               {viewSession.work_thumbnail_url && (
                 <img 
@@ -301,8 +301,8 @@ export default function Tracking() {
       )}
 
       {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)} style={{ cursor: 'pointer' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ cursor: 'default' }}>
             <h3 style={{ marginBottom: '1.5rem' }}>Log Reading</h3>
             <form onSubmit={handleLogSubmit}>
               <div className="form-group">

@@ -174,20 +174,33 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   };
 
   return (
-    <div style={{
+    <div 
+      onClick={() => {
+        setSearchQuery("");
+        setSearchResults([]);
+        setError("");
+        setHasSearched(false);
+        setPreviewWork(null);
+        onClose();
+      }}
+      style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'color-mix(in srgb, var(--background) 90%, transparent)',
       backdropFilter: 'blur(5px)',
       WebkitBackdropFilter: 'blur(5px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 2000, padding: '1rem'
+      zIndex: 2000, padding: '1rem',
+      cursor: 'pointer'
     }}>
-      <div style={{ 
+      <div 
+        onClick={e => e.stopPropagation()}
+        style={{ 
         width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto',
         background: 'var(--background)',
         border: '1px solid var(--border)',
         padding: 0,
-        borderRadius: '8px'
+        borderRadius: '8px',
+        cursor: 'default'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'flex-start', padding: '2rem 1.5rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

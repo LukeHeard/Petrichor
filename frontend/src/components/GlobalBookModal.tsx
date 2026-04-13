@@ -130,15 +130,20 @@ export default function GlobalBookModal() {
   if (!book && !timedOut) return null;
 
   return (
-    <div style={{
+    <div 
+      onClick={closeModal}
+      style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'color-mix(in srgb, var(--background) 90%, transparent)',
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      zIndex: 3000, padding: '1rem'
+      zIndex: 3000, padding: '1rem',
+      cursor: 'pointer'
     }}>
-      <div style={{
+      <div 
+        onClick={e => e.stopPropagation()}
+        style={{
         width: '100%', maxWidth: '460px', height: '700px', maxHeight: '90vh',
         background: 'var(--background)',
         border: '1px solid var(--border)',
@@ -147,7 +152,8 @@ export default function GlobalBookModal() {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        animation: 'fadeInUp 0.3s ease'
+        animation: 'fadeInUp 0.3s ease',
+        cursor: 'default'
       }}>
         <button onClick={closeModal} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '1.5rem', lineHeight: 1, zIndex: 10 }}>&times;</button>
 
