@@ -51,14 +51,19 @@ export default function More() {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper to get YYYY-MM-DD in local time
+  const getLocalYMD = (date: Date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
   // Initialize dates
   useEffect(() => {
     const end = new Date();
     const start = new Date();
     start.setMonth(start.getMonth() - 1);
     
-    setEndDate(end.toISOString().split('T')[0]);
-    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(getLocalYMD(end));
+    setStartDate(getLocalYMD(start));
   }, []);
 
   const fetchStats = async () => {
@@ -89,15 +94,15 @@ export default function More() {
 
     if (type === "all") {
       setStartDate("1970-01-01"); // Effectively all time
-      setEndDate(end.toISOString().split('T')[0]);
+      setEndDate(getLocalYMD(end));
       return;
     }
 
     const months = type === "1m" ? 1 : type === "3m" ? 3 : type === "6m" ? 6 : 12;
     start.setMonth(end.getMonth() - months);
     
-    setEndDate(end.toISOString().split('T')[0]);
-    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(getLocalYMD(end));
+    setStartDate(getLocalYMD(start));
   };
 
   const shiftRange = (direction: "prev" | "next") => {
@@ -115,16 +120,21 @@ export default function More() {
       end.setMonth(end.getMonth() + months);
     }
 
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(end.toISOString().split('T')[0]);
+    setStartDate(getLocalYMD(start));
+    setEndDate(getLocalYMD(end));
+  };
+
+  const formatDateHeader = (dateStr: string) => {
+    if (!dateStr) return "";
+    const [y, m, d] = dateStr.split('-').map(Number);
+    // Create local date object to avoid UTC shift
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const formattedRange = useMemo(() => {
     if (!startDate || !endDate) return "";
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
-    const s = new Date(startDate).toLocaleDateString(undefined, options);
-    const e = new Date(endDate).toLocaleDateString(undefined, options);
-    return `${s} — ${e}`;
+    return `${formatDateHeader(startDate)} — ${formatDateHeader(endDate)}`;
   }, [startDate, endDate]);
 
   const COLORS = ['#5E7153', '#768A6A', '#92A289', '#AEC0A8', '#CADCC7'];
@@ -257,7 +267,8 @@ export default function More() {
                     tickLine={false}
                     tick={{ fontSize: 10, fill: 'var(--muted)' }}
                     tickFormatter={(val) => {
-                      const date = new Date(val);
+                      const [y, m, d] = String(val).split('-').map(Number);
+                      const date = new Date(y, m - 1, d);
                       if (rangeType === "1y" || rangeType === "all") {
                         return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
                       }
@@ -272,10 +283,13 @@ export default function More() {
                         return (
                           <div className="custom-tooltip">
                             <p className="tooltip-date">
-                              {rangeType === "1y" || rangeType === "all" 
-                                ? new Date(label).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-                                : new Date(label).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
-                              }
+                              {(() => {
+                                const [y, m, d] = String(label).split('-').map(Number);
+                                const date = new Date(y, m - 1, d);
+                                return rangeType === "1y" || rangeType === "all" 
+                                  ? date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+                                  : date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+                              })()}
                             </p>
                             <div className="tooltip-value" style={{ color: 'var(--accent)' }}>
                               <BookOpen size={12} /> {payload[0].value} pages
