@@ -308,62 +308,59 @@ export default function Tracking() {
       {viewSession && (
         <div className="modal-overlay" onClick={() => { setViewSession(null); setIsEditingSession(false); setIsDeletingSession(false); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
+            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.4rem', zIndex: 10 }}>
               {isEditingSession && (
                 <button 
-                  onClick={() => {
-                    if (isDeletingSession) handleDeleteSession();
-                    else setIsDeletingSession(true);
-                  }}
-                  onMouseLeave={() => setIsDeletingSession(false)}
+                  onClick={() => setIsDeletingSession(!isDeletingSession)}
                   style={{
-                    background: isDeletingSession ? '#ff4444' : 'none',
+                    background: 'none',
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    color: isDeletingSession ? 'white' : 'var(--muted)',
-                    padding: isDeletingSession ? '2px 8px' : '0.25rem',
+                    color: isDeletingSession ? 'var(--accent)' : 'var(--muted)',
+                    padding: '0.25rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
                     transition: 'all 0.2s ease'
                   }}
                   title="Delete session"
                 >
-                  {isDeletingSession ? "CONFIRM?" : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                  )}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                 </button>
               )}
               
               <button 
                 onClick={() => {
-                  if (isEditingSession) {
+                  if (isDeletingSession) {
+                    handleDeleteSession();
+                  } else if (isEditingSession) {
                     handleUpdateSession();
                   } else {
                     setIsEditingSession(true);
                   }
-                  setIsDeletingSession(false);
+                }}
+                onMouseLeave={() => {
+                  if (isDeletingSession) setIsDeletingSession(false);
                 }}
                 style={{
-                  background: isEditingSession ? 'var(--accent)' : 'none',
+                  background: (isEditingSession || isDeletingSession) ? (isDeletingSession ? '#ff4444' : 'var(--accent)') : 'none',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  color: isEditingSession ? 'var(--accent-foreground)' : 'var(--muted)',
-                  padding: isEditingSession ? '2px 8px' : '0.25rem',
+                  color: (isEditingSession || isDeletingSession) ? (isDeletingSession ? 'white' : 'var(--accent-foreground)') : 'var(--muted)',
+                  padding: (isEditingSession || isDeletingSession) ? '2px 10px' : '0.25rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '0.7rem',
-                  fontWeight: 700,
-                  transition: 'all 0.2s ease'
+                  fontWeight: 800,
+                  transition: 'all 0.2s ease',
+                  minWidth: (isEditingSession || isDeletingSession) ? '50px' : 'auto'
                 }}
-                title={isEditingSession ? "Save changes" : "Edit session"}
+                title={isDeletingSession ? "Confirm delete" : (isEditingSession ? "Save changes" : "Edit session")}
               >
-                {isEditingSession ? "SAVE" : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
+                {isDeletingSession ? "CONFIRM?" : (isEditingSession ? "SAVE" : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>)}
               </button>
             </div>
 
