@@ -5,6 +5,7 @@ import logging
 import time
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
+from .schemas import tracking as tracking_schemas
 from .services.goodreads import GoodreadsScraper
 
 logging.basicConfig(level=logging.INFO)
@@ -386,3 +387,82 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/sessions", response_model=tracking_schemas.ReadingSession)
+def create_session(session: tracking_schemas.ReadingSessionCreate, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        # Check if work exists
+        work_res = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.title", {"id": session.work_id})
+        if not work_res.has_next():
+            raise HTTPException(status_code=404, detail="Work not found")
+        work_title = work_res.get_next()[0]
+
+        query = """
+        CREATE (s:ReadingSession {date: $date, start_page: $start, end_page: $end, minutes_read: $mins})
+        RETURN s.id
+        """
+        params = {
+            "date": session.date,
+            "start": session.start_page,
+            "end": session.end_page,
+            "mins": session.minutes_read or 0
+        }
+        res = conn.execute(query, params)
+        if not res.has_next():
+            raise HTTPException(status_code=500, detail="Failed to create reading session node")
+        session_id = res.get_next()[0]
+
+        # Link to work
+        conn.execute(
+            "MATCH (w:Work), (s:ReadingSession) WHERE w.id = $wid AND s.id = $sid CREATE (s)-[:SESSION_FOR]->(w)",
+            {"wid": session.work_id, "sid": session_id}
+        )
+        
+        # We optionally update the work's current_page, if the end_page is larger
+        # Check current current_page first
+        w_res = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.current_page", {"id": session.work_id})
+        if w_res.has_next():
+            curr_page = w_res.get_next()[0]
+            if session.end_page > curr_page:
+                conn.execute("MATCH (w:Work) WHERE w.id = $id SET w.current_page = $cp", {"id": session.work_id, "cp": session.end_page})
+
+        return {
+            "id": session_id,
+            "work_id": session.work_id,
+            "work_title": work_title,
+            "date": session.date,
+            "start_page": session.start_page,
+            "end_page": session.end_page,
+            "minutes_read": session.minutes_read or 0
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating reading session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sessions", response_model=list[tracking_schemas.ReadingSession])
+def list_sessions(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        query = """
+        MATCH (s:ReadingSession)-[:SESSION_FOR]->(w:Work)
+        RETURN s.id, s.date, s.start_page, s.end_page, s.minutes_read, w.id, w.title
+        """
+        res = conn.execute(query)
+        sessions = []
+        while res.has_next():
+            row = res.get_next()
+            sessions.append({
+                "id": row[0],
+                "date": row[1],
+                "start_page": row[2],
+                "end_page": row[3],
+                "minutes_read": row[4],
+                "work_id": row[5],
+                "work_title": row[6]
+            })
+        return sessions
+    except Exception as e:
+        logger.error(f"Error listing reading sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
