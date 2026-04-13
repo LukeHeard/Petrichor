@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
 import time
+from typing import Optional
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 from .schemas import tracking as tracking_schemas

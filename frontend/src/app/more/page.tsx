@@ -30,10 +30,10 @@ interface CurrentWorkProgress {
 
 interface StatsData {
   summary: {
-    total_books: int;
-    finished_books: int;
-    total_pages_period: int;
-    total_minutes_period: int;
+    total_books: number;
+    finished_books: number;
+    total_pages_period: number;
+    total_minutes_period: number;
     average_rating: number;
   };
   daily_activity: DailyStat[];
@@ -262,7 +262,7 @@ export default function More() {
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} />
                   <Tooltip 
                     content={({ active, payload, label }) => {
-                      if (active && payload && payload.length) {
+                      if (active && payload && payload.length && label) {
                         return (
                           <div className="custom-tooltip">
                             <p className="tooltip-date">{new Date(label).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
