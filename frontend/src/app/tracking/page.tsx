@@ -177,7 +177,7 @@ export default function Tracking() {
     
     const work = works.find(w => String(w.id) === workId);
     if (work) {
-      if (work.status === "Currently Reading") {
+      if (work.status === "Reading") {
         setStartPage(String(work.current_page || 0));
       } else {
         setStartPage("0");
@@ -476,7 +476,7 @@ export default function Tracking() {
                 <select value={selectedWorkId} onChange={e => handleWorkSelection(e.target.value)} required>
                   <option value="" disabled>Select a book...</option>
                   {works.map(w => (
-                    <option key={w.id} value={w.id}>{w.title} {w.status === 'Currently Reading' ? '(Reading)' : ''}</option>
+                    <option key={w.id} value={w.id}>{w.title} {w.status === 'Reading' ? '(Reading)' : ''}</option>
                   ))}
                 </select>
               </div>

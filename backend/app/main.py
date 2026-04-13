@@ -419,9 +419,9 @@ def create_session(session: tracking_schemas.ReadingSessionCreate, db: DatabaseM
         )
         
         # Update the work's current_page and status
-        # Requested: current_page = finished_page + 1, status = 'Currently Reading'
+        # Requested: current_page = finished_page + 1, status = 'Reading'
         conn.execute(
-            "MATCH (w:Work) WHERE w.id = $id SET w.current_page = $cp, w.status = 'Currently Reading'",
+            "MATCH (w:Work) WHERE w.id = $id SET w.current_page = $cp, w.status = 'Reading'",
             {"id": session.work_id, "cp": session.end_page + 1}
         )
 
