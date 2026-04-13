@@ -418,13 +418,12 @@ def create_session(session: tracking_schemas.ReadingSessionCreate, db: DatabaseM
             {"wid": session.work_id, "sid": session_id}
         )
         
-        # We optionally update the work's current_page, if the end_page is larger
-        # Check current current_page first
-        w_res = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.current_page", {"id": session.work_id})
-        if w_res.has_next():
-            curr_page = w_res.get_next()[0]
-            if session.end_page > curr_page:
-                conn.execute("MATCH (w:Work) WHERE w.id = $id SET w.current_page = $cp", {"id": session.work_id, "cp": session.end_page})
+        # Update the work's current_page and status
+        # Requested: current_page = finished_page + 1, status = 'Currently Reading'
+        conn.execute(
+            "MATCH (w:Work) WHERE w.id = $id SET w.current_page = $cp, w.status = 'Currently Reading'",
+            {"id": session.work_id, "cp": session.end_page + 1}
+        )
 
         return {
             "id": session_id,

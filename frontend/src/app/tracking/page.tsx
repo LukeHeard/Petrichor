@@ -8,6 +8,7 @@ interface Work {
   title: string;
   status: string;
   page_count: number;
+  current_page: number;
 }
 
 interface ReadingSession {
@@ -166,6 +167,23 @@ export default function Tracking() {
   };
 
   const todayStr = new Date().toISOString().split('T')[0];
+
+  const handleWorkSelection = (workId: string) => {
+    setSelectedWorkId(workId);
+    if (!workId) {
+      setStartPage("");
+      return;
+    }
+    
+    const work = works.find(w => String(w.id) === workId);
+    if (work) {
+      if (work.status === "Currently Reading") {
+        setStartPage(String(work.current_page || 0));
+      } else {
+        setStartPage("0");
+      }
+    }
+  };
 
   const handleDayClick = (dateStr: string) => {
     setLogDate(dateStr);
@@ -455,7 +473,7 @@ export default function Tracking() {
             <form onSubmit={handleLogSubmit}>
               <div className="form-group">
                 <label>Book</label>
-                <select value={selectedWorkId} onChange={e => setSelectedWorkId(e.target.value)} required>
+                <select value={selectedWorkId} onChange={e => handleWorkSelection(e.target.value)} required>
                   <option value="" disabled>Select a book...</option>
                   {works.map(w => (
                     <option key={w.id} value={w.id}>{w.title} {w.status === 'Currently Reading' ? '(Reading)' : ''}</option>
