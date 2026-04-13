@@ -27,6 +27,7 @@ export default function Tracking() {
   const [sessions, setSessions] = useState<ReadingSession[]>([]);
   const [works, setWorks] = useState<Work[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewSession, setViewSession] = useState<ReadingSession | null>(null);
 
   // Form State
   const [selectedWorkId, setSelectedWorkId] = useState<string>("");
@@ -163,9 +164,9 @@ export default function Tracking() {
     setIsModalOpen(true);
   };
 
-  const handleCoverClick = (e: React.MouseEvent, workId: number) => {
+  const handleCoverClick = (e: React.MouseEvent, session: ReadingSession) => {
     e.stopPropagation();
-    router.push(`?book_id=${workId}`);
+    setViewSession(session);
   };
 
   return (
@@ -208,7 +209,7 @@ export default function Tracking() {
             const totalPages = daySessions.reduce((acc, s) => acc + (s.end_page - s.start_page), 0);
             const isToday = dateStr === todayStr;
 
-            // Unique books read on this day
+            // Unique sessions having thumbnails (to show cover)
             const booksRead = Array.from(new Map(daySessions.filter(s => s.work_thumbnail_url).map(s => [s.work_id, s])).values());
 
             return (
@@ -231,11 +232,11 @@ export default function Tracking() {
                     <div className="calendar-book-covers">
                       {booksRead.map(session => (
                         <img 
-                          key={session.work_id} 
+                          key={session.id} 
                           src={session.work_thumbnail_url} 
                           alt={session.work_title}
                           className="calendar-cover-thumb"
-                          onClick={(e) => handleCoverClick(e, session.work_id)}
+                          onClick={(e) => handleCoverClick(e, session)}
                           title={session.work_title}
                         />
                       ))}
@@ -247,6 +248,57 @@ export default function Tracking() {
           })}
         </div>
       </section>
+
+      {viewSession && (
+        <div className="modal-overlay" onClick={() => setViewSession(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+              {viewSession.work_thumbnail_url && (
+                <img 
+                  src={viewSession.work_thumbnail_url} 
+                  alt={viewSession.work_title}
+                  style={{ width: '100px', cursor: 'pointer', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                  onClick={() => router.push(`?book_id=${viewSession.work_id}`)}
+                  title="Click to see details"
+                />
+              )}
+              <div style={{ flex: 1 }}>
+                <h3 style={{ marginBottom: '1rem', lineHeight: 1.2 }}>{viewSession.work_title}</h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Started</span>
+                    <span style={{ fontWeight: 600 }}>Page {viewSession.start_page}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</span>
+                    <span style={{ fontWeight: 600 }}>Page {viewSession.end_page}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pages Read</span>
+                    <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{viewSession.end_page - viewSession.start_page}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time Read</span>
+                    <span style={{ fontWeight: 600 }}>{viewSession.minutes_read} min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-actions" style={{ marginTop: '2rem' }}>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                style={{ width: '100%' }}
+                onClick={() => setViewSession(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
