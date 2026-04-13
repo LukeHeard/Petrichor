@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
 interface Work {
   id: number;
@@ -17,9 +18,11 @@ interface ReadingSession {
   minutes_read: number;
   work_id: number;
   work_title: string;
+  work_thumbnail_url?: string;
 }
 
 export default function Tracking() {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [sessions, setSessions] = useState<ReadingSession[]>([]);
   const [works, setWorks] = useState<Work[]>([]);
@@ -38,20 +41,26 @@ export default function Tracking() {
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions`),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`)
       ]);
+      let lastWorkId = null;
       if (sessRes.ok) {
-        const data = await sessRes.json();
+        const data: ReadingSession[] = await sessRes.json();
         setSessions(data);
+        if (data.length > 0) {
+          const sorted = [...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          lastWorkId = String(sorted[0].work_id);
+        }
       }
       if (worksRes.ok) {
         const worksData = await worksRes.json();
-        // Sort works by "Currently Reading" first
         worksData.sort((a: Work, b: Work) => {
           if (a.status === "Currently Reading" && b.status !== "Currently Reading") return -1;
           if (b.status === "Currently Reading" && a.status !== "Currently Reading") return 1;
           return a.title.localeCompare(b.title);
         });
         setWorks(worksData);
-        if (worksData.length > 0 && !selectedWorkId) {
+        if (lastWorkId) {
+          setSelectedWorkId(lastWorkId);
+        } else if (worksData.length > 0) {
           setSelectedWorkId(String(worksData[0].id));
         }
       }
@@ -70,6 +79,10 @@ export default function Tracking() {
   const handleNextMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
+
+  const currentMonthDate = new Date();
+  const isCurrentMonthView = currentDate.getFullYear() === currentMonthDate.getFullYear() && 
+                             currentDate.getMonth() === currentMonthDate.getMonth();
 
   const handleLogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,8 +121,7 @@ export default function Tracking() {
     
     const days = [];
     
-    // Previous month padding
-    const firstDayOfWeek = firstDay.getDay(); // 0 is Sunday
+    const firstDayOfWeek = firstDay.getDay();
     const prevMonthLastDay = new Date(year, month, 0).getDate();
     for (let i = firstDayOfWeek - 1; i >= 0; i--) {
       days.push({
@@ -118,7 +130,6 @@ export default function Tracking() {
       });
     }
     
-    // Current month days
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push({
         date: new Date(year, month, i),
@@ -126,7 +137,6 @@ export default function Tracking() {
       });
     }
     
-    // Next month padding to complete rows of 7
     const remainingDays = (7 - (days.length % 7)) % 7;
     for (let i = 1; i <= remainingDays; i++) {
       days.push({
@@ -148,6 +158,16 @@ export default function Tracking() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const handleDayClick = (dateStr: string) => {
+    setLogDate(dateStr);
+    setIsModalOpen(true);
+  };
+
+  const handleCoverClick = (e: React.MouseEvent, workId: number) => {
+    e.stopPropagation();
+    router.push(`?book_id=${workId}`);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -165,7 +185,14 @@ export default function Tracking() {
           <h2 style={{ fontSize: '1.5rem' }}>{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn-ghost" style={{ padding: '0.4rem 0.8rem' }} onClick={handlePrevMonth}>&larr;</button>
-            <button className="btn-ghost" style={{ padding: '0.4rem 0.8rem' }} onClick={() => setCurrentDate(new Date())}>Today</button>
+            <button 
+              className={isCurrentMonthView ? "btn-ghost" : "btn-primary"} 
+              style={{ padding: '0.4rem 0.8rem', opacity: isCurrentMonthView ? 0.5 : 1 }} 
+              disabled={isCurrentMonthView}
+              onClick={() => setCurrentDate(new Date())}
+            >
+              Current
+            </button>
             <button className="btn-ghost" style={{ padding: '0.4rem 0.8rem' }} onClick={handleNextMonth}>&rarr;</button>
           </div>
         </div>
@@ -181,22 +208,40 @@ export default function Tracking() {
             const totalPages = daySessions.reduce((acc, s) => acc + (s.end_page - s.start_page), 0);
             const isToday = dateStr === todayStr;
 
+            // Unique books read on this day
+            const booksRead = Array.from(new Map(daySessions.filter(s => s.work_thumbnail_url).map(s => [s.work_id, s])).values());
+
             return (
               <div 
                 key={i} 
                 className={`calendar-cell ${!dayObj.isCurrentMonth ? 'is-outside-month' : ''} ${isToday ? 'is-today' : ''} ${totalPages > 0 ? 'has-activity' : ''}`}
-                onClick={() => {
-                  setLogDate(dateStr);
-                  setIsModalOpen(true);
-                }}
+                onClick={() => handleDayClick(dateStr)}
                 style={{ cursor: 'pointer' }}
               >
                 <div className="calendar-date-number">{dayObj.date.getDate()}</div>
+                
                 {totalPages > 0 && (
-                  <div className="calendar-activity-summary">
+                  <div className="calendar-pages-count">
                     {totalPages}p
                   </div>
                 )}
+                
+                <div className="calendar-activity-summary">
+                  {booksRead.length > 0 && (
+                    <div className="calendar-book-covers">
+                      {booksRead.map(session => (
+                        <img 
+                          key={session.work_id} 
+                          src={session.work_thumbnail_url} 
+                          alt={session.work_title}
+                          className="calendar-cover-thumb"
+                          onClick={(e) => handleCoverClick(e, session.work_id)}
+                          title={session.work_title}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

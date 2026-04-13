@@ -447,7 +447,7 @@ def list_sessions(db: DatabaseManager = Depends(get_db)):
     try:
         query = """
         MATCH (s:ReadingSession)-[:SESSION_FOR]->(w:Work)
-        RETURN s.id, s.date, s.start_page, s.end_page, s.minutes_read, w.id, w.title
+        RETURN s.id, s.date, s.start_page, s.end_page, s.minutes_read, w.id, w.title, w.thumbnail_url
         """
         res = conn.execute(query)
         sessions = []
@@ -460,7 +460,8 @@ def list_sessions(db: DatabaseManager = Depends(get_db)):
                 "end_page": row[3],
                 "minutes_read": row[4],
                 "work_id": row[5],
-                "work_title": row[6]
+                "work_title": row[6],
+                "work_thumbnail_url": row[7]
             })
         return sessions
     except Exception as e:

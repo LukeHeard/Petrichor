@@ -14,6 +14,7 @@ class ReadingSession(ReadingSessionBase):
     id: int
     work_id: int
     work_title: str
+    work_thumbnail_url: Optional[str] = None
 
     class Config:
         from_attributes = True
