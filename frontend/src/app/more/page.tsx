@@ -241,7 +241,7 @@ export default function More() {
               </div>
             </div>
             
-            <div style={{ width: '100%', height: 300 }}>
+            <div style={{ width: '100%', height: 300, minHeight: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data.daily_activity}>
                   <defs>
@@ -253,11 +253,17 @@ export default function More() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
                   <XAxis 
                     dataKey="date" 
-                    hide={rangeType === "1y" || rangeType === "all"}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 10, fill: 'var(--muted)' }}
-                    tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    tickFormatter={(val) => {
+                      const date = new Date(val);
+                      if (rangeType === "1y" || rangeType === "all") {
+                        return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                      }
+                      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    }}
+                    minTickGap={rangeType === "1m" ? 10 : 30}
                   />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} />
                   <Tooltip 
@@ -265,7 +271,12 @@ export default function More() {
                       if (active && payload && payload.length && label) {
                         return (
                           <div className="custom-tooltip">
-                            <p className="tooltip-date">{new Date(label).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                            <p className="tooltip-date">
+                              {rangeType === "1y" || rangeType === "all" 
+                                ? new Date(label).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+                                : new Date(label).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+                              }
+                            </p>
                             <div className="tooltip-value" style={{ color: 'var(--accent)' }}>
                               <BookOpen size={12} /> {payload[0].value} pages
                             </div>
@@ -304,7 +315,7 @@ export default function More() {
               <h3 className="chart-title">Top Genres</h3>
               <p className="chart-subtitle" style={{ marginBottom: '1.5rem' }}>Based on your tag distribution.</p>
               
-              <div style={{ width: '100%', height: 200 }}>
+              <div style={{ width: '100%', height: 200, minHeight: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.tag_distribution.length > 0 ? data.tag_distribution : [{label: 'None', value: 0}]} layout="vertical">
                     <XAxis type="number" hide />
@@ -332,7 +343,7 @@ export default function More() {
               <h3 className="chart-title">Rating Curve</h3>
               <p className="chart-subtitle" style={{ marginBottom: '1.5rem' }}>How you've rated your library.</p>
               
-              <div style={{ width: '100%', height: 200 }}>
+              <div style={{ width: '100%', height: 200, minHeight: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.rating_distribution.length > 0 ? data.rating_distribution : [{label: '?', value: 0}]}>
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} />
