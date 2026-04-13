@@ -363,7 +363,7 @@ a {
 
 /* More Menu Flyout */
 .more-menu-container {
-  position: absolute;
+  position: fixed;
   bottom: calc(var(--nav-height) + 10px);
   right: 1rem;
   width: 200px;
@@ -424,3 +424,207 @@ a {
   margin: 0.4rem 0.75rem;
   opacity: 0.5;
 }
+
+/* Calendar Tracking Grid */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  width: 100%;
+}
+
+.calendar-day-header {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.calendar-cell {
+  min-height: 110px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.calendar-cell:hover {
+  background-color: var(--muted-background);
+  transform: translateZ(0);
+  z-index: 2;
+}
+
+
+.calendar-cell.has-activity {
+  background-color: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.calendar-cell.is-outside-month {
+  opacity: 0.4;
+}
+
+.calendar-date-number {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-bottom: 4px;
+}
+
+.calendar-cell.is-today .calendar-date-number {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+  font-weight: 700;
+}
+
+.calendar-activity-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.calendar-pages-count {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+  align-self: flex-end;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.modal-card-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.modal-deck-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), z-index 0.4s step-end, opacity 0.4s ease;
+  cursor: pointer;
+}
+
+.modal-deck-card.is-front {
+  z-index: 20;
+  transform: translate(0, 0) rotate(0deg);
+  cursor: default;
+}
+
+.modal-deck-card.is-behind-right {
+  z-index: 10;
+  transform: translate(8px, 8px) rotate(1.5deg);
+  opacity: 0.8;
+}
+
+.modal-deck-card.is-behind-left {
+  z-index: 10;
+  transform: translate(-8px, 8px) rotate(-1.5deg);
+  opacity: 0.8;
+}
+
+.calendar-cover-thumb {
+  width: 28px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.calendar-cover-thumb:hover {
+  transform: scale(1.1);
+  z-index: 10;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.calendar-cell.has-activity:hover {
+  background-color: var(--muted-background);
+  transform: translateZ(0);
+}
+
+/* Tracking Log Modal Forms */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background-color: var(--background);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.form-group {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.form-group select,
+.form-group input {
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+

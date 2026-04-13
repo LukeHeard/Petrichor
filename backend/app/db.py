@@ -29,7 +29,8 @@ class DatabaseManager:
                 "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
                 "Manifestation": "CREATE NODE TABLE Manifestation(id SERIAL, publisher STRING, format STRING, isbn STRING, PRIMARY KEY(id))",
-                "Item": "CREATE NODE TABLE Item(id SERIAL, barcode STRING, status STRING, PRIMARY KEY(id))"
+                "Item": "CREATE NODE TABLE Item(id SERIAL, barcode STRING, status STRING, PRIMARY KEY(id))",
+                "ReadingSession": "CREATE NODE TABLE ReadingSession(id SERIAL, date STRING, start_page INT64, end_page INT64, minutes_read INT64, PRIMARY KEY(id))"
             }
             
             for table_name, create_stmt in node_tables.items():
@@ -43,16 +44,14 @@ class DatabaseManager:
                 "WROTE": "CREATE REL TABLE WROTE(FROM Author TO Work)",
                 "IS_REALIZED_BY": "CREATE REL TABLE IS_REALIZED_BY(FROM Work TO Expression)",
                 "IS_EMBODIED_IN": "CREATE REL TABLE IS_EMBODIED_IN(FROM Expression TO Manifestation)",
-                "IS_EXEMPLIFIED_BY": "CREATE REL TABLE IS_EXEMPLIFIED_BY(FROM Manifestation TO Item)"
+                "IS_EXEMPLIFIED_BY": "CREATE REL TABLE IS_EXEMPLIFIED_BY(FROM Manifestation TO Item)",
+                "SESSION_FOR": "CREATE REL TABLE SESSION_FOR(FROM ReadingSession TO Work)"
             }
 
             for table_name, create_stmt in rel_tables.items():
                 if table_name not in existing_tables:
                     self.conn.execute(create_stmt)
                     logger.info(f"Created relationship table {table_name}")
-            
-
-            # Additional columns check (for any future-proofing)
             res = self.conn.execute("CALL TABLE_INFO('Work') RETURN *")
             cols = []
             while res.has_next():

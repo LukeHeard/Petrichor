@@ -5,6 +5,7 @@ import logging
 import time
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
+from .schemas import tracking as tracking_schemas
 from .services.goodreads import GoodreadsScraper
 
 logging.basicConfig(level=logging.INFO)
@@ -292,6 +293,9 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
         if work_update.current_page is not None:
             sets.append("w.current_page = $curr_page")
             params["curr_page"] = work_update.current_page
+        if work_update.page_count is not None:
+            sets.append("w.page_count = $p_count")
+            params["p_count"] = work_update.page_count
         if work_update.review is not None:
             sets.append("w.review = $review")
             params["review"] = work_update.review
@@ -386,3 +390,143 @@ def link_author_to_work(work_id: int, author_id: int, db: DatabaseManager = Depe
         logger.error(f"Error linking author to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/sessions", response_model=tracking_schemas.ReadingSession)
+def create_session(session: tracking_schemas.ReadingSessionCreate, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        # Check if work exists
+        work_res = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.title", {"id": session.work_id})
+        if not work_res.has_next():
+            raise HTTPException(status_code=404, detail="Work not found")
+        work_title = work_res.get_next()[0]
+
+        query = """
+        CREATE (s:ReadingSession {date: $date, start_page: $start, end_page: $end, minutes_read: $mins})
+        RETURN s.id
+        """
+        params = {
+            "date": session.date,
+            "start": session.start_page,
+            "end": session.end_page,
+            "mins": session.minutes_read or 0
+        }
+        res = conn.execute(query, params)
+        if not res.has_next():
+            raise HTTPException(status_code=500, detail="Failed to create reading session node")
+        session_id = res.get_next()[0]
+
+        # Link to work
+        conn.execute(
+            "MATCH (w:Work), (s:ReadingSession) WHERE w.id = $wid AND s.id = $sid CREATE (s)-[:SESSION_FOR]->(w)",
+            {"wid": session.work_id, "sid": session_id}
+        )
+        
+        # Update the work's current_page and status
+        # Requested: current_page = finished_page, status = 'Reading'
+        conn.execute(
+            "MATCH (w:Work) WHERE w.id = $id SET w.current_page = $cp, w.status = 'Reading'",
+            {"id": session.work_id, "cp": session.end_page}
+        )
+
+        return {
+            "id": session_id,
+            "work_id": session.work_id,
+            "work_title": work_title,
+            "date": session.date,
+            "start_page": session.start_page,
+            "end_page": session.end_page,
+            "minutes_read": session.minutes_read or 0
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating reading session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sessions", response_model=list[tracking_schemas.ReadingSession])
+def list_sessions(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        query = """
+        MATCH (s:ReadingSession)-[:SESSION_FOR]->(w:Work)
+        RETURN s.id, s.date, s.start_page, s.end_page, s.minutes_read, w.id, w.title, w.thumbnail_url
+        """
+        res = conn.execute(query)
+        sessions = []
+        while res.has_next():
+            row = res.get_next()
+            sessions.append({
+                "id": row[0],
+                "date": row[1],
+                "start_page": row[2],
+                "end_page": row[3],
+                "minutes_read": row[4],
+                "work_id": row[5],
+                "work_title": row[6],
+                "work_thumbnail_url": row[7]
+            })
+        return sessions
+    except Exception as e:
+        logger.error(f"Error listing reading sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/sessions/{session_id}", response_model=tracking_schemas.ReadingSession)
+def update_session(session_id: int, session_update: tracking_schemas.ReadingSessionUpdate, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        # Check if session exists
+        res = conn.execute("MATCH (s:ReadingSession)-[:SESSION_FOR]->(w:Work) WHERE s.id = $id RETURN s, w.id, w.title, w.thumbnail_url", {"id": session_id})
+        if not res.has_next():
+            raise HTTPException(status_code=404, detail="Reading session not found")
+        
+        # Build update query
+        update_parts = []
+        params = {"id": session_id}
+        if session_update.date is not None:
+            update_parts.append("s.date = $date")
+            params["date"] = session_update.date
+        if session_update.start_page is not None:
+            update_parts.append("s.start_page = $start")
+            params["start"] = session_update.start_page
+        if session_update.end_page is not None:
+            update_parts.append("s.end_page = $end")
+            params["end"] = session_update.end_page
+        if session_update.minutes_read is not None:
+            update_parts.append("s.minutes_read = $mins")
+            params["mins"] = session_update.minutes_read
+
+        if update_parts:
+            query = f"MATCH (s:ReadingSession) WHERE s.id = $id SET {', '.join(update_parts)}"
+            conn.execute(query, params)
+        
+        # Return updated session
+        res = conn.execute("MATCH (s:ReadingSession)-[:SESSION_FOR]->(w:Work) WHERE s.id = $id RETURN s.id, s.date, s.start_page, s.end_page, s.minutes_read, w.id, w.title, w.thumbnail_url", {"id": session_id})
+        row = res.get_next()
+        return {
+            "id": row[0],
+            "date": row[1],
+            "start_page": row[2],
+            "end_page": row[3],
+            "minutes_read": row[4],
+            "work_id": row[5],
+            "work_title": row[6],
+            "work_thumbnail_url": row[7]
+        }
+    except Exception as e:
+        logger.error(f"Error updating reading session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/sessions/{session_id}")
+def delete_session(session_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        # Check if session exists
+        res = conn.execute("MATCH (s:ReadingSession) WHERE s.id = $id RETURN s.id", {"id": session_id})
+        if not res.has_next():
+            raise HTTPException(status_code=404, detail="Reading session not found")
+        
+        conn.execute("MATCH (s:ReadingSession) WHERE s.id = $id DETACH DELETE s", {"id": session_id})
+        return {"message": "Reading session deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting reading session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

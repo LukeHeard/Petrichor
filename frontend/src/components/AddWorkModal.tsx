@@ -150,11 +150,10 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       }
 
       // Success
-      setSearchQuery("");
-      setSearchResults([]);
-      setHasSearched(false);
+      if (result.goodreads_id) {
+        setExistingIds(prev => new Set([...Array.from(prev), result.goodreads_id!]));
+      }
       setIsSearching(false);
-      setPreviewWork(null);
       onWorkAdded();
     } catch (err: any) {
       setError(err.message || "An error occurred");
@@ -174,7 +173,16 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
   };
 
   return (
-    <div style={{
+    <div 
+      onClick={() => {
+        setSearchQuery("");
+        setSearchResults([]);
+        setError("");
+        setHasSearched(false);
+        setPreviewWork(null);
+        onClose();
+      }}
+      style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'color-mix(in srgb, var(--background) 90%, transparent)',
       backdropFilter: 'blur(5px)',
@@ -182,7 +190,9 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 2000, padding: '1rem'
     }}>
-      <div style={{ 
+      <div 
+        onClick={e => e.stopPropagation()}
+        style={{ 
         width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto',
         background: 'var(--background)',
         border: '1px solid var(--border)',
