@@ -98,6 +98,12 @@ export default function Tracking() {
     e.preventDefault();
     if (!selectedWorkId || !startPage || !endPage) return;
 
+    const work = works.find(w => String(w.id) === selectedWorkId);
+    let finalEndPage = parseInt(endPage);
+    if (work && work.page_count > 0 && finalEndPage > work.page_count) {
+      finalEndPage = work.page_count;
+    }
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions`, {
         method: "POST",
@@ -106,7 +112,7 @@ export default function Tracking() {
           work_id: parseInt(selectedWorkId),
           date: logDate,
           start_page: parseInt(startPage),
-          end_page: parseInt(endPage),
+          end_page: finalEndPage,
           minutes_read: minutesRead ? parseInt(minutesRead) : 0
         })
       });

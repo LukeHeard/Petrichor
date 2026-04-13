@@ -27,6 +27,7 @@ class WorkUpdate(BaseModel):
     personal_rating: Optional[float] = None
     status: Optional[str] = None
     current_page: Optional[int] = None
+    page_count: Optional[int] = None
     review: Optional[str] = None
     personal_notes: Optional[str] = None
     tags: Optional[List[str]] = None

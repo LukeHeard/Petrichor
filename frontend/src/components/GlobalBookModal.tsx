@@ -43,6 +43,7 @@ export default function GlobalBookModal() {
   const [editTitle, setEditTitle] = useState("");
   const [editYear, setEditYear] = useState<number | undefined>(0);
   const [editDescription, setEditDescription] = useState("");
+  const [editPages, setEditPages] = useState<number | undefined>(0);
   const [editTags, setEditTags] = useState<string[]>([]);
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function GlobalBookModal() {
           setEditTitle(data.title);
           setEditYear(data.first_publish_year);
           setEditDescription(data.description || "");
+          setEditPages(data.page_count || 0);
           setEditTags(data.tags || []);
           clearTimeout(timer);
         })
@@ -108,6 +110,7 @@ export default function GlobalBookModal() {
         body: JSON.stringify({
           title: editTitle,
           first_publish_year: editYear,
+          page_count: editPages,
           description: editDescription,
           tags: editTags
         })
@@ -257,6 +260,43 @@ export default function GlobalBookModal() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Total Pages</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <button 
+                          onClick={() => setEditPages(prev => Math.max(0, (prev || 0) - 10))}
+                          className="btn-ghost"
+                          style={{ padding: '0.6rem 0.8rem', borderRadius: '4px', minWidth: '40px' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>
+                        </button>
+                        <input 
+                          type="number" 
+                          value={editPages || ""}
+                          onChange={e => setEditPages(parseInt(e.target.value) || 0)}
+                          style={{ 
+                            flex: 1, 
+                            background: 'transparent', 
+                            border: '1px solid var(--border)', 
+                            borderRadius: '4px', 
+                            padding: '0.6rem', 
+                            color: 'var(--foreground)', 
+                            fontSize: '0.95rem', 
+                            outline: 'none',
+                            textAlign: 'center',
+                            fontFamily: 'var(--font-sans)'
+                          }}
+                        />
+                        <button 
+                          onClick={() => setEditPages(prev => (prev || 0) + 10)}
+                          className="btn-ghost"
+                          style={{ padding: '0.6rem 0.8rem', borderRadius: '4px', minWidth: '40px' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Tags</label>
                       <TagManager tags={editTags} onTagsChange={setEditTags} />
                     </div>
@@ -278,6 +318,7 @@ export default function GlobalBookModal() {
                           setEditTitle(book.title);
                           setEditYear(book.first_publish_year);
                           setEditDescription(book.description || "");
+                          setEditPages(book.page_count || 0);
                           setEditTags(book.tags || []);
                         }}
                         className="btn-ghost"

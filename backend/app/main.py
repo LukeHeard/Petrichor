@@ -293,6 +293,9 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
         if work_update.current_page is not None:
             sets.append("w.current_page = $curr_page")
             params["curr_page"] = work_update.current_page
+        if work_update.page_count is not None:
+            sets.append("w.page_count = $p_count")
+            params["p_count"] = work_update.page_count
         if work_update.review is not None:
             sets.append("w.review = $review")
             params["review"] = work_update.review
