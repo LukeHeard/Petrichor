@@ -13,7 +13,6 @@ export default function NavigationWithModal() {
   // Helper function to dispatch event when work is added
   const handleWorkAdded = () => {
     window.dispatchEvent(new Event("petrichor:workAdded"));
-    setIsModalOpen(false);
   };
 
   return (

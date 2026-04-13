@@ -72,8 +72,18 @@ export default function Tracking() {
         setWorks(worksData);
         if (lastWorkId) {
           setSelectedWorkId(lastWorkId);
+          // Autofill start page for the default selected book
+          const work = worksData.find((w: Work) => String(w.id) === lastWorkId);
+          if (work) {
+            if (work.status === "Reading") {
+              setStartPage(String((work.current_page || 0) + 1));
+            } else {
+              setStartPage("0");
+            }
+          }
         } else {
           setSelectedWorkId("");
+          setStartPage("");
         }
       }
     } catch (err) {

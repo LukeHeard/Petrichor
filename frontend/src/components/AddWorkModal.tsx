@@ -150,11 +150,10 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       }
 
       // Success
-      setSearchQuery("");
-      setSearchResults([]);
-      setHasSearched(false);
+      if (result.goodreads_id) {
+        setExistingIds(prev => new Set([...Array.from(prev), result.goodreads_id!]));
+      }
       setIsSearching(false);
-      setPreviewWork(null);
       onWorkAdded();
     } catch (err: any) {
       setError(err.message || "An error occurred");
