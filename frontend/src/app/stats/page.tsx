@@ -221,6 +221,44 @@ export default function Stats() {
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Your reading journey, quantified.</p>
       </header>
 
+      {data && (
+        <section style={{ marginBottom: '2.5rem' }}>
+          <h2 className="section-label">Library Overview</h2>
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div className="stats-card">
+              <span className="stats-label">Total Books</span>
+              <div className="stats-value">{data.summary.total_books}</div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Layers size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Books Finished</span>
+              <div className="stats-value">{data.summary.finished_books}</div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Star size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Lifetime Avg</span>
+              <div className="stats-value">
+                {data.summary.average_rating || "—"}
+                {data.summary.average_rating > 0 && <span className="stats-unit">/ 10</span>}
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <TrendingUp size={40} />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="thin-divider" style={{ margin: '3rem 0' }} />
+
+      <h2 className="section-label">Period Performance</h2>
+      
       {/* Date Controls */}
       <div className="date-control-bar">
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -309,24 +347,13 @@ export default function Stats() {
             </div>
 
             <div className="stats-card">
-              <span className="stats-label">Library Size</span>
+              <span className="stats-label">Velocity</span>
               <div className="stats-value">
-                {data.summary.total_books}
-                <span className="stats-unit">books</span>
+                {Math.round(data.summary.total_pages_period / (data.daily_activity.length || 1))} 
+                <span className="stats-unit">pgs/day</span>
               </div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
-                <Layers size={40} />
-              </div>
-            </div>
-
-            <div className="stats-card">
-              <span className="stats-label">Avg Rating</span>
-              <div className="stats-value">
-                {data.summary.average_rating || "—"}
-                {data.summary.average_rating > 0 && <span className="stats-unit">/ 10</span>}
-              </div>
-              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
-                <Star size={40} />
+                <Calendar size={40} />
               </div>
             </div>
           </div>
@@ -506,24 +533,6 @@ export default function Stats() {
               </div>
             </section>
           )}
-
-          {/* Insights Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '2rem' }}>
-            <div style={{ padding: '1.5rem', border: '1px dashed var(--border)', borderRadius: '16px', textAlign: 'center' }}>
-              <Calendar size={24} style={{ color: 'var(--accent)', marginBottom: '0.75rem' }} />
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Daily Velocity</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-                {Math.round(data.summary.total_pages_period / (data.daily_activity.length || 1))} 
-                <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--muted)', marginLeft: '0.25rem' }}>pgs/day</span>
-              </div>
-            </div>
-            
-            <div style={{ padding: '1.5rem', border: '1px dashed var(--border)', borderRadius: '16px', textAlign: 'center' }}>
-              <Star size={24} style={{ color: 'var(--accent)', marginBottom: '0.75rem' }} />
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Books Finished</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{data.summary.finished_books} <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--muted)', marginLeft: '0.25rem' }}>titles</span></div>
-            </div>
-          </div>
         </>
       )}
 
