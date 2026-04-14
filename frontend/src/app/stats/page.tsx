@@ -228,7 +228,7 @@ export default function Stats() {
       {data && (
         <section style={{ marginBottom: '2.5rem' }}>
           <h2 className="section-label">Library Overview</h2>
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+          <div className="stats-grid">
             {/* Row 1 */}
             <div className="stats-card">
               <span className="stats-label">Total Books</span>
@@ -394,7 +394,7 @@ export default function Stats() {
       {data && (
         <>
           {/* Summary Cards */}
-          <div className="stats-grid">
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
             <div className="stats-card">
               <span className="stats-label">Pages Read</span>
               <div className="stats-value">
