@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie
 } from "recharts";
 import { 
-  ChevronLeft, ChevronRight, BookOpen, Clock, Layers, Star, TrendingUp, Calendar
+  ChevronLeft, ChevronRight, BookOpen, Clock, Layers, Star, TrendingUp, Calendar, Book, Inbox, Zap, Timer
 } from "lucide-react";
 
 interface DailyStat {
@@ -35,6 +36,10 @@ interface StatsData {
     total_pages_period: number;
     total_minutes_period: number;
     average_rating: number;
+    total_pages_all_time: number;
+    total_minutes_all_time: number;
+    total_sessions_all_time: number;
+    tsundoku_count: number;
   };
   daily_activity: DailyStat[];
   tag_distribution: DistributionStat[];
@@ -42,14 +47,24 @@ interface StatsData {
   currently_reading: CurrentWorkProgress[];
 }
 
-type RangeType = "1m" | "3m" | "6m" | "1y" | "all";
+type RangeType = "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
-export default function More() {
+export default function Stats() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [rangeType, setRangeType] = useState<RangeType>("1m");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleBookClick = (id: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("book_id", id.toString());
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   // Helper to get YYYY-MM-DD in local time
   const getLocalYMD = (date: Date) => {
@@ -58,9 +73,9 @@ export default function More() {
 
   // Initialize dates
   useEffect(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setMonth(start.getMonth() - 1);
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     
     setEndDate(getLocalYMD(end));
     setStartDate(getLocalYMD(start));
@@ -89,39 +104,68 @@ export default function More() {
 
   const handleRangeChange = (type: RangeType) => {
     setRangeType(type);
-    const end = new Date();
-    const start = new Date();
-
-    if (type === "all") {
-      setStartDate("1970-01-01"); // Effectively all time
-      setEndDate(getLocalYMD(end));
+    
+    if (type === "custom") {
       return;
     }
 
-    const months = type === "1m" ? 1 : type === "3m" ? 3 : type === "6m" ? 6 : 12;
-    start.setMonth(end.getMonth() - months);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    if (type === "all") {
+      setStartDate("1970-01-01"); // Effectively all time
+      setEndDate(getLocalYMD(now));
+      return;
+    }
+
+    let start = new Date();
+    let end = new Date();
+
+    if (type === "1m") {
+      start = new Date(currentYear, currentMonth, 1);
+      end = new Date(currentYear, currentMonth + 1, 0);
+    } else if (type === "3m") {
+      const qMonth = currentMonth - (currentMonth % 3);
+      start = new Date(currentYear, qMonth, 1);
+      end = new Date(currentYear, qMonth + 3, 0);
+    } else if (type === "6m") {
+      const hMonth = currentMonth < 6 ? 0 : 6;
+      start = new Date(currentYear, hMonth, 1);
+      end = new Date(currentYear, hMonth + 6, 0);
+    } else if (type === "1y") {
+      start = new Date(currentYear, 0, 1);
+      end = new Date(currentYear, 12, 0);
+    }
     
     setEndDate(getLocalYMD(end));
     setStartDate(getLocalYMD(start));
   };
 
   const shiftRange = (direction: "prev" | "next") => {
-    if (rangeType === "all") return;
+    if (rangeType === "all" || rangeType === "custom") return;
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const [startYear, startMonth] = startDate.split('-').map(Number);
+    const [endYear, endMonth] = endDate.split('-').map(Number);
+    
+    let sDate = new Date(startYear, startMonth - 1, 1);
+    let eDate = new Date(endYear, endMonth - 1, 1);
+
     const months = rangeType === "1m" ? 1 : rangeType === "3m" ? 3 : rangeType === "6m" ? 6 : 12;
 
     if (direction === "prev") {
-      start.setMonth(start.getMonth() - months);
-      end.setMonth(end.getMonth() - months);
+      sDate.setMonth(sDate.getMonth() - months);
+      eDate.setMonth(eDate.getMonth() - months);
     } else {
-      start.setMonth(start.getMonth() + months);
-      end.setMonth(end.getMonth() + months);
+      sDate.setMonth(sDate.getMonth() + months);
+      eDate.setMonth(eDate.getMonth() + months);
     }
 
-    setStartDate(getLocalYMD(start));
-    setEndDate(getLocalYMD(end));
+    // Set eDate to the last day of its month
+    eDate = new Date(eDate.getFullYear(), eDate.getMonth() + 1, 0);
+
+    setStartDate(getLocalYMD(sDate));
+    setEndDate(getLocalYMD(eDate));
   };
 
   const formatDateHeader = (dateStr: string) => {
@@ -134,8 +178,41 @@ export default function More() {
 
   const formattedRange = useMemo(() => {
     if (!startDate || !endDate) return "";
+    
+    if (rangeType === "1m") {
+      const [y, m] = startDate.split('-').map(Number);
+      const date = new Date(y, m - 1, 1);
+      return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    }
+    if (rangeType === "3m" || rangeType === "6m") {
+      const [sy, sm] = startDate.split('-').map(Number);
+      const [ey, em] = endDate.split('-').map(Number);
+      const sDate = new Date(sy, sm - 1, 1);
+      const eDate = new Date(ey, em - 1, 1);
+      const sMonth = sDate.toLocaleDateString(undefined, { month: 'short' });
+      const eMonth = eDate.toLocaleDateString(undefined, { month: 'short' });
+      return `${sMonth} – ${eMonth} ${sy}`;
+    }
+    if (rangeType === "1y") {
+      const [y] = startDate.split('-').map(Number);
+      return String(y);
+    }
+
     return `${formatDateHeader(startDate)} — ${formatDateHeader(endDate)}`;
-  }, [startDate, endDate]);
+  }, [startDate, endDate, rangeType]);
+
+  const aggregationLevel = useMemo(() => {
+    if (!data || data.daily_activity.length < 2) return "daily";
+    const [y1, m1, d1] = data.daily_activity[0].date.split('-').map(Number);
+    const [y2, m2, d2] = data.daily_activity[1].date.split('-').map(Number);
+    const date1 = new Date(y1, m1 - 1, d1).getTime();
+    const date2 = new Date(y2, m2 - 1, d2).getTime();
+    const diffDays = Math.round((date2 - date1) / (1000 * 3600 * 24));
+    
+    if (diffDays >= 360) return "yearly";
+    if (diffDays >= 28) return "monthly";
+    return "daily";
+  }, [data]);
 
   const COLORS = ['#5E7153', '#768A6A', '#92A289', '#AEC0A8', '#CADCC7'];
 
@@ -148,19 +225,124 @@ export default function More() {
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Your reading journey, quantified.</p>
       </header>
 
+      {data && (
+        <section style={{ marginBottom: '2.5rem' }}>
+          <h2 className="section-label">Library Overview</h2>
+          <div className="stats-grid">
+            {/* Row 1 */}
+            <div className="stats-card">
+              <span className="stats-label">Total Books</span>
+              <div className="stats-value">{data.summary.total_books}</div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Book size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Tsundoku</span>
+              <div className="stats-value">{data.summary.tsundoku_count || 0}</div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Inbox size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Books Finished</span>
+              <div className="stats-value">{data.summary.finished_books}</div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Star size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Average Rating</span>
+              <div className="stats-value">
+                {data.summary.average_rating || "—"}
+                {data.summary.average_rating > 0 && <span className="stats-unit">/ 10</span>}
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <TrendingUp size={40} />
+              </div>
+            </div>
+
+            {/* Row 2 */}
+            <div className="stats-card">
+              <span className="stats-label">Total Pages</span>
+              <div className="stats-value">
+                {data.summary.total_pages_all_time?.toLocaleString() || "0"}
+                <span className="stats-unit">pgs</span>
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <BookOpen size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Time Devoted</span>
+              <div className="stats-value">
+                {(data.summary.total_minutes_all_time || 0) > 1440 ? (
+                  <>
+                    {(data.summary.total_minutes_all_time / 1440).toFixed(1)}
+                    <span className="stats-unit">days</span>
+                  </>
+                ) : (
+                  <>
+                    {Math.round((data.summary.total_minutes_all_time || 0) / 60)}
+                    <span className="stats-unit">hrs</span>
+                  </>
+                )}
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Clock size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Avg Pgs / Log</span>
+              <div className="stats-value">
+                {(data.summary.total_sessions_all_time || 0) > 0 
+                  ? Math.round(data.summary.total_pages_all_time / data.summary.total_sessions_all_time) 
+                  : 0
+                }
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Zap size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Avg Mins / Log</span>
+              <div className="stats-value">
+                {(data.summary.total_sessions_all_time || 0) > 0 
+                  ? Math.round(data.summary.total_minutes_all_time / data.summary.total_sessions_all_time) 
+                  : 0
+                }
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Timer size={40} />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="thin-divider" style={{ margin: '3rem 0' }} />
+
+      <h2 className="section-label">Period Performance</h2>
+      
       {/* Date Controls */}
       <div className="date-control-bar">
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button 
             className="date-nav-btn" 
             onClick={() => shiftRange("prev")} 
-            disabled={rangeType === "all"}
+            disabled={rangeType === "all" || rangeType === "custom"}
           >
             <ChevronLeft size={18} />
           </button>
           
           <div className="range-selector">
-            {(["1m", "3m", "6m", "1y", "all"] as RangeType[]).map((type) => (
+            {(["1m", "3m", "6m", "1y", "all", "custom"] as RangeType[]).map((type) => (
               <button
                 key={type}
                 className={`range-btn ${rangeType === type ? "active" : ""}`}
@@ -174,21 +356,45 @@ export default function More() {
           <button 
             className="date-nav-btn" 
             onClick={() => shiftRange("next")}
-            disabled={rangeType === "all" || new Date(endDate) >= new Date()}
+            disabled={(() => {
+              if (rangeType === "all" || rangeType === "custom") return true;
+              if (!endDate) return true;
+              const [ey, em] = endDate.split('-').map(Number);
+              const now = new Date();
+              return ey > now.getFullYear() || (ey === now.getFullYear() && em >= now.getMonth() + 1);
+            })()}
           >
             <ChevronRight size={18} />
           </button>
         </div>
 
         <div className="current-range-display">
-          {rangeType === "all" ? "All Time" : formattedRange}
+          {rangeType === "custom" ? (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <input 
+                type="date" 
+                value={startDate} 
+                onChange={e => setStartDate(e.target.value)}
+                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+              />
+              <span style={{ margin: '0 0.5rem' }}>—</span>
+              <input 
+                type="date" 
+                value={endDate} 
+                onChange={e => setEndDate(e.target.value)}
+                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+              />
+            </div>
+          ) : (
+            rangeType === "all" ? "All Time" : formattedRange
+          )}
         </div>
       </div>
 
       {data && (
         <>
           {/* Summary Cards */}
-          <div className="stats-grid">
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
             <div className="stats-card">
               <span className="stats-label">Pages Read</span>
               <div className="stats-value">
@@ -212,24 +418,13 @@ export default function More() {
             </div>
 
             <div className="stats-card">
-              <span className="stats-label">Library Size</span>
+              <span className="stats-label">Velocity</span>
               <div className="stats-value">
-                {data.summary.total_books}
-                <span className="stats-unit">books</span>
+                {Math.round(data.summary.total_pages_period / (data.daily_activity.length || 1))} 
+                <span className="stats-unit">pgs/day</span>
               </div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
-                <Layers size={40} />
-              </div>
-            </div>
-
-            <div className="stats-card">
-              <span className="stats-label">Avg Rating</span>
-              <div className="stats-value">
-                {data.summary.average_rating || "—"}
-                {data.summary.average_rating > 0 && <span className="stats-unit">/ 10</span>}
-              </div>
-              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
-                <Star size={40} />
+                <Calendar size={40} />
               </div>
             </div>
           </div>
@@ -269,12 +464,15 @@ export default function More() {
                     tickFormatter={(val) => {
                       const [y, m, d] = String(val).split('-').map(Number);
                       const date = new Date(y, m - 1, d);
-                      if (rangeType === "1y" || rangeType === "all") {
+                      if (aggregationLevel === "yearly") {
+                        return date.toLocaleDateString(undefined, { year: 'numeric' });
+                      }
+                      if (aggregationLevel === "monthly") {
                         return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
                       }
                       return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                     }}
-                    minTickGap={rangeType === "1m" ? 10 : 30}
+                    minTickGap={aggregationLevel === "daily" ? 30 : 10}
                   />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} />
                   <Tooltip 
@@ -286,9 +484,13 @@ export default function More() {
                               {(() => {
                                 const [y, m, d] = String(label).split('-').map(Number);
                                 const date = new Date(y, m - 1, d);
-                                return rangeType === "1y" || rangeType === "all" 
-                                  ? date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-                                  : date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+                                if (aggregationLevel === "yearly") {
+                                  return date.toLocaleDateString(undefined, { year: 'numeric' });
+                                }
+                                if (aggregationLevel === "monthly") {
+                                  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                                }
+                                return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
                               })()}
                             </p>
                             <div className="tooltip-value" style={{ color: 'var(--accent)' }}>
@@ -379,7 +581,7 @@ export default function More() {
               
               <div className="progress-list">
                 {data.currently_reading.map(book => (
-                  <div key={book.id} className="progress-card">
+                  <div key={book.id} className="progress-card" onClick={() => handleBookClick(book.id)} style={{ cursor: 'pointer' }}>
                     {book.thumbnail_url ? (
                       <img src={book.thumbnail_url} alt={book.title} className="progress-thumb" />
                     ) : (
@@ -402,24 +604,6 @@ export default function More() {
               </div>
             </section>
           )}
-
-          {/* Insights Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '2rem' }}>
-            <div style={{ padding: '1.5rem', border: '1px dashed var(--border)', borderRadius: '16px', textAlign: 'center' }}>
-              <Calendar size={24} style={{ color: 'var(--accent)', marginBottom: '0.75rem' }} />
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Daily Velocity</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-                {Math.round(data.summary.total_pages_period / (data.daily_activity.length || 1))} 
-                <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--muted)', marginLeft: '0.25rem' }}>pgs/day</span>
-              </div>
-            </div>
-            
-            <div style={{ padding: '1.5rem', border: '1px dashed var(--border)', borderRadius: '16px', textAlign: 'center' }}>
-              <Star size={24} style={{ color: 'var(--accent)', marginBottom: '0.75rem' }} />
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Books Finished</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{data.summary.finished_books} <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--muted)', marginLeft: '0.25rem' }}>titles</span></div>
-            </div>
-          </div>
         </>
       )}
 

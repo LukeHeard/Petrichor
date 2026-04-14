@@ -556,6 +556,9 @@ def get_stats(
         res_finished = conn.execute("MATCH (w:Work) WHERE w.status = 'Finished' RETURN count(w)")
         finished_books = res_finished.get_next()[0] if res_finished.has_next() else 0
 
+        res_tsundoku = conn.execute("MATCH (w:Work) WHERE w.status = 'Owned' RETURN count(w)")
+        tsundoku_count = res_tsundoku.get_next()[0] if res_tsundoku.has_next() else 0
+
         res_rating = conn.execute("MATCH (w:Work) WHERE w.personal_rating > 0 RETURN avg(w.personal_rating)")
         avg_rating = res_rating.get_next()[0] if res_rating.has_next() else 0.0
 
@@ -568,19 +571,33 @@ def get_stats(
         fmt = "%Y-%m-%d"
         req_start = datetime.strptime(start_date, fmt)
         req_end = datetime.strptime(end_date, fmt)
+
+        # 1.5 Lifetime Reading Totals
+        res_lifetime = conn.execute("MATCH (s:ReadingSession) RETURN sum(s.end_page - s.start_page), sum(s.minutes_read), count(s)")
+        if res_lifetime.has_next():
+            lrow = res_lifetime.get_next()
+            total_pages_all_time = lrow[0] or 0
+            total_minutes_all_time = lrow[1] or 0
+            total_sessions_all_time = lrow[2] or 0
+        else:
+            total_pages_all_time = 0
+            total_minutes_all_time = 0
+            total_sessions_all_time = 0
         
         chart_start = req_start
         if db_earliest_date_str:
             db_earliest = datetime.strptime(db_earliest_date_str, fmt)
-            # If requesting "All Time" (1970) or something way before data started, 
-            # truncate chart to earliest data point to save bandwidth/rendering.
-            if req_start < db_earliest:
-                chart_start = db_earliest
+            # Only truncate if they requested "All Time" (1970-01-01)
+            # Otherwise honor the specific calendar range requested
+            if req_start.year == 1970 and req_start < db_earliest:
+                # Provide a small padding so the chart visually starts at 0
+                chart_start = db_earliest - timedelta(days=1)
 
         # Calculate range length
         delta = req_end - chart_start
         days_in_range = delta.days
-        use_monthly = days_in_range > 100
+        use_yearly = days_in_range > 1825 # > 5 years
+        use_monthly = not use_yearly and days_in_range > 100
 
         session_query = """
         MATCH (s:ReadingSession)
@@ -600,8 +617,13 @@ def get_stats(
             pages = max(0, s_end - s_start)
             mins = s_mins or 0
             
-            # Key for aggregation (Day or Month)
-            key = s_date_str if not use_monthly else s_date_str[:7] # YYYY-MM
+            # Key for aggregation (Day, Month, or Year)
+            if use_yearly:
+                key = s_date_str[:4] # YYYY
+            elif use_monthly:
+                key = s_date_str[:7] # YYYY-MM
+            else:
+                key = s_date_str
             
             if key not in metrics:
                 metrics[key] = {"pages": 0, "minutes": 0}
@@ -615,17 +637,18 @@ def get_stats(
         activity_data = []
         curr = chart_start
         
-        if not use_monthly:
-            # Daily Gap Filling
+        if use_yearly:
+            # Yearly Gap Filling
+            curr = curr.replace(month=1, day=1)
             while curr <= req_end:
-                d_str = curr.strftime(fmt)
+                y_str = curr.strftime("%Y")
                 activity_data.append({
-                    "date": d_str,
-                    "pages": metrics.get(d_str, {}).get("pages", 0),
-                    "minutes": metrics.get(d_str, {}).get("minutes", 0)
+                    "date": y_str + "-01-01",
+                    "pages": metrics.get(y_str, {}).get("pages", 0),
+                    "minutes": metrics.get(y_str, {}).get("minutes", 0)
                 })
-                curr += timedelta(days=1)
-        else:
+                curr = curr.replace(year=curr.year + 1)
+        elif use_monthly:
             # Monthly Gap Filling
             # Normalize curr to start of month
             curr = curr.replace(day=1)
@@ -641,6 +664,16 @@ def get_stats(
                     curr = curr.replace(year=curr.year + 1, month=1)
                 else:
                     curr = curr.replace(month=curr.month + 1)
+        else:
+            # Daily Gap Filling
+            while curr <= req_end:
+                d_str = curr.strftime(fmt)
+                activity_data.append({
+                    "date": d_str,
+                    "pages": metrics.get(d_str, {}).get("pages", 0),
+                    "minutes": metrics.get(d_str, {}).get("minutes", 0)
+                })
+                curr += timedelta(days=1)
 
         # 3. Distributions
         tag_res = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) RETURN t.name, count(w) ORDER BY count(w) DESC LIMIT 10")
@@ -677,7 +710,11 @@ def get_stats(
                 "finished_books": finished_books,
                 "total_pages_period": total_pages_period,
                 "total_minutes_period": total_minutes_period,
-                "average_rating": round(avg_rating, 2)
+                "average_rating": round(avg_rating, 2),
+                "total_pages_all_time": total_pages_all_time,
+                "total_minutes_all_time": total_minutes_all_time,
+                "total_sessions_all_time": total_sessions_all_time,
+                "tsundoku_count": tsundoku_count
             },
             "daily_activity": activity_data, # Kept key name for frontend compat, but content varies
             "tag_distribution": tag_distribution,
