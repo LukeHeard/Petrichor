@@ -871,3 +871,131 @@ a {
   color: var(--accent);
   margin-left: auto;
 }
+
+/* Home Page Redesign */
+.home-reading-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  margin-top: 2rem;
+}
+
+.home-reading-card {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.home-reading-thumb {
+  width: 100px;
+  aspect-ratio: 2/3;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-reading-card:hover .home-reading-thumb {
+  transform: translateY(-8px) rotate(-2deg);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+
+.home-reading-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.home-reading-title {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.home-reading-progress-text {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
+}
+
+.home-progress-bar-container {
+  width: 100%;
+  max-width: 300px;
+  height: 2px;
+  background: color-mix(in srgb, var(--border) 50%, transparent);
+  margin-top: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Activity Feed */
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  margin-top: 1rem;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  transition: padding 0.3s ease;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-item:hover {
+  padding-left: 0.5rem;
+}
+
+.activity-thumb {
+  width: 32px;
+  aspect-ratio: 2/3;
+  border-radius: 2px;
+  object-fit: cover;
+  opacity: 0.8;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.activity-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.activity-text {
+  font-size: 0.95rem;
+  color: var(--foreground);
+  line-height: 1.4;
+}
+
+.activity-work-links {
+  font-weight: 600;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--foreground);
+}
+
+.activity-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
