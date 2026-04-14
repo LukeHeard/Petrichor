@@ -345,6 +345,12 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
 def create_author(author: schemas.AuthorCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
+        # Check if author exists first
+        check = conn.execute("MATCH (a:Author) WHERE a.name = $name RETURN a.id, a.name", {"name": author.name})
+        if check.has_next():
+            row = check.get_next()
+            return {"id": row[0], "name": row[1]}
+            
         # Use parameterized query to avoid injection
         result = conn.execute("CREATE (a:Author {name: $name}) RETURN a.id, a.name", {"name": author.name})
         if result.has_next():
@@ -368,6 +374,43 @@ def list_authors(db: DatabaseManager = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error listing authors: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/debug/merge-authors")
+def merge_duplicate_authors(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        res = conn.execute("MATCH (a:Author) RETURN a.name, count(a) AS c, collect(a.id) ORDER BY c DESC")
+        duplicates = []
+        while res.has_next():
+            row = res.get_next()
+            if row[1] > 1:
+                duplicates.append((row[0], row[2]))
+        
+        total_merged = 0
+        total_deleted = 0
+        
+        for name, ids in duplicates:
+            ids.sort()
+            primary_id = ids[0]
+            for dup_id in ids[1:]:
+                works_res = conn.execute("MATCH (dup:Author)-[r:WROTE]->(w:Work) WHERE dup.id = $id RETURN w.id", {"id": dup_id})
+                works_to_relink = []
+                while works_res.has_next():
+                    works_to_relink.append(works_res.get_next()[0])
+                
+                for work_id in works_to_relink:
+                    conn.execute("MATCH (p:Author), (w:Work) WHERE p.id = $pid AND w.id = $wid MERGE (p)-[:WROTE]->(w)", {"pid": primary_id, "wid": work_id})
+                    conn.execute("MATCH (dup:Author)-[r:WROTE]->(w:Work) WHERE dup.id = $id AND w.id = $wid DELETE r", {"id": dup_id, "wid": work_id})
+                
+                conn.execute("MATCH (dup:Author) WHERE dup.id = $id DELETE dup", {"id": dup_id})
+                total_merged += len(works_to_relink)
+                total_deleted += 1
+                
+        return {"merged_relations": total_merged, "deleted_authors": total_deleted}
+    except Exception as e:
+        logger.error(f"Merge error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/tags", response_model=list[str])
 def list_tags(db: DatabaseManager = Depends(get_db)):
@@ -763,7 +806,7 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
             node_ids.add(nid)
 
         # 2. Fetch Authors
-        res_authors = conn.execute("MATCH (a:Author) RETURN a.id, a.name")
+        res_authors = conn.execute("MATCH (a:Author)-[:WROTE]->(w:Work) RETURN DISTINCT a.id, a.name")
         while res_authors.has_next():
             row = res_authors.get_next()
             nid = f"author_{row[0]}"
@@ -778,7 +821,7 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
             node_ids.add(nid)
 
         # 3. Fetch Tags
-        res_tags = conn.execute("MATCH (t:Tag) RETURN t.id, t.name")
+        res_tags = conn.execute("MATCH (t:Tag)<-[:HAS_TAG]-(w:Work) RETURN DISTINCT t.id, t.name")
         while res_tags.has_next():
             row = res_tags.get_next()
             t_name = row[1]
