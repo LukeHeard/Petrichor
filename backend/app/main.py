@@ -8,6 +8,7 @@ from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 from .schemas import tracking as tracking_schemas
 from .schemas import stats as stats_schemas
+from .schemas import graph as graph_schemas
 from datetime import datetime, timedelta
 from .services.goodreads import GoodreadsScraper
 
@@ -723,4 +724,96 @@ def get_stats(
         }
     except Exception as e:
         logger.error(f"Error generating stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/graph", response_model=graph_schemas.GraphResponse)
+def get_graph_data(db: DatabaseManager = Depends(get_db)):
+    """Fetch all works, authors, and tags nodes and their relationships for graph visualization."""
+    conn = db.get_connection()
+    try:
+        nodes = []
+        links = []
+        node_ids = set()
+
+        # Colors and sizes
+        colors = {
+            "Work": "#4ade80",    # Green
+            "Author": "#60a5fa",  # Blue
+            "Tag": "#c084fc"      # Purple
+        }
+        sizes = {
+            "Work": 3,
+            "Author": 4,
+            "Tag": 2
+        }
+
+        # 1. Fetch Works
+        res_works = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.thumbnail_url, w.status")
+        while res_works.has_next():
+            row = res_works.get_next()
+            nid = f"work_{row[0]}"
+            nodes.append(graph_schemas.GraphNode(
+                id=nid,
+                label=row[1],
+                type="Work",
+                val=sizes["Work"],
+                color=colors["Work"],
+                properties={"thumbnail_url": row[2], "status": row[3]}
+            ))
+            node_ids.add(nid)
+
+        # 2. Fetch Authors
+        res_authors = conn.execute("MATCH (a:Author) RETURN a.id, a.name")
+        while res_authors.has_next():
+            row = res_authors.get_next()
+            nid = f"author_{row[0]}"
+            nodes.append(graph_schemas.GraphNode(
+                id=nid,
+                label=row[1],
+                type="Author",
+                val=sizes["Author"],
+                color=colors["Author"],
+                properties={}
+            ))
+            node_ids.add(nid)
+
+        # 3. Fetch Tags
+        res_tags = conn.execute("MATCH (t:Tag) RETURN t.id, t.name")
+        while res_tags.has_next():
+            row = res_tags.get_next()
+            t_name = row[1]
+            if t_name in BLOCKED_TAGS:
+                continue
+            nid = f"tag_{row[0]}"
+            nodes.append(graph_schemas.GraphNode(
+                id=nid,
+                label=t_name,
+                type="Tag",
+                val=sizes["Tag"],
+                color=colors["Tag"],
+                properties={}
+            ))
+            node_ids.add(nid)
+
+        # 4. Fetch Relationships: WROTE (Author -> Work)
+        res_wrote = conn.execute("MATCH (a:Author)-[r:WROTE]->(w:Work) RETURN a.id, w.id")
+        while res_wrote.has_next():
+            row = res_wrote.get_next()
+            source = f"author_{row[0]}"
+            target = f"work_{row[1]}"
+            if source in node_ids and target in node_ids:
+                links.append(graph_schemas.GraphLink(source=source, target=target, type="WROTE"))
+
+        # 5. Fetch Relationships: HAS_TAG (Work -> Tag)
+        res_has_tag = conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) RETURN w.id, t.id")
+        while res_has_tag.has_next():
+            row = res_has_tag.get_next()
+            source = f"work_{row[0]}"
+            target = f"tag_{row[1]}"
+            if source in node_ids and target in node_ids:
+                links.append(graph_schemas.GraphLink(source=source, target=target, type="HAS_TAG"))
+
+        return {"nodes": nodes, "links": links}
+    except Exception as e:
+        logger.error(f"Error fetching graph data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
