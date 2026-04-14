@@ -258,7 +258,7 @@ export default function Stats() {
             <div className="stats-card">
               <span className="stats-label">Total Pages</span>
               <div className="stats-value">
-                {data.summary.total_pages_all_time.toLocaleString()}
+                {data.summary.total_pages_all_time?.toLocaleString() || "0"}
                 <span className="stats-unit">pgs</span>
               </div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
@@ -269,14 +269,14 @@ export default function Stats() {
             <div className="stats-card">
               <span className="stats-label">Time Devoted</span>
               <div className="stats-value">
-                {data.summary.total_minutes_all_time > 1440 ? (
+                {(data.summary.total_minutes_all_time || 0) > 1440 ? (
                   <>
                     {(data.summary.total_minutes_all_time / 1440).toFixed(1)}
                     <span className="stats-unit">days</span>
                   </>
                 ) : (
                   <>
-                    {Math.round(data.summary.total_minutes_all_time / 60)}
+                    {Math.round((data.summary.total_minutes_all_time || 0) / 60)}
                     <span className="stats-unit">hrs</span>
                   </>
                 )}
@@ -290,14 +290,14 @@ export default function Stats() {
               <span className="stats-label">Log Averages</span>
               <div style={{ marginTop: '0.25rem' }}>
                 <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-                  {data.summary.total_sessions_all_time > 0 
+                  {(data.summary.total_sessions_all_time || 0) > 0 
                     ? Math.round(data.summary.total_pages_all_time / data.summary.total_sessions_all_time) 
                     : 0
                   }
                   <span className="stats-unit">pgs</span>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '-0.2rem' }}>
-                   & {data.summary.total_sessions_all_time > 0 
+                   & {(data.summary.total_sessions_all_time || 0) > 0 
                     ? Math.round(data.summary.total_minutes_all_time / data.summary.total_sessions_all_time) 
                     : 0
                   } mins per log

@@ -24,6 +24,9 @@ class StatsSummary(BaseModel):
     total_pages_period: int
     total_minutes_period: int
     average_rating: float
+    total_pages_all_time: int
+    total_minutes_all_time: int
+    total_sessions_all_time: int
 
 class StatsResponse(BaseModel):
     summary: StatsSummary
