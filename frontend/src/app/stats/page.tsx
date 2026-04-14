@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie
 } from "recharts";
@@ -45,11 +46,21 @@ interface StatsData {
 type RangeType = "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
 export default function Stats() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [rangeType, setRangeType] = useState<RangeType>("1m");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleBookClick = (id: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("book_id", id.toString());
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   // Helper to get YYYY-MM-DD in local time
   const getLocalYMD = (date: Date) => {
@@ -472,7 +483,7 @@ export default function Stats() {
               
               <div className="progress-list">
                 {data.currently_reading.map(book => (
-                  <div key={book.id} className="progress-card">
+                  <div key={book.id} className="progress-card" onClick={() => handleBookClick(book.id)} style={{ cursor: 'pointer' }}>
                     {book.thumbnail_url ? (
                       <img src={book.thumbnail_url} alt={book.title} className="progress-thumb" />
                     ) : (

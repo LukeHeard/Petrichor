@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { TrendingUp, Clock, BookOpen } from "lucide-react";
 
 interface CurrentWorkProgress {
@@ -24,9 +25,19 @@ interface ReadingSession {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [currentlyReading, setCurrentlyReading] = useState<CurrentWorkProgress[]>([]);
   const [recentActivity, setRecentActivity] = useState<ReadingSession[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleBookClick = (id: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("book_id", id.toString());
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -98,7 +109,7 @@ export default function Home() {
         ) : currentlyReading.length > 0 ? (
           <div className="home-reading-list">
             {currentlyReading.map(book => (
-              <div key={book.id} className="home-reading-card">
+              <div key={book.id} className="home-reading-card" onClick={() => handleBookClick(book.id)} style={{ cursor: 'pointer' }}>
                 {book.thumbnail_url ? (
                   <img src={book.thumbnail_url} alt={book.title} className="home-reading-thumb" />
                 ) : (
@@ -134,7 +145,7 @@ export default function Home() {
         ) : recentActivity.length > 0 ? (
           <div className="activity-feed">
             {recentActivity.map(session => (
-              <div key={session.id} className="activity-item">
+              <div key={session.id} className="activity-item" onClick={() => handleBookClick(session.work_id)} style={{ cursor: 'pointer' }}>
                 {session.work_thumbnail_url ? (
                    <img src={session.work_thumbnail_url} alt="" className="activity-thumb" />
                 ) : (
