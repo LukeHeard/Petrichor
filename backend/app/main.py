@@ -581,7 +581,8 @@ def get_stats(
         # Calculate range length
         delta = req_end - chart_start
         days_in_range = delta.days
-        use_monthly = days_in_range > 100
+        use_yearly = days_in_range > 1825 # > 5 years
+        use_monthly = not use_yearly and days_in_range > 100
 
         session_query = """
         MATCH (s:ReadingSession)
@@ -601,8 +602,13 @@ def get_stats(
             pages = max(0, s_end - s_start)
             mins = s_mins or 0
             
-            # Key for aggregation (Day or Month)
-            key = s_date_str if not use_monthly else s_date_str[:7] # YYYY-MM
+            # Key for aggregation (Day, Month, or Year)
+            if use_yearly:
+                key = s_date_str[:4] # YYYY
+            elif use_monthly:
+                key = s_date_str[:7] # YYYY-MM
+            else:
+                key = s_date_str
             
             if key not in metrics:
                 metrics[key] = {"pages": 0, "minutes": 0}
@@ -616,17 +622,18 @@ def get_stats(
         activity_data = []
         curr = chart_start
         
-        if not use_monthly:
-            # Daily Gap Filling
+        if use_yearly:
+            # Yearly Gap Filling
+            curr = curr.replace(month=1, day=1)
             while curr <= req_end:
-                d_str = curr.strftime(fmt)
+                y_str = curr.strftime("%Y")
                 activity_data.append({
-                    "date": d_str,
-                    "pages": metrics.get(d_str, {}).get("pages", 0),
-                    "minutes": metrics.get(d_str, {}).get("minutes", 0)
+                    "date": y_str + "-01-01",
+                    "pages": metrics.get(y_str, {}).get("pages", 0),
+                    "minutes": metrics.get(y_str, {}).get("minutes", 0)
                 })
-                curr += timedelta(days=1)
-        else:
+                curr = curr.replace(year=curr.year + 1)
+        elif use_monthly:
             # Monthly Gap Filling
             # Normalize curr to start of month
             curr = curr.replace(day=1)
@@ -642,6 +649,16 @@ def get_stats(
                     curr = curr.replace(year=curr.year + 1, month=1)
                 else:
                     curr = curr.replace(month=curr.month + 1)
+        else:
+            # Daily Gap Filling
+            while curr <= req_end:
+                d_str = curr.strftime(fmt)
+                activity_data.append({
+                    "date": d_str,
+                    "pages": metrics.get(d_str, {}).get("pages", 0),
+                    "minutes": metrics.get(d_str, {}).get("minutes", 0)
+                })
+                curr += timedelta(days=1)
 
         # 3. Distributions
         tag_res = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) RETURN t.name, count(w) ORDER BY count(w) DESC LIMIT 10")

@@ -186,6 +186,19 @@ export default function More() {
     return `${formatDateHeader(startDate)} — ${formatDateHeader(endDate)}`;
   }, [startDate, endDate, rangeType]);
 
+  const aggregationLevel = useMemo(() => {
+    if (!data || data.daily_activity.length < 2) return "daily";
+    const [y1, m1, d1] = data.daily_activity[0].date.split('-').map(Number);
+    const [y2, m2, d2] = data.daily_activity[1].date.split('-').map(Number);
+    const date1 = new Date(y1, m1 - 1, d1).getTime();
+    const date2 = new Date(y2, m2 - 1, d2).getTime();
+    const diffDays = Math.round((date2 - date1) / (1000 * 3600 * 24));
+    
+    if (diffDays >= 360) return "yearly";
+    if (diffDays >= 28) return "monthly";
+    return "daily";
+  }, [data]);
+
   const COLORS = ['#5E7153', '#768A6A', '#92A289', '#AEC0A8', '#CADCC7'];
 
   if (!data && loading) return <div style={{ textAlign: 'center', padding: '10rem 0' }}>Analyzing your library...</div>;
@@ -342,12 +355,15 @@ export default function More() {
                     tickFormatter={(val) => {
                       const [y, m, d] = String(val).split('-').map(Number);
                       const date = new Date(y, m - 1, d);
-                      if (rangeType === "1y" || rangeType === "all") {
+                      if (aggregationLevel === "yearly") {
+                        return date.toLocaleDateString(undefined, { year: 'numeric' });
+                      }
+                      if (aggregationLevel === "monthly") {
                         return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
                       }
                       return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                     }}
-                    minTickGap={rangeType === "1m" ? 10 : 30}
+                    minTickGap={aggregationLevel === "daily" ? 30 : 10}
                   />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} />
                   <Tooltip 
@@ -359,9 +375,13 @@ export default function More() {
                               {(() => {
                                 const [y, m, d] = String(label).split('-').map(Number);
                                 const date = new Date(y, m - 1, d);
-                                return rangeType === "1y" || rangeType === "all" 
-                                  ? date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-                                  : date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+                                if (aggregationLevel === "yearly") {
+                                  return date.toLocaleDateString(undefined, { year: 'numeric' });
+                                }
+                                if (aggregationLevel === "monthly") {
+                                  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                                }
+                                return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
                               })()}
                             </p>
                             <div className="tooltip-value" style={{ color: 'var(--accent)' }}>
