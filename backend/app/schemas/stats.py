@@ -27,6 +27,7 @@ class StatsSummary(BaseModel):
     total_pages_all_time: int
     total_minutes_all_time: int
     total_sessions_all_time: int
+    tsundoku_count: int
 
 class StatsResponse(BaseModel):
     summary: StatsSummary

@@ -6,7 +6,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie
 } from "recharts";
 import { 
-  ChevronLeft, ChevronRight, BookOpen, Clock, Layers, Star, TrendingUp, Calendar
+  ChevronLeft, ChevronRight, BookOpen, Clock, Layers, Star, TrendingUp, Calendar, Book, Inbox, Zap, Timer
 } from "lucide-react";
 
 interface DailyStat {
@@ -39,6 +39,7 @@ interface StatsData {
     total_pages_all_time: number;
     total_minutes_all_time: number;
     total_sessions_all_time: number;
+    tsundoku_count: number;
   };
   daily_activity: DailyStat[];
   tag_distribution: DistributionStat[];
@@ -227,12 +228,21 @@ export default function Stats() {
       {data && (
         <section style={{ marginBottom: '2.5rem' }}>
           <h2 className="section-label">Library Overview</h2>
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+            {/* Row 1 */}
             <div className="stats-card">
               <span className="stats-label">Total Books</span>
               <div className="stats-value">{data.summary.total_books}</div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
-                <Layers size={40} />
+                <Book size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Tsundoku</span>
+              <div className="stats-value">{data.summary.tsundoku_count || 0}</div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Inbox size={40} />
               </div>
             </div>
 
@@ -255,6 +265,7 @@ export default function Stats() {
               </div>
             </div>
 
+            {/* Row 2 */}
             <div className="stats-card">
               <span className="stats-label">Total Pages</span>
               <div className="stats-value">
@@ -287,24 +298,28 @@ export default function Stats() {
             </div>
 
             <div className="stats-card">
-              <span className="stats-label">Log Averages</span>
-              <div style={{ marginTop: '0.25rem' }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-                  {(data.summary.total_sessions_all_time || 0) > 0 
-                    ? Math.round(data.summary.total_pages_all_time / data.summary.total_sessions_all_time) 
-                    : 0
-                  }
-                  <span className="stats-unit">pgs</span>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '-0.2rem' }}>
-                   & {(data.summary.total_sessions_all_time || 0) > 0 
-                    ? Math.round(data.summary.total_minutes_all_time / data.summary.total_sessions_all_time) 
-                    : 0
-                  } mins per log
-                </div>
+              <span className="stats-label">Avg Pgs / Log</span>
+              <div className="stats-value">
+                {(data.summary.total_sessions_all_time || 0) > 0 
+                  ? Math.round(data.summary.total_pages_all_time / data.summary.total_sessions_all_time) 
+                  : 0
+                }
               </div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
-                <Calendar size={40} />
+                <Zap size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Avg Mins / Log</span>
+              <div className="stats-value">
+                {(data.summary.total_sessions_all_time || 0) > 0 
+                  ? Math.round(data.summary.total_minutes_all_time / data.summary.total_sessions_all_time) 
+                  : 0
+                }
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Timer size={40} />
               </div>
             </div>
           </div>

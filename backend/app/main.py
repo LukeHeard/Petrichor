@@ -556,6 +556,9 @@ def get_stats(
         res_finished = conn.execute("MATCH (w:Work) WHERE w.status = 'Finished' RETURN count(w)")
         finished_books = res_finished.get_next()[0] if res_finished.has_next() else 0
 
+        res_tsundoku = conn.execute("MATCH (w:Work) WHERE w.status = 'Owned' RETURN count(w)")
+        tsundoku_count = res_tsundoku.get_next()[0] if res_tsundoku.has_next() else 0
+
         res_rating = conn.execute("MATCH (w:Work) WHERE w.personal_rating > 0 RETURN avg(w.personal_rating)")
         avg_rating = res_rating.get_next()[0] if res_rating.has_next() else 0.0
 
@@ -710,7 +713,8 @@ def get_stats(
                 "average_rating": round(avg_rating, 2),
                 "total_pages_all_time": total_pages_all_time,
                 "total_minutes_all_time": total_minutes_all_time,
-                "total_sessions_all_time": total_sessions_all_time
+                "total_sessions_all_time": total_sessions_all_time,
+                "tsundoku_count": tsundoku_count
             },
             "daily_activity": activity_data, # Kept key name for frontend compat, but content varies
             "tag_distribution": tag_distribution,
