@@ -42,7 +42,7 @@ interface StatsData {
   currently_reading: CurrentWorkProgress[];
 }
 
-type RangeType = "1m" | "3m" | "6m" | "1y" | "all";
+type RangeType = "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
 export default function More() {
   const [rangeType, setRangeType] = useState<RangeType>("1m");
@@ -89,6 +89,11 @@ export default function More() {
 
   const handleRangeChange = (type: RangeType) => {
     setRangeType(type);
+    
+    if (type === "custom") {
+      return;
+    }
+
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
@@ -106,11 +111,13 @@ export default function More() {
       start = new Date(currentYear, currentMonth, 1);
       end = new Date(currentYear, currentMonth + 1, 0);
     } else if (type === "3m") {
-      start = new Date(currentYear, currentMonth - 2, 1);
-      end = new Date(currentYear, currentMonth + 1, 0);
+      const qMonth = currentMonth - (currentMonth % 3);
+      start = new Date(currentYear, qMonth, 1);
+      end = new Date(currentYear, qMonth + 3, 0);
     } else if (type === "6m") {
-      start = new Date(currentYear, currentMonth - 5, 1);
-      end = new Date(currentYear, currentMonth + 1, 0);
+      const hMonth = currentMonth < 6 ? 0 : 6;
+      start = new Date(currentYear, hMonth, 1);
+      end = new Date(currentYear, hMonth + 6, 0);
     } else if (type === "1y") {
       start = new Date(currentYear, 0, 1);
       end = new Date(currentYear, 12, 0);
@@ -121,7 +128,7 @@ export default function More() {
   };
 
   const shiftRange = (direction: "prev" | "next") => {
-    if (rangeType === "all") return;
+    if (rangeType === "all" || rangeType === "custom") return;
 
     const [startYear, startMonth] = startDate.split('-').map(Number);
     const [endYear, endMonth] = endDate.split('-').map(Number);
@@ -162,6 +169,15 @@ export default function More() {
       const date = new Date(y, m - 1, 1);
       return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     }
+    if (rangeType === "3m" || rangeType === "6m") {
+      const [sy, sm] = startDate.split('-').map(Number);
+      const [ey, em] = endDate.split('-').map(Number);
+      const sDate = new Date(sy, sm - 1, 1);
+      const eDate = new Date(ey, em - 1, 1);
+      const sMonth = sDate.toLocaleDateString(undefined, { month: 'short' });
+      const eMonth = eDate.toLocaleDateString(undefined, { month: 'short' });
+      return `${sMonth} – ${eMonth} ${sy}`;
+    }
     if (rangeType === "1y") {
       const [y] = startDate.split('-').map(Number);
       return String(y);
@@ -187,13 +203,13 @@ export default function More() {
           <button 
             className="date-nav-btn" 
             onClick={() => shiftRange("prev")} 
-            disabled={rangeType === "all"}
+            disabled={rangeType === "all" || rangeType === "custom"}
           >
             <ChevronLeft size={18} />
           </button>
           
           <div className="range-selector">
-            {(["1m", "3m", "6m", "1y", "all"] as RangeType[]).map((type) => (
+            {(["1m", "3m", "6m", "1y", "all", "custom"] as RangeType[]).map((type) => (
               <button
                 key={type}
                 className={`range-btn ${rangeType === type ? "active" : ""}`}
@@ -208,7 +224,7 @@ export default function More() {
             className="date-nav-btn" 
             onClick={() => shiftRange("next")}
             disabled={(() => {
-              if (rangeType === "all") return true;
+              if (rangeType === "all" || rangeType === "custom") return true;
               if (!endDate) return true;
               const [ey, em] = endDate.split('-').map(Number);
               const now = new Date();
@@ -220,7 +236,25 @@ export default function More() {
         </div>
 
         <div className="current-range-display">
-          {rangeType === "all" ? "All Time" : formattedRange}
+          {rangeType === "custom" ? (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <input 
+                type="date" 
+                value={startDate} 
+                onChange={e => setStartDate(e.target.value)}
+                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+              />
+              <span style={{ margin: '0 0.5rem' }}>—</span>
+              <input 
+                type="date" 
+                value={endDate} 
+                onChange={e => setEndDate(e.target.value)}
+                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+              />
+            </div>
+          ) : (
+            rangeType === "all" ? "All Time" : formattedRange
+          )}
         </div>
       </div>
 

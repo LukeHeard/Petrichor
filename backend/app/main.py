@@ -576,7 +576,7 @@ def get_stats(
             # Otherwise honor the specific calendar range requested
             if req_start.year == 1970 and req_start < db_earliest:
                 # Provide a small padding so the chart visually starts at 0
-                chart_start = db_earliest - timedelta(days=7)
+                chart_start = db_earliest - timedelta(days=1)
 
         # Calculate range length
         delta = req_end - chart_start
