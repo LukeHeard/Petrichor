@@ -572,10 +572,11 @@ def get_stats(
         chart_start = req_start
         if db_earliest_date_str:
             db_earliest = datetime.strptime(db_earliest_date_str, fmt)
-            # If requesting "All Time" (1970) or something way before data started, 
-            # truncate chart to earliest data point to save bandwidth/rendering.
-            if req_start < db_earliest:
-                chart_start = db_earliest
+            # Only truncate if they requested "All Time" (1970-01-01)
+            # Otherwise honor the specific calendar range requested
+            if req_start.year == 1970 and req_start < db_earliest:
+                # Provide a small padding so the chart visually starts at 0
+                chart_start = db_earliest - timedelta(days=7)
 
         # Calculate range length
         delta = req_end - chart_start
