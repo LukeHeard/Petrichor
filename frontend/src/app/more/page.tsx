@@ -58,9 +58,9 @@ export default function More() {
 
   // Initialize dates
   useEffect(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setMonth(start.getMonth() - 1);
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     
     setEndDate(getLocalYMD(end));
     setStartDate(getLocalYMD(start));
@@ -89,17 +89,32 @@ export default function More() {
 
   const handleRangeChange = (type: RangeType) => {
     setRangeType(type);
-    const end = new Date();
-    const start = new Date();
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
     if (type === "all") {
       setStartDate("1970-01-01"); // Effectively all time
-      setEndDate(getLocalYMD(end));
+      setEndDate(getLocalYMD(now));
       return;
     }
 
-    const months = type === "1m" ? 1 : type === "3m" ? 3 : type === "6m" ? 6 : 12;
-    start.setMonth(end.getMonth() - months);
+    let start = new Date();
+    let end = new Date();
+
+    if (type === "1m") {
+      start = new Date(currentYear, currentMonth, 1);
+      end = new Date(currentYear, currentMonth + 1, 0);
+    } else if (type === "3m") {
+      start = new Date(currentYear, currentMonth - 2, 1);
+      end = new Date(currentYear, currentMonth + 1, 0);
+    } else if (type === "6m") {
+      start = new Date(currentYear, currentMonth - 5, 1);
+      end = new Date(currentYear, currentMonth + 1, 0);
+    } else if (type === "1y") {
+      start = new Date(currentYear, 0, 1);
+      end = new Date(currentYear, 12, 0);
+    }
     
     setEndDate(getLocalYMD(end));
     setStartDate(getLocalYMD(start));
@@ -108,20 +123,27 @@ export default function More() {
   const shiftRange = (direction: "prev" | "next") => {
     if (rangeType === "all") return;
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const [startYear, startMonth] = startDate.split('-').map(Number);
+    const [endYear, endMonth] = endDate.split('-').map(Number);
+    
+    let sDate = new Date(startYear, startMonth - 1, 1);
+    let eDate = new Date(endYear, endMonth - 1, 1);
+
     const months = rangeType === "1m" ? 1 : rangeType === "3m" ? 3 : rangeType === "6m" ? 6 : 12;
 
     if (direction === "prev") {
-      start.setMonth(start.getMonth() - months);
-      end.setMonth(end.getMonth() - months);
+      sDate.setMonth(sDate.getMonth() - months);
+      eDate.setMonth(eDate.getMonth() - months);
     } else {
-      start.setMonth(start.getMonth() + months);
-      end.setMonth(end.getMonth() + months);
+      sDate.setMonth(sDate.getMonth() + months);
+      eDate.setMonth(eDate.getMonth() + months);
     }
 
-    setStartDate(getLocalYMD(start));
-    setEndDate(getLocalYMD(end));
+    // Set eDate to the last day of its month
+    eDate = new Date(eDate.getFullYear(), eDate.getMonth() + 1, 0);
+
+    setStartDate(getLocalYMD(sDate));
+    setEndDate(getLocalYMD(eDate));
   };
 
   const formatDateHeader = (dateStr: string) => {
@@ -134,8 +156,19 @@ export default function More() {
 
   const formattedRange = useMemo(() => {
     if (!startDate || !endDate) return "";
+    
+    if (rangeType === "1m") {
+      const [y, m] = startDate.split('-').map(Number);
+      const date = new Date(y, m - 1, 1);
+      return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    }
+    if (rangeType === "1y") {
+      const [y] = startDate.split('-').map(Number);
+      return String(y);
+    }
+
     return `${formatDateHeader(startDate)} — ${formatDateHeader(endDate)}`;
-  }, [startDate, endDate]);
+  }, [startDate, endDate, rangeType]);
 
   const COLORS = ['#5E7153', '#768A6A', '#92A289', '#AEC0A8', '#CADCC7'];
 
@@ -174,7 +207,13 @@ export default function More() {
           <button 
             className="date-nav-btn" 
             onClick={() => shiftRange("next")}
-            disabled={rangeType === "all" || new Date(endDate) >= new Date()}
+            disabled={(() => {
+              if (rangeType === "all") return true;
+              if (!endDate) return true;
+              const [ey, em] = endDate.split('-').map(Number);
+              const now = new Date();
+              return ey > now.getFullYear() || (ey === now.getFullYear() && em >= now.getMonth() + 1);
+            })()}
           >
             <ChevronRight size={18} />
           </button>
