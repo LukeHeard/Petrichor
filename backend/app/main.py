@@ -568,6 +568,18 @@ def get_stats(
         fmt = "%Y-%m-%d"
         req_start = datetime.strptime(start_date, fmt)
         req_end = datetime.strptime(end_date, fmt)
+
+        # 1.5 Lifetime Reading Totals
+        res_lifetime = conn.execute("MATCH (s:ReadingSession) RETURN sum(s.end_page - s.start_page), sum(s.minutes_read), count(s)")
+        if res_lifetime.has_next():
+            lrow = res_lifetime.get_next()
+            total_pages_all_time = lrow[0] or 0
+            total_minutes_all_time = lrow[1] or 0
+            total_sessions_all_time = lrow[2] or 0
+        else:
+            total_pages_all_time = 0
+            total_minutes_all_time = 0
+            total_sessions_all_time = 0
         
         chart_start = req_start
         if db_earliest_date_str:
@@ -695,7 +707,10 @@ def get_stats(
                 "finished_books": finished_books,
                 "total_pages_period": total_pages_period,
                 "total_minutes_period": total_minutes_period,
-                "average_rating": round(avg_rating, 2)
+                "average_rating": round(avg_rating, 2),
+                "total_pages_all_time": total_pages_all_time,
+                "total_minutes_all_time": total_minutes_all_time,
+                "total_sessions_all_time": total_sessions_all_time
             },
             "daily_activity": activity_data, # Kept key name for frontend compat, but content varies
             "tag_distribution": tag_distribution,

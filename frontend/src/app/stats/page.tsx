@@ -36,6 +36,9 @@ interface StatsData {
     total_pages_period: number;
     total_minutes_period: number;
     average_rating: number;
+    total_pages_all_time: number;
+    total_minutes_all_time: number;
+    total_sessions_all_time: number;
   };
   daily_activity: DailyStat[];
   tag_distribution: DistributionStat[];
@@ -224,7 +227,7 @@ export default function Stats() {
       {data && (
         <section style={{ marginBottom: '2.5rem' }}>
           <h2 className="section-label">Library Overview</h2>
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <div className="stats-card">
               <span className="stats-label">Total Books</span>
               <div className="stats-value">{data.summary.total_books}</div>
@@ -242,13 +245,66 @@ export default function Stats() {
             </div>
 
             <div className="stats-card">
-              <span className="stats-label">Lifetime Avg</span>
+              <span className="stats-label">Average Rating</span>
               <div className="stats-value">
                 {data.summary.average_rating || "—"}
                 {data.summary.average_rating > 0 && <span className="stats-unit">/ 10</span>}
               </div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
                 <TrendingUp size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Total Pages</span>
+              <div className="stats-value">
+                {data.summary.total_pages_all_time.toLocaleString()}
+                <span className="stats-unit">pgs</span>
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <BookOpen size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Time Devoted</span>
+              <div className="stats-value">
+                {data.summary.total_minutes_all_time > 1440 ? (
+                  <>
+                    {(data.summary.total_minutes_all_time / 1440).toFixed(1)}
+                    <span className="stats-unit">days</span>
+                  </>
+                ) : (
+                  <>
+                    {Math.round(data.summary.total_minutes_all_time / 60)}
+                    <span className="stats-unit">hrs</span>
+                  </>
+                )}
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Clock size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Log Averages</span>
+              <div style={{ marginTop: '0.25rem' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
+                  {data.summary.total_sessions_all_time > 0 
+                    ? Math.round(data.summary.total_pages_all_time / data.summary.total_sessions_all_time) 
+                    : 0
+                  }
+                  <span className="stats-unit">pgs</span>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '-0.2rem' }}>
+                   & {data.summary.total_sessions_all_time > 0 
+                    ? Math.round(data.summary.total_minutes_all_time / data.summary.total_sessions_all_time) 
+                    : 0
+                  } mins per log
+                </div>
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Calendar size={40} />
               </div>
             </div>
           </div>
