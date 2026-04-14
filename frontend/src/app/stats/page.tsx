@@ -44,7 +44,7 @@ interface StatsData {
 
 type RangeType = "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
-export default function More() {
+export default function Stats() {
   const [rangeType, setRangeType] = useState<RangeType>("1m");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
