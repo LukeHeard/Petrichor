@@ -37,18 +37,23 @@ const LEGEND_ITEMS = [
 ];
 
 function addSceneEnhancements(scene: THREE.Scene) {
-  // Starfield — spherical shell of points
+  // Starfield — random volume distribution (no sphere-shell dome effect)
   const starCount = 3000;
   const positions = new Float32Array(starCount * 3);
   const colors = new Float32Array(starCount * 3);
+  const HALF = 3000;
+  const INNER = 300; // keep stars out of the graph cluster
 
   for (let i = 0; i < starCount; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const r = 500 + Math.random() * 500;
-    positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-    positions[i * 3 + 2] = r * Math.cos(phi);
+    let x: number, y: number, z: number;
+    do {
+      x = (Math.random() - 0.5) * HALF * 2;
+      y = (Math.random() - 0.5) * HALF * 2;
+      z = (Math.random() - 0.5) * HALF * 2;
+    } while (Math.sqrt(x * x + y * y + z * z) < INNER);
+    positions[i * 3]     = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
 
     // Warm-to-cool star color variation
     const t = Math.random();
@@ -122,6 +127,8 @@ export default function GalaxyPage() {
     if (controls) {
       controls.autoRotate = true;
       controls.autoRotateSpeed = 0.35;
+      // Prevent zooming out far enough to see the star volume boundary
+      controls.maxDistance = 600;
     }
 
     // One-time Three.js scene enhancements
@@ -219,10 +226,11 @@ export default function GalaxyPage() {
     <div className="galaxy-container fade-in-up">
 
       {/* Header */}
-      <div className="galaxy-header">
-        <span className="section-label galaxy-header-eyebrow">Petrichor</span>
-        <h1 className="galaxy-title">Galaxy</h1>
-        <p className="galaxy-subtitle">
+      <div className="galaxy-header" style={{ pointerEvents: 'none' }}>
+        <h1 style={{ margin: 0, color: 'white', textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+          Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Galaxy</span>
+        </h1>
+        <p style={{ margin: '0.25rem 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.85rem', fontFamily: 'var(--font-sans)' }}>
           {data?.nodes.length ?? 0} entities · {data?.links.length ?? 0} connections
         </p>
       </div>
@@ -245,8 +253,8 @@ export default function GalaxyPage() {
           nodeId="id"
           nodeLabel="label"
           nodeVal="val"
-          linkColor={() => 'rgba(255,255,255,0.06)'}
-          linkWidth={0.3}
+          linkColor={() => 'rgba(255,255,255,0.18)'}
+          linkWidth={0.5}
           linkDirectionalParticles={2}
           linkDirectionalParticleWidth={0.8}
           linkDirectionalParticleSpeed={0.004}

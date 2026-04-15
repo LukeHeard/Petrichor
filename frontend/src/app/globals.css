@@ -1039,31 +1039,6 @@ a {
   pointer-events: none;
 }
 
-.galaxy-header-eyebrow {
-  color: rgba(255, 255, 255, 0.4);
-  display: block;
-  margin-bottom: 0.15rem;
-}
-
-.galaxy-title {
-  font-family: var(--font-serif);
-  font-size: 2.2rem;
-  font-weight: 400;
-  font-style: italic;
-  color: white;
-  margin: 0;
-  line-height: 1;
-  text-shadow: 0 0 30px rgba(118, 138, 106, 0.6), 0 2px 8px rgba(0, 0, 0, 0.6);
-  letter-spacing: -0.01em;
-}
-
-.galaxy-subtitle {
-  margin: 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.35);
-  font-family: var(--font-sans);
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
-}
 
 /* Legend (top-right) */
 .galaxy-legend {
