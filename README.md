@@ -5,16 +5,32 @@ Grounded in the tactile joy of cataloging, elevated by graph-based data. Petrich
 
 Understand the complex simplicity of books with Petrichor.
 
-<img width="2476" height="1456" alt="Petrichor Dashboard" src="https://github.com/user-attachments/assets/faaf9c41-3ea0-4021-8225-5c877cdb526b" />
+![Petrichor Home](images/4_15_26_home.png)
 
 ## ✨ Features
 
 - **Minimalist Design:** A clean, focused interface that prioritizes your reading journey without the clutter of traditional social book platforms.
-- **Goodreads Integration:** Search and import books directly from Goodreads with automatic metadata enrichment (descriptions, covers, ratings, and tags).
-- **Comprehensive Tracking:** Log reading sessions with page-level granularity. Track minutes read and visualize your progress over time.
+  
+  ![Library Grid View](images/4_15_26_library_grid.png)
+
+- **Comprehensive Tracking:** Log reading sessions with page-level granularity. Track minutes read and visualize your progress over time with our calendar view.
+  
+  ![Reading Calendar](images/4_15_26_calendar.png)
+
 - **Deep Insights:** Dynamic statistics and charts showing your reading frequency, genre distribution, and library composition.
+  
+  <div style="display: flex; gap: 10px;">
+    <img src="images/4_15_26_stats_1.png" width="48%" alt="Reading Stats 1" />
+    <img src="images/4_15_26_stats_2.png" width="48%" alt="Reading Stats 2" />
+  </div>
+
 - **Petrichor Galaxy:** An interactive 3D force-directed graph visualization of your library, mapping the relationships between works, authors, and genres in a celestial interface.
-- **Personal Catalog:** Manage your "Tsundoku" (owned but unread), currently reading, and finished works with personal ratings and reviews.
+  
+  ![Petrichor Galaxy](images/4_15_26_galaxy.png)
+
+- **Personal Catalog:** Manage your "Tsundoku" (owned but unread), currently reading, and finished works with personal ratings and reviews. We also support standard list views for quick browsing.
+  
+  ![Library List View](images/4_15_26_library_list.png)
 
 ## 🛠️ Tech Stack
 
@@ -55,4 +71,3 @@ Petrichor uses a graph-based data model (following FRBR principles) to manage bi
 - `frontend/`: React/Next.js application.
 - `backend/`: FastAPI service with KùzuDB integration and Goodreads scraping logic.
 - `backend/data/`: Persistent storage for the graph database.
-
