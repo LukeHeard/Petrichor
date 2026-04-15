@@ -1188,7 +1188,6 @@ a {
   align-items: center;
   justify-content: center;
   transition: opacity 1.4s ease;
-  pointer-events: none;
 }
 
 .galaxy-intro-content {

@@ -263,6 +263,8 @@ export default function GalaxyPage() {
           onEngineStop={handleEngineStop}
           backgroundColor="#070b09"
           showNavInfo={false}
+          warmupTicks={100}
+          cooldownTime={3000}
         />
       </div>
 
@@ -270,7 +272,7 @@ export default function GalaxyPage() {
       {!introGone && (
         <div
           className="galaxy-intro"
-          style={{ opacity: introFading ? 0 : 1 }}
+          style={{ opacity: introFading ? 0 : 1, pointerEvents: introFading ? 'none' : 'all' }}
           onTransitionEnd={() => setIntroGone(true)}
         >
           <div className="galaxy-intro-content">
