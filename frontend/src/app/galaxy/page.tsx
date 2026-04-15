@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Network, X } from "lucide-react";
+import { X } from "lucide-react";
 import * as THREE from 'three';
 
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), { ssr: false });
@@ -98,12 +98,17 @@ function addSceneEnhancements(scene: THREE.Scene) {
   scene.add(ambient);
 }
 
+const INTRO_MIN_MS = 1500;
+
 export default function GalaxyPage() {
   const [data, setData] = useState<GraphData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [introFading, setIntroFading] = useState(false);
+  const [introGone, setIntroGone] = useState(false);
   const fgRef = useRef<any>(null);
   const sceneEnhancedRef = useRef(false);
+  const introStartRef = useRef(Date.now());
+  const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     async function fetchGraphData() {
@@ -112,11 +117,10 @@ export default function GalaxyPage() {
         if (res.ok) setData(await res.json());
       } catch (err) {
         console.error("Failed to fetch graph data", err);
-      } finally {
-        setLoading(false);
       }
     }
     fetchGraphData();
+    return () => { if (introTimerRef.current) clearTimeout(introTimerRef.current); };
   }, []);
 
   const handleEngineStop = useCallback(() => {
@@ -138,6 +142,11 @@ export default function GalaxyPage() {
       const scene = fgRef.current.scene();
       if (scene) addSceneEnhancements(scene);
     }
+
+    // Fade out intro after minimum display time
+    const elapsed = Date.now() - introStartRef.current;
+    const delay = Math.max(0, INTRO_MIN_MS - elapsed);
+    introTimerRef.current = setTimeout(() => setIntroFading(true), delay);
   }, []);
 
   const handleNodeClick = useCallback((node: any) => {
@@ -212,17 +221,6 @@ export default function GalaxyPage() {
     return (src as GraphNode)?.color ?? 'rgba(255,255,255,0.4)';
   }, [data]);
 
-  if (loading) {
-    return (
-      <div className="galaxy-loading">
-        <div className="galaxy-loading-icon">
-          <Network size={36} strokeWidth={1.5} />
-        </div>
-        <p className="galaxy-loading-text">Mapping the galaxy<span className="galaxy-ellipsis" /></p>
-      </div>
-    );
-  }
-
   return (
     <div className="galaxy-container fade-in-up">
 
@@ -267,6 +265,25 @@ export default function GalaxyPage() {
           showNavInfo={false}
         />
       </div>
+
+      {/* Intro cinematic overlay */}
+      {!introGone && (
+        <div
+          className="galaxy-intro"
+          style={{ opacity: introFading ? 0 : 1 }}
+          onTransitionEnd={() => setIntroGone(true)}
+        >
+          <div className="galaxy-intro-content">
+            <div className="galaxy-intro-star">✦</div>
+            <h1 className="galaxy-intro-title font-serif">
+              Petrichor <span>Galaxy</span>
+            </h1>
+            <p className="galaxy-intro-subtitle">
+              Mapping the galaxy<span className="galaxy-ellipsis" />
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Node Inspector */}
       {selectedNode && (
