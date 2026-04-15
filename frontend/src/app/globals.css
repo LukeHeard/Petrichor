@@ -218,6 +218,10 @@ a {
   padding: 1rem 0;
 }
 
+.library-grid > * {
+  min-width: 0;
+}
+
 @media (min-width: 768px) {
   .library-grid {
     grid-template-columns: repeat(3, 1fr);
