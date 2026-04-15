@@ -9,6 +9,13 @@ Understand the complex simplicity of books with Petrichor.
 
 ## Features
 
+- **Personal Catalog:** Manage your library with personal ratings and reviews using minimal list and grid designs for simple and aesthetically pleasing viewing.
+  
+  <div style="display: flex; gap: 10px;">
+    <img src="images/4_15_26_library_list.png" width="48%" alt="Reading Stats 1" />
+    <img src="images/4_15_26_library_grid.png" width="48%" alt="Reading Stats 2" />
+  </div>
+
 - **Comprehensive Tracking:** Log reading sessions with page-level granularity. Track minutes read and visualize your progress over time with our calendar view.
   
   ![Reading Calendar](images/4_15_26_calendar.png)
@@ -24,12 +31,7 @@ Understand the complex simplicity of books with Petrichor.
   
   ![Petrichor Galaxy](images/4_15_26_galaxy.png)
 
-- **Personal Catalog:** Manage your library with personal ratings and reviews using minimal list and grid designs for simple and aesthetically pleasing viewing.
-  
-  <div style="display: flex; gap: 10px;">
-    <img src="images/4_15_26_library_list.png" width="48%" alt="Reading Stats 1" />
-    <img src="images/4_15_26_library_grid.png" width="48%" alt="Reading Stats 2" />
-  </div>
+
 
 ## Tech Stack
 
