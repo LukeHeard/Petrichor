@@ -152,11 +152,11 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at, a.id, a.name", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
-        
+
         # Self-healing and Enrichment
         tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
         tags = []
@@ -217,9 +217,9 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
  
         return {
-            "id": row[0], 
-            "title": row[1], 
-            "goodreads_id": gr_id, 
+            "id": row[0],
+            "title": row[1],
+            "goodreads_id": gr_id,
             "thumbnail_url": stored_thumb,
             "first_publish_year": row[4],
             "description": stored_desc,
@@ -232,6 +232,8 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "review": row[12],
             "personal_notes": row[13],
             "created_at": row[14],
+            "author_id": row[15],
+            "author": row[16],
             "tags": tags
         }
     except Exception as e:
@@ -333,7 +335,39 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             to_remove = old_tags - new_tags
             for tag_name in to_remove:
                 conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) WHERE w.id = $wid AND t.name = $tname DELETE r", {"wid": work_id, "tname": tag_name})
-        
+
+        if work_update.author_id is not None:
+            # Find the current author for this work (if any)
+            current_author_res = conn.execute(
+                "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE w.id = $wid RETURN a.id",
+                {"wid": work_id}
+            )
+            old_author_id = current_author_res.get_next()[0] if current_author_res.has_next() else None
+
+            if old_author_id != work_update.author_id:
+                # Remove old relationship
+                if old_author_id is not None:
+                    conn.execute(
+                        "MATCH (a:Author)-[r:WROTE]->(w:Work) WHERE a.id = $aid AND w.id = $wid DELETE r",
+                        {"aid": old_author_id, "wid": work_id}
+                    )
+                    # Delete old author if they have no remaining works
+                    remaining_res = conn.execute(
+                        "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE a.id = $aid RETURN count(w)",
+                        {"aid": old_author_id}
+                    )
+                    if remaining_res.has_next() and remaining_res.get_next()[0] == 0:
+                        conn.execute("MATCH (a:Author) WHERE a.id = $aid DELETE a", {"aid": old_author_id})
+
+                # Create new relationship
+                new_author_check = conn.execute("MATCH (a:Author) WHERE a.id = $aid RETURN a.id", {"aid": work_update.author_id})
+                if not new_author_check.has_next():
+                    raise HTTPException(status_code=404, detail="Author not found")
+                conn.execute(
+                    "MATCH (a:Author), (w:Work) WHERE a.id = $aid AND w.id = $wid CREATE (a)-[:WROTE]->(w)",
+                    {"aid": work_update.author_id, "wid": work_id}
+                )
+
         return await get_work(work_id, db)
     except HTTPException:
         raise

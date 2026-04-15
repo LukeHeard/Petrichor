@@ -10,6 +10,7 @@ interface FullWork {
   id: number;
   title: string;
   author?: string;
+  author_id?: number;
   goodreads_id?: string;
   thumbnail_url?: string;
   first_publish_year?: number;
@@ -23,6 +24,11 @@ interface FullWork {
   current_page?: number;
   review?: string;
   personal_notes?: string;
+}
+
+interface Author {
+  id: number;
+  name: string;
 }
 
 export default function GlobalBookModal() {
@@ -45,6 +51,8 @@ export default function GlobalBookModal() {
   const [editDescription, setEditDescription] = useState("");
   const [editPages, setEditPages] = useState<number | undefined>(0);
   const [editTags, setEditTags] = useState<string[]>([]);
+  const [editAuthorId, setEditAuthorId] = useState<number | undefined>(undefined);
+  const [authors, setAuthors] = useState<Author[]>([]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -59,15 +67,19 @@ export default function GlobalBookModal() {
         if (!book) setTimedOut(true);
       }, 5000);
 
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`)
-        .then(res => res.json())
-        .then(data => {
+      Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`).then(res => res.json()),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/authors`).then(res => res.json()),
+      ])
+        .then(([data, authorList]) => {
           setBook(data);
           setEditTitle(data.title);
           setEditYear(data.first_publish_year);
           setEditDescription(data.description || "");
           setEditPages(data.page_count || 0);
           setEditTags(data.tags || []);
+          setEditAuthorId(data.author_id);
+          setAuthors(authorList);
           clearTimeout(timer);
         })
         .catch(err => console.error(err))
@@ -112,7 +124,8 @@ export default function GlobalBookModal() {
           first_publish_year: editYear,
           page_count: editPages,
           description: editDescription,
-          tags: editTags
+          tags: editTags,
+          ...(editAuthorId !== undefined ? { author_id: editAuthorId } : {})
         })
       });
       if (res.ok) {
@@ -223,6 +236,20 @@ export default function GlobalBookModal() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Author</label>
+                      <select
+                        value={editAuthorId ?? ""}
+                        onChange={e => setEditAuthorId(e.target.value ? Number(e.target.value) : undefined)}
+                        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.6rem', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
+                      >
+                        <option value="" style={{ background: 'var(--background)' }}>— no author —</option>
+                        {authors.sort((a, b) => a.name.localeCompare(b.name)).map(a => (
+                          <option key={a.id} value={a.id} style={{ background: 'var(--background)' }}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>First Published Year</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <button 
@@ -320,6 +347,7 @@ export default function GlobalBookModal() {
                           setEditDescription(book.description || "");
                           setEditPages(book.page_count || 0);
                           setEditTags(book.tags || []);
+                          setEditAuthorId(book.author_id);
                         }}
                         className="btn-ghost"
                         style={{ flex: 1, padding: '0.75rem' }}
