@@ -22,7 +22,6 @@ class WorkCreate(WorkBase):
 
 class WorkUpdate(BaseModel):
     title: Optional[str] = None
-    author: Optional[str] = None
     first_publish_year: Optional[int] = None
     description: Optional[str] = None
     personal_rating: Optional[float] = None
