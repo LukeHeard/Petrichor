@@ -128,7 +128,7 @@ export default function GalaxyPage() {
       controls.autoRotate = true;
       controls.autoRotateSpeed = 0.35;
       // Prevent zooming out far enough to see the star volume boundary
-      controls.maxDistance = 600;
+      controls.maxDistance = 1200;
     }
 
     // One-time Three.js scene enhancements
