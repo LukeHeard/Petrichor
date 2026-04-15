@@ -152,24 +152,10 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute(
-            "MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at",
-            {"id": work_id},
-        )
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
-
-        author_id = None
-        author_name = None
-        auth_res = conn.execute(
-            "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE w.id = $id RETURN a.id, a.name LIMIT 1",
-            {"id": work_id},
-        )
-        if auth_res.has_next():
-            arow = auth_res.get_next()
-            author_id = arow[0]
-            author_name = arow[1]
         
         # Self-healing and Enrichment
         tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
@@ -246,8 +232,6 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "review": row[12],
             "personal_notes": row[13],
             "created_at": row[14],
-            "author_id": author_id,
-            "author": author_name,
             "tags": tags
         }
     except Exception as e:
@@ -349,35 +333,6 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             to_remove = old_tags - new_tags
             for tag_name in to_remove:
                 conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) WHERE w.id = $wid AND t.name = $tname DELETE r", {"wid": work_id, "tname": tag_name})
-
-        if work_update.author_id is not None:
-            check_author = conn.execute("MATCH (a:Author) WHERE a.id = $aid RETURN a.id", {"aid": work_update.author_id})
-            if not check_author.has_next():
-                raise HTTPException(status_code=404, detail="Author not found")
-
-            prev_res = conn.execute(
-                "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE w.id = $wid RETURN DISTINCT a.id",
-                {"wid": work_id},
-            )
-            previous_author_ids = []
-            while prev_res.has_next():
-                previous_author_ids.append(prev_res.get_next()[0])
-
-            conn.execute("MATCH (:Author)-[r:WROTE]->(w:Work) WHERE w.id = $wid DELETE r", {"wid": work_id})
-            conn.execute(
-                "MATCH (w:Work), (a:Author) WHERE w.id = $wid AND a.id = $aid CREATE (a)-[:WROTE]->(w)",
-                {"wid": work_id, "aid": work_update.author_id},
-            )
-
-            for old_id in previous_author_ids:
-                if old_id == work_update.author_id:
-                    continue
-                still_linked = conn.execute(
-                    "MATCH (a:Author)-[:WROTE]->(:Work) WHERE a.id = $id RETURN a.id LIMIT 1",
-                    {"id": old_id},
-                )
-                if not still_linked.has_next():
-                    conn.execute("MATCH (a:Author) WHERE a.id = $id DELETE a", {"id": old_id})
         
         return await get_work(work_id, db)
     except HTTPException:
