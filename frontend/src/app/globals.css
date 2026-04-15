@@ -1020,26 +1020,6 @@ a {
 
 /* ─── Galaxy Page ──────────────────────────────────────────────── */
 
-/* Nav override: dark glass to match galaxy aesthetic */
-body.galaxy-page .bottom-nav {
-  background: rgba(7, 11, 9, 0.55);
-  border-top-color: rgba(255, 255, 255, 0.07);
-}
-
-body.galaxy-page .nav-item {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-body.galaxy-page .nav-item.active {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-body.galaxy-page .nav-plus-btn {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.8);
-}
-
-
 .galaxy-container {
   position: fixed;
   inset: 0;

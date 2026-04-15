@@ -106,11 +106,6 @@ export default function GalaxyPage() {
   const sceneEnhancedRef = useRef(false);
 
   useEffect(() => {
-    document.body.classList.add('galaxy-page');
-    return () => document.body.classList.remove('galaxy-page');
-  }, []);
-
-  useEffect(() => {
     async function fetchGraphData() {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/graph`);
