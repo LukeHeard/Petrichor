@@ -31,10 +31,12 @@ class WorkUpdate(BaseModel):
     review: Optional[str] = None
     personal_notes: Optional[str] = None
     tags: Optional[List[str]] = None
+    author_id: Optional[int] = None
 
 class Work(WorkBase):
     id: int
     author: Optional[str] = None
+    author_id: Optional[int] = None
     tags: List[str] = []
     created_at: Optional[int] = None
 
