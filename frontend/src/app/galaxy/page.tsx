@@ -31,7 +31,7 @@ interface GraphData {
   links: GraphLink[];
 }
 
-export default function DataPage() {
+export default function GalaxyPage() {
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -73,14 +73,14 @@ export default function DataPage() {
   // Handle glow effects
   const nodeThreeObject = useCallback((node: any) => {
     const geometry = new THREE.SphereGeometry(node.val);
-    const material = new THREE.MeshLambertMaterial({ 
+    const material = new THREE.MeshLambertMaterial({
       color: node.color,
       transparent: true,
       opacity: 0.9,
     });
-    
+
     const mesh = new THREE.Mesh(geometry, material);
-    
+
     // Add glowing halo
     const glowMaterial = new THREE.MeshBasicMaterial({
       color: node.color,
@@ -101,11 +101,11 @@ export default function DataPage() {
 
   return (
     <div className="fade-in-up graph-page-container" style={{ position: 'relative', height: 'calc(100vh - 80px)', width: '100vw', marginLeft: 'calc(-50vw + 50%)', marginTop: '-2rem', overflow: 'hidden', background: '#0a0a0a' }}>
-      
+
       {/* Absolute overlay elements for UI */}
       <div style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', zIndex: 10, color: 'white', pointerEvents: 'none' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          <Network size={24} style={{ color: 'var(--accent)' }} /> Data <span style={{ opacity: 0.5, fontWeight: 300 }}>Galaxy</span>
+          <Network size={24} style={{ color: 'var(--accent)' }} /> Petrichor <span style={{ opacity: 0.5, fontWeight: 300 }}>Galaxy</span>
         </h1>
         <p style={{ margin: '0.25rem 0 0', opacity: 0.7, fontSize: '0.85rem' }}>Visualizing {data?.nodes.length || 0} entities and {data?.links.length || 0} connections.</p>
       </div>
@@ -144,33 +144,33 @@ export default function DataPage() {
 
       {/* Node Inspector Panel */}
       {selectedNode && (
-        <div className="node-inspector glass-panel fade-in-up" style={{ 
-          position: 'absolute', 
-          bottom: '2rem', 
-          right: '2rem', 
+        <div className="node-inspector glass-panel fade-in-up" style={{
+          position: 'absolute',
+          bottom: '2rem',
+          right: '2rem',
           width: '300px',
           padding: '1.5rem',
           borderRadius: '12px',
           color: 'white',
           zIndex: 20
         }}>
-          <button 
-            onClick={() => setSelectedNode(null)} 
+          <button
+            onClick={() => setSelectedNode(null)}
             style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'white', opacity: 0.5, cursor: 'pointer' }}
           >
             ✕
           </button>
-          
+
           <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: selectedNode.color, marginBottom: '0.5rem', fontWeight: 600 }}>
             {selectedNode.type} Node
           </div>
-          
+
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', lineHeight: 1.3 }}>{selectedNode.label}</h3>
-          
+
           {selectedNode.properties.thumbnail_url && (
-            <img 
-              src={selectedNode.properties.thumbnail_url} 
-              alt={selectedNode.label} 
+            <img
+              src={selectedNode.properties.thumbnail_url}
+              alt={selectedNode.label}
               style={{ width: '100%', height: 'auto', borderRadius: '4px', marginBottom: '1rem', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
             />
           )}
