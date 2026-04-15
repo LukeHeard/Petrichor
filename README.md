@@ -7,11 +7,7 @@ Understand the complex simplicity of books with Petrichor.
 
 ![Petrichor Home](images/4_15_26_home.png)
 
-## ✨ Features
-
-- **Minimalist Design:** A clean, focused interface that prioritizes your reading journey without the clutter of traditional social book platforms.
-  
-  ![Library Grid View](images/4_15_26_library_grid.png)
+## Features
 
 - **Comprehensive Tracking:** Log reading sessions with page-level granularity. Track minutes read and visualize your progress over time with our calendar view.
   
@@ -28,11 +24,14 @@ Understand the complex simplicity of books with Petrichor.
   
   ![Petrichor Galaxy](images/4_15_26_galaxy.png)
 
-- **Personal Catalog:** Manage your "Tsundoku" (owned but unread), currently reading, and finished works with personal ratings and reviews. We also support standard list views for quick browsing.
+- **Personal Catalog:** Manage your library with personal ratings and reviews using minimal list and grid designs for simple and aesthetically pleasing viewing.
   
-  ![Library List View](images/4_15_26_library_list.png)
+  <div style="display: flex; gap: 10px;">
+    <img src="images/4_15_26_library_list.png" width="48%" alt="Reading Stats 1" />
+    <img src="images/4_15_26_library_grid.png" width="48%" alt="Reading Stats 2" />
+  </div>
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend:** [Next.js](https://nextjs.org/) (TypeScript, Tailwind-ish CSS)
 - **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (Python)
@@ -40,7 +39,7 @@ Understand the complex simplicity of books with Petrichor.
 - **Visualization:** [Three.js](https://threejs.org/) & [React Force Graph](https://github.com/vasturiano/react-force-graph)
 - **Deployment:** [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -58,13 +57,13 @@ docker compose up --build
 To run on custom ports:
 
 ```bash
-FRONTEND_PORT=4000 BACKEND_PORT=9000 docker compose up -d --build
+FRONTEND_PORT={PORT} BACKEND_PORT={PORT} docker compose up -d --build
 ```
 
 - **Frontend:** [http://localhost:3000](http://localhost:3000) (or your custom `FRONTEND_PORT`)
 - **Backend API:** [http://localhost:8000](http://localhost:8000) (or `BACKEND_PORT`)
 
-## 🏗️ Architecture
+## Architecture
 
 Petrichor uses a graph-based data model (following FRBR principles) to manage bibliographic records. By using **KùzuDB**, the application can efficiently traverse complex relationships between authors, works, and editions, powering the interactive "Galaxy" visualization.
 
