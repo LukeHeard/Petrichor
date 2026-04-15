@@ -8,6 +8,7 @@ from .db import get_db, DatabaseManager
 from .schemas import work as schemas
 from .schemas import tracking as tracking_schemas
 from .schemas import stats as stats_schemas
+from .schemas import graph as graph_schemas
 from datetime import datetime, timedelta
 from .services.goodreads import GoodreadsScraper
 
@@ -151,11 +152,11 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at, a.id, a.name", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
-        
+
         # Self-healing and Enrichment
         tag_result = conn.execute("MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id = $id RETURN t.name", {"id": work_id})
         tags = []
@@ -216,9 +217,9 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
  
         return {
-            "id": row[0], 
-            "title": row[1], 
-            "goodreads_id": gr_id, 
+            "id": row[0],
+            "title": row[1],
+            "goodreads_id": gr_id,
             "thumbnail_url": stored_thumb,
             "first_publish_year": row[4],
             "description": stored_desc,
@@ -231,6 +232,8 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "review": row[12],
             "personal_notes": row[13],
             "created_at": row[14],
+            "author_id": row[15],
+            "author": row[16],
             "tags": tags
         }
     except Exception as e:
@@ -332,7 +335,39 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             to_remove = old_tags - new_tags
             for tag_name in to_remove:
                 conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) WHERE w.id = $wid AND t.name = $tname DELETE r", {"wid": work_id, "tname": tag_name})
-        
+
+        if work_update.author_id is not None:
+            # Find the current author for this work (if any)
+            current_author_res = conn.execute(
+                "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE w.id = $wid RETURN a.id",
+                {"wid": work_id}
+            )
+            old_author_id = current_author_res.get_next()[0] if current_author_res.has_next() else None
+
+            if old_author_id != work_update.author_id:
+                # Remove old relationship
+                if old_author_id is not None:
+                    conn.execute(
+                        "MATCH (a:Author)-[r:WROTE]->(w:Work) WHERE a.id = $aid AND w.id = $wid DELETE r",
+                        {"aid": old_author_id, "wid": work_id}
+                    )
+                    # Delete old author if they have no remaining works
+                    remaining_res = conn.execute(
+                        "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE a.id = $aid RETURN count(w)",
+                        {"aid": old_author_id}
+                    )
+                    if remaining_res.has_next() and remaining_res.get_next()[0] == 0:
+                        conn.execute("MATCH (a:Author) WHERE a.id = $aid DELETE a", {"aid": old_author_id})
+
+                # Create new relationship
+                new_author_check = conn.execute("MATCH (a:Author) WHERE a.id = $aid RETURN a.id", {"aid": work_update.author_id})
+                if not new_author_check.has_next():
+                    raise HTTPException(status_code=404, detail="Author not found")
+                conn.execute(
+                    "MATCH (a:Author), (w:Work) WHERE a.id = $aid AND w.id = $wid CREATE (a)-[:WROTE]->(w)",
+                    {"aid": work_update.author_id, "wid": work_id}
+                )
+
         return await get_work(work_id, db)
     except HTTPException:
         raise
@@ -344,6 +379,12 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
 def create_author(author: schemas.AuthorCreate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
+        # Check if author exists first
+        check = conn.execute("MATCH (a:Author) WHERE a.name = $name RETURN a.id, a.name", {"name": author.name})
+        if check.has_next():
+            row = check.get_next()
+            return {"id": row[0], "name": row[1]}
+            
         # Use parameterized query to avoid injection
         result = conn.execute("CREATE (a:Author {name: $name}) RETURN a.id, a.name", {"name": author.name})
         if result.has_next():
@@ -367,6 +408,43 @@ def list_authors(db: DatabaseManager = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error listing authors: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/debug/merge-authors")
+def merge_duplicate_authors(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        res = conn.execute("MATCH (a:Author) RETURN a.name, count(a) AS c, collect(a.id) ORDER BY c DESC")
+        duplicates = []
+        while res.has_next():
+            row = res.get_next()
+            if row[1] > 1:
+                duplicates.append((row[0], row[2]))
+        
+        total_merged = 0
+        total_deleted = 0
+        
+        for name, ids in duplicates:
+            ids.sort()
+            primary_id = ids[0]
+            for dup_id in ids[1:]:
+                works_res = conn.execute("MATCH (dup:Author)-[r:WROTE]->(w:Work) WHERE dup.id = $id RETURN w.id", {"id": dup_id})
+                works_to_relink = []
+                while works_res.has_next():
+                    works_to_relink.append(works_res.get_next()[0])
+                
+                for work_id in works_to_relink:
+                    conn.execute("MATCH (p:Author), (w:Work) WHERE p.id = $pid AND w.id = $wid MERGE (p)-[:WROTE]->(w)", {"pid": primary_id, "wid": work_id})
+                    conn.execute("MATCH (dup:Author)-[r:WROTE]->(w:Work) WHERE dup.id = $id AND w.id = $wid DELETE r", {"id": dup_id, "wid": work_id})
+                
+                conn.execute("MATCH (dup:Author) WHERE dup.id = $id DELETE dup", {"id": dup_id})
+                total_merged += len(works_to_relink)
+                total_deleted += 1
+                
+        return {"merged_relations": total_merged, "deleted_authors": total_deleted}
+    except Exception as e:
+        logger.error(f"Merge error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/tags", response_model=list[str])
 def list_tags(db: DatabaseManager = Depends(get_db)):
@@ -723,4 +801,96 @@ def get_stats(
         }
     except Exception as e:
         logger.error(f"Error generating stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/graph", response_model=graph_schemas.GraphResponse)
+def get_graph_data(db: DatabaseManager = Depends(get_db)):
+    """Fetch all works, authors, and tags nodes and their relationships for graph visualization."""
+    conn = db.get_connection()
+    try:
+        nodes = []
+        links = []
+        node_ids = set()
+
+        # Colors and sizes
+        colors = {
+            "Work": "#4ade80",    # Green
+            "Author": "#60a5fa",  # Blue
+            "Tag": "#c084fc"      # Purple
+        }
+        sizes = {
+            "Work": 3,
+            "Author": 4,
+            "Tag": 2
+        }
+
+        # 1. Fetch Works
+        res_works = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.thumbnail_url, w.status")
+        while res_works.has_next():
+            row = res_works.get_next()
+            nid = f"work_{row[0]}"
+            nodes.append(graph_schemas.GraphNode(
+                id=nid,
+                label=row[1],
+                type="Work",
+                val=sizes["Work"],
+                color=colors["Work"],
+                properties={"thumbnail_url": row[2], "status": row[3]}
+            ))
+            node_ids.add(nid)
+
+        # 2. Fetch Authors
+        res_authors = conn.execute("MATCH (a:Author)-[:WROTE]->(w:Work) RETURN DISTINCT a.id, a.name")
+        while res_authors.has_next():
+            row = res_authors.get_next()
+            nid = f"author_{row[0]}"
+            nodes.append(graph_schemas.GraphNode(
+                id=nid,
+                label=row[1],
+                type="Author",
+                val=sizes["Author"],
+                color=colors["Author"],
+                properties={}
+            ))
+            node_ids.add(nid)
+
+        # 3. Fetch Tags
+        res_tags = conn.execute("MATCH (t:Tag)<-[:HAS_TAG]-(w:Work) RETURN DISTINCT t.id, t.name")
+        while res_tags.has_next():
+            row = res_tags.get_next()
+            t_name = row[1]
+            if t_name in BLOCKED_TAGS:
+                continue
+            nid = f"tag_{row[0]}"
+            nodes.append(graph_schemas.GraphNode(
+                id=nid,
+                label=t_name,
+                type="Tag",
+                val=sizes["Tag"],
+                color=colors["Tag"],
+                properties={}
+            ))
+            node_ids.add(nid)
+
+        # 4. Fetch Relationships: WROTE (Author -> Work)
+        res_wrote = conn.execute("MATCH (a:Author)-[r:WROTE]->(w:Work) RETURN a.id, w.id")
+        while res_wrote.has_next():
+            row = res_wrote.get_next()
+            source = f"author_{row[0]}"
+            target = f"work_{row[1]}"
+            if source in node_ids and target in node_ids:
+                links.append(graph_schemas.GraphLink(source=source, target=target, type="WROTE"))
+
+        # 5. Fetch Relationships: HAS_TAG (Work -> Tag)
+        res_has_tag = conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) RETURN w.id, t.id")
+        while res_has_tag.has_next():
+            row = res_has_tag.get_next()
+            source = f"work_{row[0]}"
+            target = f"tag_{row[1]}"
+            if source in node_ids and target in node_ids:
+                links.append(graph_schemas.GraphLink(source=source, target=target, type="HAS_TAG"))
+
+        return {"nodes": nodes, "links": links}
+    except Exception as e:
+        logger.error(f"Error fetching graph data: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import BookDetailsContent from "./BookDetailsContent";
 import PersonalLibraryControls from "./PersonalLibraryControls";
 import TagManager from "./TagManager";
@@ -10,6 +10,7 @@ interface FullWork {
   id: number;
   title: string;
   author?: string;
+  author_id?: number;
   goodreads_id?: string;
   thumbnail_url?: string;
   first_publish_year?: number;
@@ -23,6 +24,11 @@ interface FullWork {
   current_page?: number;
   review?: string;
   personal_notes?: string;
+}
+
+interface Author {
+  id: number;
+  name: string;
 }
 
 export default function GlobalBookModal() {
@@ -45,6 +51,12 @@ export default function GlobalBookModal() {
   const [editDescription, setEditDescription] = useState("");
   const [editPages, setEditPages] = useState<number | undefined>(0);
   const [editTags, setEditTags] = useState<string[]>([]);
+  const [editAuthorId, setEditAuthorId] = useState<number | undefined>(undefined);
+  const [editAuthorInput, setEditAuthorInput] = useState("");
+  const [authorDropdownOpen, setAuthorDropdownOpen] = useState(false);
+  const [authorHighlightedIndex, setAuthorHighlightedIndex] = useState(0);
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const authorInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -59,15 +71,20 @@ export default function GlobalBookModal() {
         if (!book) setTimedOut(true);
       }, 5000);
 
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`)
-        .then(res => res.json())
-        .then(data => {
+      Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`).then(res => res.json()),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/authors`).then(res => res.json()),
+      ])
+        .then(([data, authorList]) => {
           setBook(data);
           setEditTitle(data.title);
           setEditYear(data.first_publish_year);
           setEditDescription(data.description || "");
           setEditPages(data.page_count || 0);
           setEditTags(data.tags || []);
+          setEditAuthorId(data.author_id);
+          setEditAuthorInput(data.author || "");
+          setAuthors(authorList);
           clearTimeout(timer);
         })
         .catch(err => console.error(err))
@@ -104,6 +121,22 @@ export default function GlobalBookModal() {
     if (!book) return;
     setLoading(true);
     try {
+      // If a new author name was typed (no ID), create the author first
+      let resolvedAuthorId = editAuthorId;
+      const trimmedAuthorInput = editAuthorInput.trim();
+      if (trimmedAuthorInput && !editAuthorId) {
+        const authorRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/authors`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmedAuthorInput })
+        });
+        if (authorRes.ok) {
+          const authorData = await authorRes.json();
+          resolvedAuthorId = authorData.id;
+          setAuthors(prev => prev.some(a => a.id === authorData.id) ? prev : [...prev, authorData]);
+        }
+      }
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -112,7 +145,8 @@ export default function GlobalBookModal() {
           first_publish_year: editYear,
           page_count: editPages,
           description: editDescription,
-          tags: editTags
+          tags: editTags,
+          ...(resolvedAuthorId !== undefined ? { author_id: resolvedAuthorId } : {})
         })
       });
       if (res.ok) {
@@ -223,6 +257,86 @@ export default function GlobalBookModal() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Author</label>
+                      {(() => {
+                        const filteredAuthors = editAuthorInput.trim()
+                          ? authors.filter(a => a.name.toLowerCase().includes(editAuthorInput.toLowerCase()))
+                          : authors.slice().sort((a, b) => a.name.localeCompare(b.name));
+                        const exactMatch = authors.some(a => a.name.toLowerCase() === editAuthorInput.trim().toLowerCase());
+                        const showCreate = editAuthorInput.trim() && !exactMatch;
+                        const dropdownItems = filteredAuthors.slice(0, 6);
+                        const totalItems = dropdownItems.length + (showCreate ? 1 : 0);
+                        return (
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              ref={authorInputRef}
+                              type="text"
+                              value={editAuthorInput}
+                              placeholder="Search or add author..."
+                              onChange={e => {
+                                setEditAuthorInput(e.target.value);
+                                setEditAuthorId(undefined);
+                                setAuthorHighlightedIndex(0);
+                                setAuthorDropdownOpen(true);
+                              }}
+                              onFocus={() => setAuthorDropdownOpen(true)}
+                              onBlur={() => setTimeout(() => setAuthorDropdownOpen(false), 150)}
+                              onKeyDown={e => {
+                                if (!authorDropdownOpen) return;
+                                if (e.key === "ArrowDown") {
+                                  e.preventDefault();
+                                  setAuthorHighlightedIndex(prev => Math.min(prev + 1, totalItems - 1));
+                                } else if (e.key === "ArrowUp") {
+                                  e.preventDefault();
+                                  setAuthorHighlightedIndex(prev => Math.max(prev - 1, 0));
+                                } else if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  if (authorHighlightedIndex < dropdownItems.length) {
+                                    const a = dropdownItems[authorHighlightedIndex];
+                                    setEditAuthorInput(a.name);
+                                    setEditAuthorId(a.id);
+                                  }
+                                  // if showCreate and highlighted on create row, just keep the typed name (saved on submit)
+                                  setAuthorDropdownOpen(false);
+                                } else if (e.key === "Escape") {
+                                  setAuthorDropdownOpen(false);
+                                }
+                              }}
+                              style={{ width: '100%', background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.6rem', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
+                            />
+                            {authorDropdownOpen && totalItems > 0 && (
+                              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '4px', marginTop: '0.25rem', overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                                {dropdownItems.map((a, i) => (
+                                  <div
+                                    key={a.id}
+                                    onMouseDown={() => {
+                                      setEditAuthorInput(a.name);
+                                      setEditAuthorId(a.id);
+                                      setAuthorDropdownOpen(false);
+                                    }}
+                                    onMouseEnter={() => setAuthorHighlightedIndex(i)}
+                                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: i === authorHighlightedIndex ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent', color: i === authorHighlightedIndex ? 'var(--accent)' : 'var(--foreground)' }}
+                                  >
+                                    {a.name}
+                                  </div>
+                                ))}
+                                {showCreate && (
+                                  <div
+                                    onMouseDown={() => setAuthorDropdownOpen(false)}
+                                    onMouseEnter={() => setAuthorHighlightedIndex(dropdownItems.length)}
+                                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: authorHighlightedIndex === dropdownItems.length ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent', color: authorHighlightedIndex === dropdownItems.length ? 'var(--accent)' : 'var(--muted)', borderTop: dropdownItems.length > 0 ? '1px solid var(--border)' : 'none' }}
+                                  >
+                                    + Create &ldquo;{editAuthorInput.trim()}&rdquo;
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>First Published Year</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <button 
@@ -320,6 +434,8 @@ export default function GlobalBookModal() {
                           setEditDescription(book.description || "");
                           setEditPages(book.page_count || 0);
                           setEditTags(book.tags || []);
+                          setEditAuthorId(book.author_id);
+                          setEditAuthorInput(book.author || "");
                         }}
                         className="btn-ghost"
                         style={{ flex: 1, padding: '0.75rem' }}
