@@ -1077,7 +1077,7 @@ a {
 /* Node Inspector (bottom-right) */
 .galaxy-inspector {
   position: absolute;
-  bottom: 2rem;
+  bottom: calc(var(--nav-height) + 1.5rem);
   right: 2rem;
   width: 272px;
   padding: 1.4rem 1.4rem 1.4rem 1.6rem;
