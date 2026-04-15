@@ -41,10 +41,12 @@ export default function GlobalBookModal() {
 
   // Edit form state
   const [editTitle, setEditTitle] = useState("");
+  const [editAuthor, setEditAuthor] = useState("");
   const [editYear, setEditYear] = useState<number | undefined>(0);
   const [editDescription, setEditDescription] = useState("");
   const [editPages, setEditPages] = useState<number | undefined>(0);
   const [editTags, setEditTags] = useState<string[]>([]);
+  const [authorList, setAuthorList] = useState<{id: number, name: string}[]>([]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -64,6 +66,7 @@ export default function GlobalBookModal() {
         .then(data => {
           setBook(data);
           setEditTitle(data.title);
+          setEditAuthor(data.author || "");
           setEditYear(data.first_publish_year);
           setEditDescription(data.description || "");
           setEditPages(data.page_count || 0);
@@ -90,6 +93,15 @@ export default function GlobalBookModal() {
     return () => window.removeEventListener("petrichor:workUpdated", handleUpdate);
   }, [book]);
 
+  useEffect(() => {
+    if (isEditing && authorList.length === 0) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/authors`)
+        .then(res => res.json())
+        .then(data => setAuthorList(data || []))
+        .catch(err => console.error("Failed to fetch authors", err));
+    }
+  }, [isEditing, authorList.length]);
+
   if (!bookId) return null;
 
   const closeModal = () => {
@@ -109,6 +121,7 @@ export default function GlobalBookModal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: editTitle,
+          author: editAuthor,
           first_publish_year: editYear,
           page_count: editPages,
           description: editDescription,
@@ -223,6 +236,23 @@ export default function GlobalBookModal() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Author</label>
+                      <input 
+                        type="text" 
+                        list="authors-list"
+                        value={editAuthor}
+                        onChange={e => setEditAuthor(e.target.value)}
+                        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.6rem', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none' }}
+                        placeholder="Search or enter new author..."
+                      />
+                      <datalist id="authors-list">
+                        {authorList.map(a => (
+                          <option key={a.id} value={a.name} />
+                        ))}
+                      </datalist>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>First Published Year</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <button 
@@ -316,6 +346,7 @@ export default function GlobalBookModal() {
                         onClick={() => {
                           setIsEditing(false);
                           setEditTitle(book.title);
+                          setEditAuthor(book.author || "");
                           setEditYear(book.first_publish_year);
                           setEditDescription(book.description || "");
                           setEditPages(book.page_count || 0);

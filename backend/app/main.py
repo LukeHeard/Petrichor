@@ -216,9 +216,16 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             except Exception as e:
                 logger.warning(f"Self-healing failed for {work_id}: {e}")
  
+        # Fetch author
+        author_result = conn.execute("MATCH (a:Author)-[:WROTE]->(w:Work) WHERE w.id = $id RETURN a.name", {"id": work_id})
+        author_name = None
+        if author_result.has_next():
+            author_name = author_result.get_next()[0]
+
         return {
             "id": row[0], 
             "title": row[1], 
+            "author": author_name,
             "goodreads_id": gr_id, 
             "thumbnail_url": stored_thumb,
             "first_publish_year": row[4],
@@ -333,6 +340,37 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
             to_remove = old_tags - new_tags
             for tag_name in to_remove:
                 conn.execute("MATCH (w:Work)-[r:HAS_TAG]->(t:Tag) WHERE w.id = $wid AND t.name = $tname DELETE r", {"wid": work_id, "tname": tag_name})
+        
+        if work_update.author is not None:
+            # 1. Fetch current author(s)
+            curr_author_res = conn.execute("MATCH (a:Author)-[:WROTE]->(w:Work) WHERE w.id = $id RETURN a.id, a.name", {"id": work_id})
+            old_authors = []
+            while curr_author_res.has_next():
+                row = curr_author_res.get_next()
+                old_authors.append({"id": row[0], "name": row[1]})
+            
+            # 2. Delete existing WROTE relation
+            conn.execute("MATCH (a:Author)-[r:WROTE]->(w:Work) WHERE w.id = $id DELETE r", {"id": work_id})
+            
+            # 3. Clean up orphaned authors
+            for old_a in old_authors:
+                works_count_res = conn.execute("MATCH (a:Author)-[:WROTE]->(w:Work) WHERE a.id = $aid RETURN count(w)", {"aid": old_a["id"]})
+                if works_count_res.has_next():
+                    count = works_count_res.get_next()[0]
+                    if count == 0:
+                        conn.execute("MATCH (a:Author) WHERE a.id = $aid DELETE a", {"aid": old_a["id"]})
+            
+            # 4. Link new author
+            if work_update.author.strip():
+                new_author_name = work_update.author.strip()
+                new_author_res = conn.execute("MATCH (a:Author) WHERE a.name = $name RETURN a.id", {"name": new_author_name})
+                if new_author_res.has_next():
+                    new_author_id = new_author_res.get_next()[0]
+                else:
+                    create_res = conn.execute("CREATE (a:Author {name: $name}) RETURN a.id", {"name": new_author_name})
+                    new_author_id = create_res.get_next()[0]
+                
+                conn.execute("MATCH (a:Author), (w:Work) WHERE a.id = $aid AND w.id = $wid MERGE (a)-[:WROTE]->(w)", {"aid": new_author_id, "wid": work_id})
         
         return await get_work(work_id, db)
     except HTTPException:
