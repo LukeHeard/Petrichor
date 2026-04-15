@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Layers, Cuboid, Activity, Network } from "lucide-react";
+import { Network, X } from "lucide-react";
 import * as THREE from 'three';
 
-// Import ForceGraph3D dynamically to avoid SSR issues with 'window'
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), { ssr: false });
 
 interface GraphNode {
@@ -21,8 +20,8 @@ interface GraphNode {
 }
 
 interface GraphLink {
-  source: string;
-  target: string;
+  source: string | GraphNode;
+  target: string | GraphNode;
   type: string;
 }
 
@@ -31,21 +30,81 @@ interface GraphData {
   links: GraphLink[];
 }
 
+const LEGEND_ITEMS = [
+  { label: 'Works', color: '#4ade80' },
+  { label: 'Authors', color: '#60a5fa' },
+  { label: 'Tags', color: '#c084fc' },
+];
+
+function addSceneEnhancements(scene: THREE.Scene) {
+  // Starfield — spherical shell of points
+  const starCount = 3000;
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+
+  for (let i = 0; i < starCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 500 + Math.random() * 500;
+    positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+
+    // Warm-to-cool star color variation
+    const t = Math.random();
+    colors[i * 3]     = 0.75 + t * 0.25;
+    colors[i * 3 + 1] = 0.75 + t * 0.15;
+    colors[i * 3 + 2] = 0.85 + (1 - t) * 0.15;
+  }
+
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const starMat = new THREE.PointsMaterial({
+    size: 0.9,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.85,
+    sizeAttenuation: true,
+  });
+
+  const starfield = new THREE.Points(starGeo, starMat);
+  starfield.name = 'petrichor-starfield';
+  scene.add(starfield);
+
+  // Nebula point lights in node palette colors
+  const nebulaDefs = [
+    { color: 0x4ade80, intensity: 40, pos: [-180, 80, -60]  as [number, number, number] },
+    { color: 0x60a5fa, intensity: 30, pos: [140, -70, 120]  as [number, number, number] },
+    { color: 0xc084fc, intensity: 35, pos: [20, 110, -140]  as [number, number, number] },
+  ];
+
+  nebulaDefs.forEach(({ color, intensity, pos }, i) => {
+    const light = new THREE.PointLight(color, intensity, 350);
+    light.position.set(...pos);
+    light.name = `nebula-light-${i}`;
+    scene.add(light);
+  });
+
+  // Soft ambient to keep dark nodes visible
+  const ambient = new THREE.AmbientLight(0x1a2018, 3);
+  ambient.name = 'petrichor-ambient';
+  scene.add(ambient);
+}
+
 export default function GalaxyPage() {
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const fgRef = useRef<any>(null);
+  const sceneEnhancedRef = useRef(false);
 
   useEffect(() => {
     async function fetchGraphData() {
       try {
-        const url = `${process.env.NEXT_PUBLIC_API_URL}/graph`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        }
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/graph`);
+        if (res.ok) setData(await res.json());
       } catch (err) {
         console.error("Failed to fetch graph data", err);
       } finally {
@@ -55,135 +114,194 @@ export default function GalaxyPage() {
     fetchGraphData();
   }, []);
 
-  const handleNodeClick = useCallback((node: any) => {
-    setSelectedNode(node);
-    if (fgRef.current && node.x !== undefined && node.y !== undefined && node.z !== undefined) {
-      // Aim at node from outside it
-      const distance = 40;
-      const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+  const handleEngineStop = useCallback(() => {
+    if (!fgRef.current) return;
 
-      fgRef.current.cameraPosition(
-        { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
-        node, // lookAt ({ x, y, z })
-        3000  // ms transition duration
-      );
+    // Start slow auto-rotation via OrbitControls
+    const controls = fgRef.current.controls();
+    if (controls) {
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.35;
     }
-  }, [fgRef]);
 
-  // Handle glow effects
-  const nodeThreeObject = useCallback((node: any) => {
-    const geometry = new THREE.SphereGeometry(node.val);
-    const material = new THREE.MeshLambertMaterial({
-      color: node.color,
-      transparent: true,
-      opacity: 0.9,
-    });
-
-    const mesh = new THREE.Mesh(geometry, material);
-
-    // Add glowing halo
-    const glowMaterial = new THREE.MeshBasicMaterial({
-      color: node.color,
-      transparent: true,
-      opacity: 0.2,
-      side: THREE.BackSide,
-      blending: THREE.AdditiveBlending,
-    });
-    const glowMesh = new THREE.Mesh(new THREE.SphereGeometry(node.val * 1.5), glowMaterial);
-    mesh.add(glowMesh);
-
-    return mesh;
+    // One-time Three.js scene enhancements
+    if (!sceneEnhancedRef.current) {
+      sceneEnhancedRef.current = true;
+      const scene = fgRef.current.scene();
+      if (scene) addSceneEnhancements(scene);
+    }
   }, []);
 
+  const handleNodeClick = useCallback((node: any) => {
+    setSelectedNode(node);
+
+    // Pause auto-rotate while user is inspecting
+    const controls = fgRef.current?.controls();
+    if (controls) controls.autoRotate = false;
+
+    if (fgRef.current && node.x !== undefined && node.y !== undefined && node.z !== undefined) {
+      const distance = 40;
+      const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+      fgRef.current.cameraPosition(
+        { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+        node,
+        2000,
+      );
+    }
+  }, []);
+
+  const handleCloseInspector = useCallback(() => {
+    setSelectedNode(null);
+    const controls = fgRef.current?.controls();
+    if (controls) controls.autoRotate = true;
+  }, []);
+
+  const nodeThreeObject = useCallback((node: any) => {
+    const group = new THREE.Group();
+
+    // Core sphere with emissive glow
+    group.add(new THREE.Mesh(
+      new THREE.SphereGeometry(node.val, 16, 16),
+      new THREE.MeshPhongMaterial({
+        color: node.color,
+        emissive: node.color,
+        emissiveIntensity: 0.35,
+        shininess: 80,
+        transparent: true,
+        opacity: 1,
+      }),
+    ));
+
+    // Inner halo
+    group.add(new THREE.Mesh(
+      new THREE.SphereGeometry(node.val * 1.5),
+      new THREE.MeshBasicMaterial({
+        color: node.color,
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending,
+      }),
+    ));
+
+    // Outer soft corona
+    group.add(new THREE.Mesh(
+      new THREE.SphereGeometry(node.val * 2.8),
+      new THREE.MeshBasicMaterial({
+        color: node.color,
+        transparent: true,
+        opacity: 0.04,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending,
+      }),
+    ));
+
+    return group;
+  }, []);
+
+  const linkParticleColor = useCallback((link: any) => {
+    const src = typeof link.source === 'object' ? link.source : data?.nodes.find(n => n.id === link.source);
+    return (src as GraphNode)?.color ?? 'rgba(255,255,255,0.4)';
+  }, [data]);
+
   if (loading) {
-     return <div style={{ textAlign: 'center', padding: '10rem 0', color: 'var(--muted)' }}>Initializing 3D Galaxy Engine...</div>;
+    return (
+      <div className="galaxy-loading">
+        <div className="galaxy-loading-icon">
+          <Network size={36} strokeWidth={1.5} />
+        </div>
+        <p className="galaxy-loading-text">Mapping the galaxy<span className="galaxy-ellipsis" /></p>
+      </div>
+    );
   }
 
   return (
-    <div className="fade-in-up graph-page-container" style={{ position: 'relative', height: 'calc(100vh - 80px)', width: '100vw', marginLeft: 'calc(-50vw + 50%)', marginTop: '-2rem', overflow: 'hidden', background: '#0a0a0a' }}>
+    <div className="galaxy-container fade-in-up">
 
-      {/* Absolute overlay elements for UI */}
-      <div style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', zIndex: 10, color: 'white', pointerEvents: 'none' }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-          <Network size={24} style={{ color: 'var(--accent)' }} /> Petrichor <span style={{ opacity: 0.5, fontWeight: 300 }}>Galaxy</span>
-        </h1>
-        <p style={{ margin: '0.25rem 0 0', opacity: 0.7, fontSize: '0.85rem' }}>Visualizing {data?.nodes.length || 0} entities and {data?.links.length || 0} connections.</p>
+      {/* Header */}
+      <div className="galaxy-header">
+        <span className="section-label galaxy-header-eyebrow">Petrichor</span>
+        <h1 className="galaxy-title">Galaxy</h1>
+        <p className="galaxy-subtitle">
+          {data?.nodes.length ?? 0} entities · {data?.links.length ?? 0} connections
+        </p>
       </div>
 
-      <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 10, display: 'flex', gap: '1rem' }}>
-         <div className="glass-panel" style={{ padding: '0.5rem 1rem', borderRadius: '8px', color: 'white', fontSize: '0.8rem', display: 'flex', gap: '1.5rem' }}>
-           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4ade80' }} /> Works
-           </div>
-           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#60a5fa' }} /> Authors
-           </div>
-           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#c084fc' }} /> Tags
-           </div>
-         </div>
+      {/* Legend */}
+      <div className="galaxy-legend">
+        {LEGEND_ITEMS.map(({ label, color }) => (
+          <div key={label} className="galaxy-legend-item">
+            <span className="galaxy-legend-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+            <span>{label}</span>
+          </div>
+        ))}
       </div>
 
-      {/* Force Graph Container */}
-      <div style={{ width: '100%', height: '100%', cursor: 'grab' }}>
+      {/* 3D Graph */}
+      <div style={{ width: '100%', height: '100%' }}>
         <ForceGraph3D
           ref={fgRef}
-          graphData={data || { nodes: [], links: [] }}
+          graphData={data ?? { nodes: [], links: [] }}
           nodeId="id"
-          nodeColor="color"
           nodeLabel="label"
           nodeVal="val"
-          linkColor={() => 'rgba(255,255,255,0.1)'}
-          linkWidth={0.5}
+          linkColor={() => 'rgba(255,255,255,0.06)'}
+          linkWidth={0.3}
+          linkDirectionalParticles={2}
+          linkDirectionalParticleWidth={0.8}
+          linkDirectionalParticleSpeed={0.004}
+          linkDirectionalParticleColor={linkParticleColor}
           nodeThreeObject={nodeThreeObject}
           onNodeClick={handleNodeClick}
-          backgroundColor="#0a0a0a"
+          onEngineStop={handleEngineStop}
+          backgroundColor="#070b09"
           showNavInfo={false}
         />
       </div>
 
-      {/* Node Inspector Panel */}
+      {/* Node Inspector */}
       {selectedNode && (
-        <div className="node-inspector glass-panel fade-in-up" style={{
-          position: 'absolute',
-          bottom: '2rem',
-          right: '2rem',
-          width: '300px',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          color: 'white',
-          zIndex: 20
-        }}>
-          <button
-            onClick={() => setSelectedNode(null)}
-            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'white', opacity: 0.5, cursor: 'pointer' }}
-          >
-            ✕
+        <div className="galaxy-inspector fade-in-up">
+          <div
+            className="galaxy-inspector-accent"
+            style={{ background: selectedNode.color, boxShadow: `0 0 12px ${selectedNode.color}` }}
+          />
+
+          <button className="galaxy-inspector-close" onClick={handleCloseInspector} aria-label="Close">
+            <X size={13} />
           </button>
 
-          <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: selectedNode.color, marginBottom: '0.5rem', fontWeight: 600 }}>
-            {selectedNode.type} Node
-          </div>
+          <p className="galaxy-inspector-type" style={{ color: selectedNode.color }}>
+            {selectedNode.type}
+          </p>
 
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', lineHeight: 1.3 }}>{selectedNode.label}</h3>
+          <h3 className="galaxy-inspector-title font-serif">{selectedNode.label}</h3>
 
-          {selectedNode.properties.thumbnail_url && (
+          {selectedNode.properties?.thumbnail_url && (
             <img
               src={selectedNode.properties.thumbnail_url}
               alt={selectedNode.label}
-              style={{ width: '100%', height: 'auto', borderRadius: '4px', marginBottom: '1rem', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+              className="galaxy-inspector-image"
             />
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
-            {selectedNode.properties.status && (
-              <>
-                <div style={{ opacity: 0.6 }}>Status</div>
-                <div>{selectedNode.properties.status}</div>
-              </>
+          <div className="galaxy-inspector-details">
+            {selectedNode.properties?.status && (
+              <div className="galaxy-inspector-row">
+                <span>Status</span>
+                <span>{selectedNode.properties.status}</span>
+              </div>
             )}
-            <div style={{ opacity: 0.6 }}>ID</div>
-            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedNode.id}</div>
+            {selectedNode.properties?.author && (
+              <div className="galaxy-inspector-row">
+                <span>Author</span>
+                <span>{selectedNode.properties.author}</span>
+              </div>
+            )}
+            <div className="galaxy-inspector-row">
+              <span>ID</span>
+              <span style={{ opacity: 0.4, fontSize: '0.72rem' }}>{selectedNode.id}</span>
+            </div>
           </div>
         </div>
       )}
