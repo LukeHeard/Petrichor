@@ -814,9 +814,9 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
 
         # Colors and sizes
         colors = {
-            "Work": "#4ade80",    # Green
-            "Author": "#60a5fa",  # Blue
-            "Tag": "#c084fc"      # Purple
+            "Work": "#7ebf75",    # Green
+            "Author": "#6D8299",  # Slate blue
+            "Tag": "#d1a75c"      # Amber
         }
         sizes = {
             "Work": 3,

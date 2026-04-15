@@ -31,9 +31,9 @@ interface GraphData {
 }
 
 const LEGEND_ITEMS = [
-  { label: 'Works', color: '#4ade80' },
-  { label: 'Authors', color: '#60a5fa' },
-  { label: 'Tags', color: '#c084fc' },
+  { label: 'Works', color: '#7ebf75' },
+  { label: 'Authors', color: '#6D8299' },
+  { label: 'Tags', color: '#d1a75c' },
 ];
 
 function addSceneEnhancements(scene: THREE.Scene) {
@@ -80,9 +80,9 @@ function addSceneEnhancements(scene: THREE.Scene) {
 
   // Nebula point lights in node palette colors
   const nebulaDefs = [
-    { color: 0x4ade80, intensity: 40, pos: [-180, 80, -60]  as [number, number, number] },
-    { color: 0x60a5fa, intensity: 30, pos: [140, -70, 120]  as [number, number, number] },
-    { color: 0xc084fc, intensity: 35, pos: [20, 110, -140]  as [number, number, number] },
+    { color: 0x7ebf75, intensity: 40, pos: [-180, 80, -60]  as [number, number, number] },
+    { color: 0x6D8299, intensity: 30, pos: [140, -70, 120]  as [number, number, number] },
+    { color: 0xd1a75c, intensity: 35, pos: [20, 110, -140]  as [number, number, number] },
   ];
 
   nebulaDefs.forEach(({ color, intensity, pos }, i) => {
