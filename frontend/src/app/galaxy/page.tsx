@@ -338,12 +338,15 @@ export default function GalaxyPage() {
         </p>
         {showBreakdown && (
           <div className="galaxy-entity-breakdown">
-            {LEGEND_ITEMS.map(({ label, color }) => (
-              <div key={label} className="galaxy-entity-breakdown-row">
-                <span className="galaxy-legend-dot" style={{ background: color }} />
-                <span>{entityCounts[label as keyof typeof entityCounts]} {label.toLowerCase()}</span>
-              </div>
-            ))}
+            {LEGEND_ITEMS.map(({ label, color }) => {
+              const singularKey = label === 'Series' ? 'Series' : label.slice(0, -1);
+              return (
+                <div key={label} className="galaxy-entity-breakdown-row">
+                  <span className="galaxy-legend-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                  <span>{entityCounts[singularKey as keyof typeof entityCounts]} {label.toLowerCase()}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
