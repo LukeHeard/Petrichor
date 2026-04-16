@@ -1276,12 +1276,38 @@ a {
   color: white;
 }
 
-/* ── Time travel toggle button ────────────────────────────────── */
-.galaxy-timetravel-btn {
+/* ── Entity breakdown (header) ────────────────────────────────── */
+.galaxy-entity-breakdown {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  animation: fadeInUp 0.25s ease forwards;
+  pointer-events: none;
+}
+
+.galaxy-entity-breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ── Time travel dock (bottom-left) ───────────────────────────── */
+.galaxy-timetravel-dock {
   position: absolute;
-  top: 7rem;
+  bottom: calc(var(--nav-height) + 1.5rem);
   left: 1.75rem;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.galaxy-timetravel-btn {
   width: 34px;
   height: 34px;
   display: flex;
@@ -1303,12 +1329,8 @@ a {
   color: white;
 }
 
-/* ── Time travel panel ────────────────────────────────────────── */
+/* ── Time travel panel (sits above the button) ────────────────── */
 .galaxy-timetravel-panel {
-  position: absolute;
-  top: 10rem;
-  left: 1.75rem;
-  z-index: 10;
   width: 210px;
   padding: 1rem 1.1rem;
   border-radius: 14px;

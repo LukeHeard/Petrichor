@@ -102,8 +102,9 @@ export default function GalaxyPage() {
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [introFading, setIntroFading]     = useState(false);
   const [introGone,   setIntroGone]       = useState(false);
-  const [showTimeTravel, setShowTimeTravel] = useState(false);
-  const [timeSlider,     setTimeSlider]     = useState(100);
+  const [showTimeTravel,  setShowTimeTravel]  = useState(false);
+  const [timeSlider,      setTimeSlider]      = useState(100);
+  const [showBreakdown,   setShowBreakdown]   = useState(false);
 
   const fgRef            = useRef<any>(null);
   const sceneEnhancedRef = useRef(false);
@@ -193,6 +194,13 @@ export default function GalaxyPage() {
 
     return { nodes: filteredNodes, links: filteredLinks };
   }, [data, showTimeTravel, timeSlider, minTime, maxTime]);
+
+  const entityCounts = useMemo(() => ({
+    Work:   displayData.nodes.filter(n => n.type === 'Work').length,
+    Author: displayData.nodes.filter(n => n.type === 'Author').length,
+    Tag:    displayData.nodes.filter(n => n.type === 'Tag').length,
+    Series: displayData.nodes.filter(n => n.type === 'Series').length,
+  }), [displayData.nodes]);
 
   // ── Engine / scene ───────────────────────────────────────────────
   const handleEngineStop = useCallback(() => {
@@ -312,11 +320,32 @@ export default function GalaxyPage() {
         <h1 style={{ margin: 0, color: 'white', textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
           Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Galaxy</span>
         </h1>
-        <p style={{ margin: '0.25rem 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.85rem', fontFamily: 'var(--font-sans)' }}>
+        <p
+          onClick={() => setShowBreakdown(v => !v)}
+          style={{
+            margin: '0.25rem 0 0',
+            color: 'rgba(255,255,255,0.45)',
+            fontSize: '0.85rem',
+            fontFamily: 'var(--font-sans)',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+            userSelect: 'none',
+          }}
+        >
           {showTimeTravel && sliderDate
             ? `${displayData.nodes.length} entities · ${displayData.links.length} connections · ${sliderDate}`
             : `${data?.nodes.length ?? 0} entities · ${data?.links.length ?? 0} connections`}
         </p>
+        {showBreakdown && (
+          <div className="galaxy-entity-breakdown">
+            {LEGEND_ITEMS.map(({ label, color }) => (
+              <div key={label} className="galaxy-entity-breakdown-row">
+                <span className="galaxy-legend-dot" style={{ background: color }} />
+                <span>{entityCounts[label as keyof typeof entityCounts]} {label.toLowerCase()}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Legend */}
@@ -329,34 +358,34 @@ export default function GalaxyPage() {
         ))}
       </div>
 
-      {/* Time travel toggle button */}
-      <button
-        className="galaxy-timetravel-btn"
-        onClick={() => setShowTimeTravel(v => !v)}
-        aria-label="Toggle time travel"
-        title="Time Travel"
-        style={{ opacity: showTimeTravel ? 1 : undefined, color: showTimeTravel ? 'white' : undefined }}
-      >
-        <Clock size={15} />
-      </button>
-
-      {/* Time travel panel */}
-      {showTimeTravel && (
-        <div className="galaxy-timetravel-panel">
-          <p className="galaxy-timetravel-label">Time Travel</p>
-          <input
-            type="range"
-            min={0} max={100}
-            value={timeSlider}
-            onChange={e => setTimeSlider(parseInt(e.target.value))}
-            className="galaxy-time-slider"
-          />
-          <div className="galaxy-time-labels">
-            <span>{new Date(minTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
-            <span className="galaxy-time-current">{sliderDate ?? 'Now'}</span>
+      {/* Time travel — bottom left */}
+      <div className="galaxy-timetravel-dock">
+        {showTimeTravel && (
+          <div className="galaxy-timetravel-panel">
+            <p className="galaxy-timetravel-label">Time Travel</p>
+            <input
+              type="range"
+              min={0} max={100}
+              value={timeSlider}
+              onChange={e => setTimeSlider(parseInt(e.target.value))}
+              className="galaxy-time-slider"
+            />
+            <div className="galaxy-time-labels">
+              <span>{new Date(minTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
+              <span className="galaxy-time-current">{sliderDate ?? 'Now'}</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+        <button
+          className="galaxy-timetravel-btn"
+          onClick={() => setShowTimeTravel(v => !v)}
+          aria-label="Toggle time travel"
+          title="Time Travel"
+          style={{ opacity: showTimeTravel ? 1 : undefined, color: showTimeTravel ? 'white' : undefined }}
+        >
+          <Clock size={15} />
+        </button>
+      </div>
 
       {/* 3D Graph */}
       <div style={{ width: '100%', height: '100%' }}>
