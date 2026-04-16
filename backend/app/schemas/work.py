@@ -33,6 +33,7 @@ class WorkUpdate(BaseModel):
     tags: Optional[List[str]] = None
     author_id: Optional[int] = None
     series_id: Optional[int] = None
+    thumbnail_url: Optional[str] = None
 
 class Work(WorkBase):
     id: int

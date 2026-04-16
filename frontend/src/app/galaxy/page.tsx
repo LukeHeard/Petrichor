@@ -303,8 +303,10 @@ export default function GalaxyPage() {
            <span style="opacity:0.6;font-size:11px;">${rating.toFixed(1)}</span>
          </div>`
       : '';
-    const img = node.properties?.thumbnail_url
-      ? `<img src="${node.properties.thumbnail_url}" style="width:58px;border-radius:4px;display:block;margin-bottom:7px;box-shadow:0 3px 10px rgba(0,0,0,0.5);">`
+    const thumbUrl = node.properties?.thumbnail_url;
+    const resolvedThumbUrl = thumbUrl?.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${thumbUrl}` : thumbUrl;
+    const img = resolvedThumbUrl
+      ? `<img src="${resolvedThumbUrl}" style="width:58px;border-radius:4px;display:block;margin-bottom:7px;box-shadow:0 3px 10px rgba(0,0,0,0.5);">`
       : '';
     return `<div style="padding:8px;max-width:160px;">${img}<b style="font-size:13px;line-height:1.35;display:block;">${node.label}</b>${stars}</div>`;
   }, []);
@@ -451,7 +453,7 @@ export default function GalaxyPage() {
 
           {selectedNode.properties?.thumbnail_url && (
             <img
-              src={selectedNode.properties.thumbnail_url}
+              src={selectedNode.properties.thumbnail_url.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${selectedNode.properties.thumbnail_url}` : selectedNode.properties.thumbnail_url}
               alt={selectedNode.label}
               className="galaxy-inspector-image"
             />

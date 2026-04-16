@@ -583,7 +583,7 @@ export default function Stats() {
                 {data.currently_reading.map(book => (
                   <div key={book.id} className="progress-card" onClick={() => handleBookClick(book.id)} style={{ cursor: 'pointer' }}>
                     {book.thumbnail_url ? (
-                      <img src={book.thumbnail_url} alt={book.title} className="progress-thumb" />
+                      <img src={book.thumbnail_url.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${book.thumbnail_url}` : book.thumbnail_url} alt={book.title} className="progress-thumb" />
                     ) : (
                       <div className="progress-thumb" style={{ background: 'var(--muted-background)', border: '1px solid var(--border)' }} />
                     )}

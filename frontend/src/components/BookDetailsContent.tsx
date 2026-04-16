@@ -22,19 +22,19 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeInUp 0.3s ease' }}>
       {book.thumbnail_url && (
-        <div style={{ 
-          width: '120px', 
-          height: '180px', 
-          position: 'relative', 
+        <div style={{
+          width: '120px',
+          height: '180px',
+          position: 'relative',
           marginBottom: '1.5rem',
           boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
           borderRadius: '4px',
           overflow: 'hidden'
         }}>
-          <img 
-            src={book.thumbnail_url} 
-            alt={book.title} 
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          <img
+            src={book.thumbnail_url.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${book.thumbnail_url}` : book.thumbnail_url}
+            alt={book.title}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         </div>
       )}

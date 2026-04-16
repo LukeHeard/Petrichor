@@ -70,6 +70,9 @@ export default function GlobalBookModal() {
   const [seriesHighlightedIndex, setSeriesHighlightedIndex] = useState(0);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const seriesInputRef = useRef<HTMLInputElement>(null);
+  const [editThumbnailUrl, setEditThumbnailUrl] = useState<string | undefined>(undefined);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -102,6 +105,7 @@ export default function GlobalBookModal() {
           setEditSeriesId(data.series_id);
           setEditSeriesInput(data.series || "");
           setSeriesList(seriesData);
+          setEditThumbnailUrl(data.thumbnail_url);
           clearTimeout(timer);
         })
         .catch(err => console.error(err))
@@ -132,6 +136,29 @@ export default function GlobalBookModal() {
     const query = newParams.toString();
     router.push(`${pathname}${query ? `?${query}` : ''}`);
     setIsEditing(false);
+  };
+
+  const handleCoverUpload = async (file: File) => {
+    if (!book) return;
+    setCoverUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}/cover`, {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEditThumbnailUrl(data.thumbnail_url);
+        setBook(prev => prev ? { ...prev, thumbnail_url: data.thumbnail_url } : prev);
+        window.dispatchEvent(new Event("petrichor:workAdded"));
+      }
+    } catch (err) {
+      console.error("Failed to upload cover", err);
+    } finally {
+      setCoverUploading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -284,6 +311,63 @@ export default function GlobalBookModal() {
               {activeTab === "details" ? (
                 isEditing ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeInUp 0.3s ease' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <input
+                        ref={coverInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handleCoverUpload(file);
+                          e.target.value = "";
+                        }}
+                      />
+                      <div
+                        onClick={() => coverInputRef.current?.click()}
+                        style={{
+                          width: '90px',
+                          height: '135px',
+                          position: 'relative',
+                          borderRadius: '4px',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                          border: '1px solid var(--border)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {editThumbnailUrl ? (
+                          <img
+                            src={editThumbnailUrl.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${editThumbnailUrl}` : editThumbnailUrl}
+                            alt="Cover"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', background: 'color-mix(in srgb, var(--muted) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)', opacity: 0.5 }}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                          </div>
+                        )}
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          background: coverUploading ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'background 0.2s ease',
+                          color: 'white',
+                          fontSize: '0.65rem',
+                          fontWeight: 600,
+                          letterSpacing: '0.05em',
+                          textTransform: 'uppercase',
+                          opacity: coverUploading ? 1 : 0,
+                        }}
+                          onMouseEnter={e => { if (!coverUploading) (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.45)'; (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
+                          onMouseLeave={e => { if (!coverUploading) { (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLDivElement).style.opacity = '0'; } }}
+                        >
+                          {coverUploading ? "Uploading..." : "Change"}
+                        </div>
+                      </div>
+                    </div>
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Title</label>
                       <input 
@@ -555,6 +639,7 @@ export default function GlobalBookModal() {
                           setEditAuthorInput(book.author || "");
                           setEditSeriesId(book.series_id);
                           setEditSeriesInput(book.series || "");
+                          setEditThumbnailUrl(book.thumbnail_url);
                         }}
                         className="btn-ghost"
                         style={{ flex: 1, padding: '0.75rem' }}
