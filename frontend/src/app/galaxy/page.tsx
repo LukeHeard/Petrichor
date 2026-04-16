@@ -154,7 +154,7 @@ export default function GalaxyPage() {
   const sliderDate = useMemo(() => {
     if (!showTimeTravel || minTime === maxTime) return null;
     const t = minTime + (maxTime - minTime) * (timeSlider / 100);
-    return new Date(t).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    return new Date(t).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   }, [showTimeTravel, timeSlider, minTime, maxTime]);
 
   // ── Filtered display data (time travel only) ─────────────────────
@@ -304,8 +304,6 @@ export default function GalaxyPage() {
     return (src as GraphNode)?.color ?? 'rgba(255,255,255,0.4)';
   }, [data]);
 
-  const workCount = displayData.nodes.filter(n => n.type === 'Work').length;
-
   return (
     <div className="galaxy-container fade-in-up">
 
@@ -316,7 +314,7 @@ export default function GalaxyPage() {
         </h1>
         <p style={{ margin: '0.25rem 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.85rem', fontFamily: 'var(--font-sans)' }}>
           {showTimeTravel && sliderDate
-            ? `${workCount} works · through ${sliderDate}`
+            ? `${displayData.nodes.length} entities · ${displayData.links.length} connections · ${sliderDate}`
             : `${data?.nodes.length ?? 0} entities · ${data?.links.length ?? 0} connections`}
         </p>
       </div>
@@ -354,7 +352,7 @@ export default function GalaxyPage() {
             className="galaxy-time-slider"
           />
           <div className="galaxy-time-labels">
-            <span>{new Date(minTime).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</span>
+            <span>{new Date(minTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
             <span className="galaxy-time-current">{sliderDate ?? 'Now'}</span>
           </div>
         </div>
