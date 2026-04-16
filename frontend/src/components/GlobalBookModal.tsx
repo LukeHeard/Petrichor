@@ -11,6 +11,8 @@ interface FullWork {
   title: string;
   author?: string;
   author_id?: number;
+  series?: string;
+  series_id?: number;
   goodreads_id?: string;
   thumbnail_url?: string;
   first_publish_year?: number;
@@ -27,6 +29,11 @@ interface FullWork {
 }
 
 interface Author {
+  id: number;
+  name: string;
+}
+
+interface Series {
   id: number;
   name: string;
 }
@@ -57,6 +64,12 @@ export default function GlobalBookModal() {
   const [authorHighlightedIndex, setAuthorHighlightedIndex] = useState(0);
   const [authors, setAuthors] = useState<Author[]>([]);
   const authorInputRef = useRef<HTMLInputElement>(null);
+  const [editSeriesId, setEditSeriesId] = useState<number | undefined>(undefined);
+  const [editSeriesInput, setEditSeriesInput] = useState("");
+  const [seriesDropdownOpen, setSeriesDropdownOpen] = useState(false);
+  const [seriesHighlightedIndex, setSeriesHighlightedIndex] = useState(0);
+  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const seriesInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -74,8 +87,9 @@ export default function GlobalBookModal() {
       Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${bookId}`).then(res => res.json()),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/authors`).then(res => res.json()),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/series`).then(res => res.json()),
       ])
-        .then(([data, authorList]) => {
+        .then(([data, authorList, seriesData]) => {
           setBook(data);
           setEditTitle(data.title);
           setEditYear(data.first_publish_year);
@@ -85,6 +99,9 @@ export default function GlobalBookModal() {
           setEditAuthorId(data.author_id);
           setEditAuthorInput(data.author || "");
           setAuthors(authorList);
+          setEditSeriesId(data.series_id);
+          setEditSeriesInput(data.series || "");
+          setSeriesList(seriesData);
           clearTimeout(timer);
         })
         .catch(err => console.error(err))
@@ -137,6 +154,26 @@ export default function GlobalBookModal() {
         }
       }
 
+      // If a new series name was typed (no ID), create the series first
+      let resolvedSeriesId = editSeriesId;
+      const trimmedSeriesInput = editSeriesInput.trim();
+      if (trimmedSeriesInput && !editSeriesId) {
+        const seriesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/series`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmedSeriesInput })
+        });
+        if (seriesRes.ok) {
+          const seriesData = await seriesRes.json();
+          resolvedSeriesId = seriesData.id;
+          setSeriesList(prev => prev.some(s => s.id === seriesData.id) ? prev : [...prev, seriesData]);
+        }
+      }
+      // If the series field was cleared, send 0 to remove the series
+      if (!trimmedSeriesInput && book.series_id) {
+        resolvedSeriesId = 0;
+      }
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -146,7 +183,8 @@ export default function GlobalBookModal() {
           page_count: editPages,
           description: editDescription,
           tags: editTags,
-          ...(resolvedAuthorId !== undefined ? { author_id: resolvedAuthorId } : {})
+          ...(resolvedAuthorId !== undefined ? { author_id: resolvedAuthorId } : {}),
+          ...(resolvedSeriesId !== undefined ? { series_id: resolvedSeriesId } : {})
         })
       });
       if (res.ok) {
@@ -337,6 +375,85 @@ export default function GlobalBookModal() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Series</label>
+                      {(() => {
+                        const filteredSeries = editSeriesInput.trim()
+                          ? seriesList.filter(s => s.name.toLowerCase().includes(editSeriesInput.toLowerCase()))
+                          : seriesList.slice().sort((a, b) => a.name.localeCompare(b.name));
+                        const exactMatch = seriesList.some(s => s.name.toLowerCase() === editSeriesInput.trim().toLowerCase());
+                        const showCreate = editSeriesInput.trim() && !exactMatch;
+                        const dropdownItems = filteredSeries.slice(0, 6);
+                        const totalItems = dropdownItems.length + (showCreate ? 1 : 0);
+                        return (
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              ref={seriesInputRef}
+                              type="text"
+                              value={editSeriesInput}
+                              placeholder="Search or add series..."
+                              onChange={e => {
+                                setEditSeriesInput(e.target.value);
+                                setEditSeriesId(undefined);
+                                setSeriesHighlightedIndex(0);
+                                setSeriesDropdownOpen(true);
+                              }}
+                              onFocus={() => setSeriesDropdownOpen(true)}
+                              onBlur={() => setTimeout(() => setSeriesDropdownOpen(false), 150)}
+                              onKeyDown={e => {
+                                if (!seriesDropdownOpen) return;
+                                if (e.key === "ArrowDown") {
+                                  e.preventDefault();
+                                  setSeriesHighlightedIndex(prev => Math.min(prev + 1, totalItems - 1));
+                                } else if (e.key === "ArrowUp") {
+                                  e.preventDefault();
+                                  setSeriesHighlightedIndex(prev => Math.max(prev - 1, 0));
+                                } else if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  if (seriesHighlightedIndex < dropdownItems.length) {
+                                    const s = dropdownItems[seriesHighlightedIndex];
+                                    setEditSeriesInput(s.name);
+                                    setEditSeriesId(s.id);
+                                  }
+                                  setSeriesDropdownOpen(false);
+                                } else if (e.key === "Escape") {
+                                  setSeriesDropdownOpen(false);
+                                }
+                              }}
+                              style={{ width: '100%', background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.6rem', color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
+                            />
+                            {seriesDropdownOpen && (totalItems > 0 || editSeriesInput.trim()) && (
+                              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '4px', marginTop: '0.25rem', overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                                {dropdownItems.map((s, i) => (
+                                  <div
+                                    key={s.id}
+                                    onMouseDown={() => {
+                                      setEditSeriesInput(s.name);
+                                      setEditSeriesId(s.id);
+                                      setSeriesDropdownOpen(false);
+                                    }}
+                                    onMouseEnter={() => setSeriesHighlightedIndex(i)}
+                                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: i === seriesHighlightedIndex ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent', color: i === seriesHighlightedIndex ? 'var(--accent)' : 'var(--foreground)' }}
+                                  >
+                                    {s.name}
+                                  </div>
+                                ))}
+                                {showCreate && (
+                                  <div
+                                    onMouseDown={() => setSeriesDropdownOpen(false)}
+                                    onMouseEnter={() => setSeriesHighlightedIndex(dropdownItems.length)}
+                                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: seriesHighlightedIndex === dropdownItems.length ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent', color: seriesHighlightedIndex === dropdownItems.length ? 'var(--accent)' : 'var(--muted)', borderTop: dropdownItems.length > 0 ? '1px solid var(--border)' : 'none' }}
+                                  >
+                                    + Create &ldquo;{editSeriesInput.trim()}&rdquo;
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <label style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>First Published Year</label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <button 
@@ -436,6 +553,8 @@ export default function GlobalBookModal() {
                           setEditTags(book.tags || []);
                           setEditAuthorId(book.author_id);
                           setEditAuthorInput(book.author || "");
+                          setEditSeriesId(book.series_id);
+                          setEditSeriesInput(book.series || "");
                         }}
                         className="btn-ghost"
                         style={{ flex: 1, padding: '0.75rem' }}

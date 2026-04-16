@@ -27,6 +27,7 @@ class DatabaseManager:
                 "Work": "CREATE NODE TABLE Work(id SERIAL, title STRING, goodreads_id STRING, thumbnail_url STRING, first_publish_year INT64, description STRING, page_count INT64, current_page INT64, rating_average DOUBLE, rating_count INT64, personal_rating DOUBLE, status STRING, review STRING, personal_notes STRING, created_at INT64, PRIMARY KEY(id))",
                 "Tag": "CREATE NODE TABLE Tag(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Author": "CREATE NODE TABLE Author(id SERIAL, name STRING, PRIMARY KEY(id))",
+                "Series": "CREATE NODE TABLE Series(id SERIAL, name STRING, PRIMARY KEY(id))",
                 "Expression": "CREATE NODE TABLE Expression(id SERIAL, language STRING, content_type STRING, PRIMARY KEY(id))",
                 "Manifestation": "CREATE NODE TABLE Manifestation(id SERIAL, publisher STRING, format STRING, isbn STRING, PRIMARY KEY(id))",
                 "Item": "CREATE NODE TABLE Item(id SERIAL, barcode STRING, status STRING, PRIMARY KEY(id))",
@@ -42,6 +43,7 @@ class DatabaseManager:
             rel_tables = {
                 "HAS_TAG": "CREATE REL TABLE HAS_TAG(FROM Work TO Tag)",
                 "WROTE": "CREATE REL TABLE WROTE(FROM Author TO Work)",
+                "IS_IN_SERIES": "CREATE REL TABLE IS_IN_SERIES(FROM Work TO Series)",
                 "IS_REALIZED_BY": "CREATE REL TABLE IS_REALIZED_BY(FROM Work TO Expression)",
                 "IS_EMBODIED_IN": "CREATE REL TABLE IS_EMBODIED_IN(FROM Expression TO Manifestation)",
                 "IS_EXEMPLIFIED_BY": "CREATE REL TABLE IS_EXEMPLIFIED_BY(FROM Manifestation TO Item)",

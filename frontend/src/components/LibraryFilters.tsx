@@ -6,34 +6,41 @@ interface LibraryFiltersProps {
   onSearchChange: (query: string) => void;
   onStatusChange: (statuses: string[]) => void;
   onTagChange: (tags: string[]) => void;
+  onSeriesChange: (series: string[]) => void;
   onSortChange: (sortBy: string) => void;
   onViewModeChange: (mode: 'list' | 'grid') => void;
   onReset: () => void;
   viewMode: 'list' | 'grid';
   allTags: string[];
+  allSeries: string[];
   searchQuery: string;
   selectedStatuses: string[];
   selectedTags: string[];
+  selectedSeries: string[];
   sortBy: string;
   isInitialized: boolean;
 }
 
-export default function LibraryFilters({ 
+export default function LibraryFilters({
   onSearchChange,
   onStatusChange,
   onTagChange,
+  onSeriesChange,
   onSortChange,
   onViewModeChange,
   onReset,
   viewMode,
   allTags,
+  allSeries,
   searchQuery,
   selectedStatuses: parentSelectedStatuses,
   selectedTags: parentSelectedTags,
+  selectedSeries: parentSelectedSeries,
   sortBy: parentSortBy,
   isInitialized
 }: LibraryFiltersProps) {
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
+  const [isSeriesExpanded, setIsSeriesExpanded] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -68,8 +75,15 @@ export default function LibraryFilters({
       : [...parentSelectedTags, tag];
     onTagChange(newTags);
   };
-  
-  const hasChanges = isMounted && isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSortBy !== "added-desc");
+
+  const handleSeriesToggle = (series: string) => {
+    const newSeries = parentSelectedSeries.includes(series)
+      ? parentSelectedSeries.filter(s => s !== series)
+      : [...parentSelectedSeries, series];
+    onSeriesChange(newSeries);
+  };
+
+  const hasChanges = isMounted && isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || parentSelectedSeries.length > 0 || parentSortBy !== "added-desc");
 
   // Close sort dropdown on click outside
   useEffect(() => {
@@ -321,7 +335,7 @@ export default function LibraryFilters({
       {/* Tag Filter */}
       {allTags.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <button 
+          <button
             onClick={() => setIsTagsExpanded(!isTagsExpanded)}
             style={{
               background: 'none',
@@ -339,8 +353,8 @@ export default function LibraryFilters({
               width: 'fit-content'
             }}
           >
-            Filter by Tags 
-            <svg 
+            Filter by Tags
+            <svg
               style={{ transform: isTagsExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
               xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
             >
@@ -349,11 +363,11 @@ export default function LibraryFilters({
           </button>
 
           {isTagsExpanded && (
-            <div style={{ 
-              display: 'flex', 
-              gap: '0.4rem', 
-              flexWrap: 'wrap', 
-              maxHeight: '120px', 
+            <div style={{
+              display: 'flex',
+              gap: '0.4rem',
+              flexWrap: 'wrap',
+              maxHeight: '120px',
               overflowY: 'auto',
               padding: '0.1rem'
             }}>
@@ -375,6 +389,70 @@ export default function LibraryFilters({
                   }}
                 >
                   {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Series Filter */}
+      {allSeries.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <button
+            onClick={() => setIsSeriesExpanded(!isSeriesExpanded)}
+            style={{
+              background: 'none',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              color: 'var(--muted)',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              cursor: 'pointer',
+              padding: 0,
+              width: 'fit-content'
+            }}
+          >
+            Filter by Series
+            <svg
+              style={{ transform: isSeriesExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+              xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+
+          {isSeriesExpanded && (
+            <div style={{
+              display: 'flex',
+              gap: '0.4rem',
+              flexWrap: 'wrap',
+              maxHeight: '120px',
+              overflowY: 'auto',
+              padding: '0.1rem'
+            }}>
+              {allSeries.map(series => (
+                <button
+                  key={series}
+                  onClick={() => handleSeriesToggle(series)}
+                  style={{
+                    padding: '0.3rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: parentSelectedSeries.includes(series) ? 'var(--accent)' : 'transparent',
+                    background: parentSelectedSeries.includes(series) ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--muted-background)',
+                    color: parentSelectedSeries.includes(series) ? 'var(--accent)' : 'var(--muted)',
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {series}
                 </button>
               ))}
             </div>

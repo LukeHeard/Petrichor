@@ -107,14 +107,14 @@ async def create_work(work: schemas.WorkCreate, db: DatabaseManager = Depends(ge
 def list_works(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, a.name, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at")
+        result = conn.execute("MATCH (w:Work) OPTIONAL MATCH (a:Author)-[:WROTE]->(w) OPTIONAL MATCH (w)-[:IS_IN_SERIES]->(s:Series) RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, a.name, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at, a.id, s.id, s.name")
         works = []
         while result.has_next():
             row = result.get_next()
             works.append({
-                "id": row[0], 
-                "title": row[1], 
-                "goodreads_id": row[2], 
+                "id": row[0],
+                "title": row[1],
+                "goodreads_id": row[2],
                 "thumbnail_url": row[3],
                 "author": row[4],
                 "first_publish_year": row[5],
@@ -128,6 +128,9 @@ def list_works(db: DatabaseManager = Depends(get_db)):
                 "review": row[13],
                 "personal_notes": row[14],
                 "created_at": row[15],
+                "author_id": row[16],
+                "series_id": row[17],
+                "series": row[18],
                 "tags": []
             })
 
@@ -152,7 +155,7 @@ def list_works(db: DatabaseManager = Depends(get_db)):
 async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        result = conn.execute("MATCH (w:Work) WHERE w.id = $id OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at, a.id, a.name", {"id": work_id})
+        result = conn.execute("MATCH (w:Work) WHERE w.id = $id OPTIONAL MATCH (a:Author)-[:WROTE]->(w) OPTIONAL MATCH (w)-[:IS_IN_SERIES]->(s:Series) RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, w.review, w.personal_notes, w.created_at, a.id, a.name, s.id, s.name", {"id": work_id})
         if not result.has_next():
             raise HTTPException(status_code=404, detail="Work not found")
         row = result.get_next()
@@ -234,6 +237,8 @@ async def get_work(work_id: int, db: DatabaseManager = Depends(get_db)):
             "created_at": row[14],
             "author_id": row[15],
             "author": row[16],
+            "series_id": row[17],
+            "series": row[18],
             "tags": tags
         }
     except Exception as e:
@@ -265,7 +270,40 @@ async def search_works(q: str = Query(..., min_length=1)):
 def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
     try:
-        conn.execute(f"MATCH (w:Work) WHERE w.id = {work_id} DETACH DELETE w")
+        # Find author and series before deleting (for orphan cleanup)
+        author_res = conn.execute(
+            "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE w.id = $wid RETURN a.id",
+            {"wid": work_id}
+        )
+        author_id = author_res.get_next()[0] if author_res.has_next() else None
+
+        series_res = conn.execute(
+            "MATCH (w:Work)-[:IS_IN_SERIES]->(s:Series) WHERE w.id = $wid RETURN s.id",
+            {"wid": work_id}
+        )
+        series_id = series_res.get_next()[0] if series_res.has_next() else None
+
+        # Delete the work and all its relationships
+        conn.execute("MATCH (w:Work) WHERE w.id = $wid DETACH DELETE w", {"wid": work_id})
+
+        # Clean up orphaned author
+        if author_id is not None:
+            remaining = conn.execute(
+                "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE a.id = $aid RETURN count(w)",
+                {"aid": author_id}
+            )
+            if remaining.has_next() and remaining.get_next()[0] == 0:
+                conn.execute("MATCH (a:Author) WHERE a.id = $aid DELETE a", {"aid": author_id})
+
+        # Clean up orphaned series
+        if series_id is not None:
+            remaining = conn.execute(
+                "MATCH (w:Work)-[:IS_IN_SERIES]->(s:Series) WHERE s.id = $sid RETURN count(w)",
+                {"sid": series_id}
+            )
+            if remaining.has_next() and remaining.get_next()[0] == 0:
+                conn.execute("MATCH (s:Series) WHERE s.id = $sid DELETE s", {"sid": series_id})
+
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Error deleting work: {e}")
@@ -368,6 +406,39 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
                     {"aid": work_update.author_id, "wid": work_id}
                 )
 
+        if work_update.series_id is not None:
+            # Find the current series for this work (if any)
+            current_series_res = conn.execute(
+                "MATCH (w:Work)-[:IS_IN_SERIES]->(s:Series) WHERE w.id = $wid RETURN s.id",
+                {"wid": work_id}
+            )
+            old_series_id = current_series_res.get_next()[0] if current_series_res.has_next() else None
+
+            if old_series_id != work_update.series_id:
+                # Remove old relationship
+                if old_series_id is not None:
+                    conn.execute(
+                        "MATCH (w:Work)-[r:IS_IN_SERIES]->(s:Series) WHERE w.id = $wid AND s.id = $sid DELETE r",
+                        {"wid": work_id, "sid": old_series_id}
+                    )
+                    # Delete old series if it has no remaining works
+                    remaining_res = conn.execute(
+                        "MATCH (w:Work)-[:IS_IN_SERIES]->(s:Series) WHERE s.id = $sid RETURN count(w)",
+                        {"sid": old_series_id}
+                    )
+                    if remaining_res.has_next() and remaining_res.get_next()[0] == 0:
+                        conn.execute("MATCH (s:Series) WHERE s.id = $sid DELETE s", {"sid": old_series_id})
+
+                # Create new relationship (0 means "remove only, no new series")
+                if work_update.series_id > 0:
+                    new_series_check = conn.execute("MATCH (s:Series) WHERE s.id = $sid RETURN s.id", {"sid": work_update.series_id})
+                    if not new_series_check.has_next():
+                        raise HTTPException(status_code=404, detail="Series not found")
+                    conn.execute(
+                        "MATCH (w:Work), (s:Series) WHERE w.id = $wid AND s.id = $sid CREATE (w)-[:IS_IN_SERIES]->(s)",
+                        {"wid": work_id, "sid": work_update.series_id}
+                    )
+
         return await get_work(work_id, db)
     except HTTPException:
         raise
@@ -459,6 +530,51 @@ def list_tags(db: DatabaseManager = Depends(get_db)):
         return sorted(list(set(tags))) # Return unique sorted tags
     except Exception as e:
         logger.error(f"Error listing tags: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/series", response_model=schemas.Series)
+def create_series(series: schemas.SeriesCreate, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        check = conn.execute("MATCH (s:Series) WHERE s.name = $name RETURN s.id, s.name", {"name": series.name})
+        if check.has_next():
+            row = check.get_next()
+            return {"id": row[0], "name": row[1]}
+
+        result = conn.execute("CREATE (s:Series {name: $name}) RETURN s.id, s.name", {"name": series.name})
+        if result.has_next():
+            row = result.get_next()
+            return {"id": row[0], "name": row[1]}
+        raise HTTPException(status_code=500, detail="Failed to create series")
+    except Exception as e:
+        logger.error(f"Error creating series: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/series", response_model=list[schemas.Series])
+def list_series(db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        result = conn.execute("MATCH (s:Series) RETURN s.id, s.name ORDER BY s.name")
+        series_list = []
+        while result.has_next():
+            row = result.get_next()
+            series_list.append({"id": row[0], "name": row[1]})
+        return series_list
+    except Exception as e:
+        logger.error(f"Error listing series: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/works/{work_id}/series/{series_id}")
+def link_series_to_work(work_id: int, series_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        conn.execute(
+            "MATCH (w:Work), (s:Series) WHERE w.id = $wid AND s.id = $sid CREATE (w)-[:IS_IN_SERIES]->(s)",
+            {"wid": work_id, "sid": series_id}
+        )
+        return {"message": "Success"}
+    except Exception as e:
+        logger.error(f"Error linking series to work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/works/{work_id}/authors/{author_id}")
@@ -816,12 +932,14 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
         colors = {
             "Work": "#7ebf75",    # Green
             "Author": "#6D8299",  # Slate blue
-            "Tag": "#d1a75c"      # Amber
+            "Tag": "#d1a75c",     # Amber
+            "Series": "#9b7ec8"   # Purple
         }
         sizes = {
             "Work": 3,
             "Author": 4,
-            "Tag": 2
+            "Tag": 2,
+            "Series": 4
         }
 
         # 1. Fetch Works
@@ -889,6 +1007,30 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
             target = f"tag_{row[1]}"
             if source in node_ids and target in node_ids:
                 links.append(graph_schemas.GraphLink(source=source, target=target, type="HAS_TAG"))
+
+        # 6. Fetch Series nodes
+        res_series = conn.execute("MATCH (s:Series)<-[:IS_IN_SERIES]-(w:Work) RETURN DISTINCT s.id, s.name")
+        while res_series.has_next():
+            row = res_series.get_next()
+            nid = f"series_{row[0]}"
+            nodes.append(graph_schemas.GraphNode(
+                id=nid,
+                label=row[1],
+                type="Series",
+                val=sizes["Series"],
+                color=colors["Series"],
+                properties={}
+            ))
+            node_ids.add(nid)
+
+        # 7. Fetch Relationships: IS_IN_SERIES (Work -> Series)
+        res_in_series = conn.execute("MATCH (w:Work)-[r:IS_IN_SERIES]->(s:Series) RETURN w.id, s.id")
+        while res_in_series.has_next():
+            row = res_in_series.get_next()
+            source = f"work_{row[0]}"
+            target = f"series_{row[1]}"
+            if source in node_ids and target in node_ids:
+                links.append(graph_schemas.GraphLink(source=source, target=target, type="IS_IN_SERIES"))
 
         return {"nodes": nodes, "links": links}
     except Exception as e:

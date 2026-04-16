@@ -11,6 +11,7 @@ interface Work {
   goodreads_id?: string;
   thumbnail_url?: string;
   author?: string;
+  series?: string;
   first_publish_year?: number;
   tags?: string[];
   personal_rating?: number;
@@ -29,6 +30,7 @@ function LibraryContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("added-desc");
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [isInitialized, setIsInitialized] = useState(false);
@@ -42,6 +44,7 @@ function LibraryContent() {
         if (settings.searchQuery !== undefined) setSearchQuery(settings.searchQuery);
         if (settings.selectedStatuses !== undefined) setSelectedStatuses(settings.selectedStatuses);
         if (settings.selectedTags !== undefined) setSelectedTags(settings.selectedTags);
+        if (settings.selectedSeries !== undefined) setSelectedSeries(settings.selectedSeries);
         if (settings.sortBy !== undefined) setSortBy(settings.sortBy);
         if (settings.viewMode !== undefined) setViewMode(settings.viewMode);
       } catch (err) {
@@ -54,14 +57,15 @@ function LibraryContent() {
   // Persistence: Save settings on change
   useEffect(() => {
     if (!isInitialized) return;
-    const settings = { searchQuery, selectedStatuses, selectedTags, sortBy, viewMode };
+    const settings = { searchQuery, selectedStatuses, selectedTags, selectedSeries, sortBy, viewMode };
     localStorage.setItem("petrichor_library_settings", JSON.stringify(settings));
-  }, [searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, isInitialized]);
+  }, [searchQuery, selectedStatuses, selectedTags, selectedSeries, sortBy, viewMode, isInitialized]);
 
   const resetSettings = useCallback(() => {
     setSearchQuery("");
     setSelectedStatuses([]);
     setSelectedTags([]);
+    setSelectedSeries([]);
     setSortBy("added-desc");
     localStorage.removeItem("petrichor_library_settings");
   }, []);
@@ -118,6 +122,13 @@ function LibraryContent() {
     return Array.from(tags).sort();
   }, [works]);
 
+  // Dynamically compute available series from current works
+  const allSeries = useMemo(() => {
+    const series = new Set<string>();
+    works.forEach(w => { if (w.series) series.add(w.series); });
+    return Array.from(series).sort();
+  }, [works]);
+
   const filteredAndSortedWorks = useMemo(() => {
     let result = [...works];
 
@@ -138,6 +149,11 @@ function LibraryContent() {
     // Tags Filter
     if (selectedTags.length > 0) {
       result = result.filter(w => w.tags && w.tags.some(t => selectedTags.includes(t)));
+    }
+
+    // Series Filter
+    if (selectedSeries.length > 0) {
+      result = result.filter(w => w.series && selectedSeries.includes(w.series));
     }
 
     // Sort
@@ -169,7 +185,7 @@ function LibraryContent() {
     });
 
     return result;
-  }, [works, searchQuery, selectedStatuses, selectedTags, sortBy]);
+  }, [works, searchQuery, selectedStatuses, selectedTags, selectedSeries, sortBy]);
 
   return (
     <div>
@@ -179,18 +195,21 @@ function LibraryContent() {
       </header>
 
       <section>
-        <LibraryFilters 
+        <LibraryFilters
           onSearchChange={setSearchQuery}
           onStatusChange={setSelectedStatuses}
           onTagChange={setSelectedTags}
+          onSeriesChange={setSelectedSeries}
           onSortChange={setSortBy}
           onViewModeChange={setViewMode}
           onReset={resetSettings}
           viewMode={viewMode}
           allTags={allTags}
+          allSeries={allSeries}
           searchQuery={searchQuery}
           selectedStatuses={selectedStatuses}
           selectedTags={selectedTags}
+          selectedSeries={selectedSeries}
           sortBy={sortBy}
           isInitialized={isInitialized}
         />
