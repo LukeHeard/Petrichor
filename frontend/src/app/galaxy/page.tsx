@@ -34,6 +34,7 @@ const LEGEND_ITEMS = [
   { label: 'Works', color: '#7ebf75' },
   { label: 'Authors', color: '#6D8299' },
   { label: 'Tags', color: '#d1a75c' },
+  { label: 'Series', color: '#732530' },
 ];
 
 function addSceneEnhancements(scene: THREE.Scene) {
@@ -83,6 +84,7 @@ function addSceneEnhancements(scene: THREE.Scene) {
     { color: 0x7ebf75, intensity: 40, pos: [-180, 80, -60]  as [number, number, number] },
     { color: 0x6D8299, intensity: 30, pos: [140, -70, 120]  as [number, number, number] },
     { color: 0xd1a75c, intensity: 35, pos: [20, 110, -140]  as [number, number, number] },
+    { color: 0x732530, intensity: 30, pos: [-60, -120, 80]  as [number, number, number] },
   ];
 
   nebulaDefs.forEach(({ color, intensity, pos }, i) => {
