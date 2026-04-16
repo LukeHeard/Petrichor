@@ -179,12 +179,15 @@ export default function Tracking() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  const getLocalDateStr = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
   const getDaySessions = (dateValue: Date) => {
-    const dateStr = dateValue.toISOString().split('T')[0];
+    const dateStr = getLocalDateStr(dateValue);
     return sessions.filter(s => s.date === dateStr);
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateStr(new Date());
 
   const handleWorkSelection = (workId: string) => {
     setSelectedWorkId(workId);
