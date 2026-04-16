@@ -71,6 +71,8 @@ export default function GlobalBookModal() {
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const seriesInputRef = useRef<HTMLInputElement>(null);
   const [editThumbnailUrl, setEditThumbnailUrl] = useState<string | undefined>(undefined);
+  const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
+  const [pendingCoverPreview, setPendingCoverPreview] = useState<string | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -138,33 +140,36 @@ export default function GlobalBookModal() {
     setIsEditing(false);
   };
 
-  const handleCoverUpload = async (file: File) => {
-    if (!book) return;
-    setCoverUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}/cover`, {
-        method: "POST",
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setEditThumbnailUrl(data.thumbnail_url);
-        setBook(prev => prev ? { ...prev, thumbnail_url: data.thumbnail_url } : prev);
-        window.dispatchEvent(new Event("petrichor:workAdded"));
-      }
-    } catch (err) {
-      console.error("Failed to upload cover", err);
-    } finally {
-      setCoverUploading(false);
-    }
+  const handleCoverSelect = (file: File) => {
+    if (pendingCoverPreview) URL.revokeObjectURL(pendingCoverPreview);
+    const preview = URL.createObjectURL(file);
+    setPendingCoverFile(file);
+    setPendingCoverPreview(preview);
   };
 
   const handleSave = async () => {
     if (!book) return;
     setLoading(true);
     try {
+      // Upload pending cover if one was selected
+      if (pendingCoverFile) {
+        setCoverUploading(true);
+        const formData = new FormData();
+        formData.append("file", pendingCoverFile);
+        const coverRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}/cover`, {
+          method: "POST",
+          body: formData,
+        });
+        setCoverUploading(false);
+        if (coverRes.ok) {
+          const coverData = await coverRes.json();
+          setEditThumbnailUrl(coverData.thumbnail_url);
+        }
+        if (pendingCoverPreview) URL.revokeObjectURL(pendingCoverPreview);
+        setPendingCoverFile(null);
+        setPendingCoverPreview(null);
+      }
+
       // If a new author name was typed (no ID), create the author first
       let resolvedAuthorId = editAuthorId;
       const trimmedAuthorInput = editAuthorInput.trim();
@@ -319,7 +324,7 @@ export default function GlobalBookModal() {
                         style={{ display: 'none' }}
                         onChange={e => {
                           const file = e.target.files?.[0];
-                          if (file) handleCoverUpload(file);
+                          if (file) handleCoverSelect(file);
                           e.target.value = "";
                         }}
                       />
@@ -337,9 +342,9 @@ export default function GlobalBookModal() {
                           flexShrink: 0,
                         }}
                       >
-                        {editThumbnailUrl ? (
+                        {(pendingCoverPreview || editThumbnailUrl) ? (
                           <img
-                            src={editThumbnailUrl.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${editThumbnailUrl}` : editThumbnailUrl}
+                            src={pendingCoverPreview ?? (editThumbnailUrl!.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${editThumbnailUrl}` : editThumbnailUrl!)}
                             alt="Cover"
                             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                           />
@@ -363,7 +368,7 @@ export default function GlobalBookModal() {
                           onMouseEnter={e => { if (!coverUploading) (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.45)'; (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
                           onMouseLeave={e => { if (!coverUploading) { (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0)'; (e.currentTarget as HTMLDivElement).style.opacity = '0'; } }}
                         >
-                          {coverUploading ? "Uploading..." : "Change"}
+                          Change
                         </div>
                       </div>
                     </div>
@@ -640,6 +645,9 @@ export default function GlobalBookModal() {
                           setEditSeriesId(book.series_id);
                           setEditSeriesInput(book.series || "");
                           setEditThumbnailUrl(book.thumbnail_url);
+                          if (pendingCoverPreview) URL.revokeObjectURL(pendingCoverPreview);
+                          setPendingCoverFile(null);
+                          setPendingCoverPreview(null);
                         }}
                         className="btn-ghost"
                         style={{ flex: 1, padding: '0.75rem' }}
