@@ -32,11 +32,14 @@ class WorkUpdate(BaseModel):
     personal_notes: Optional[str] = None
     tags: Optional[List[str]] = None
     author_id: Optional[int] = None
+    series_id: Optional[int] = None
 
 class Work(WorkBase):
     id: int
     author: Optional[str] = None
     author_id: Optional[int] = None
+    series: Optional[str] = None
+    series_id: Optional[int] = None
     tags: List[str] = []
     created_at: Optional[int] = None
 
@@ -55,9 +58,22 @@ class Author(AuthorBase):
     class Config:
         from_attributes = True
 
+class SeriesBase(BaseModel):
+    name: str
+
+class SeriesCreate(SeriesBase):
+    pass
+
+class Series(SeriesBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
 class SearchResult(BaseModel):
     title: str
     author: str
+    series: Optional[str] = None
     first_publish_year: Optional[int] = None
     goodreads_id: Optional[str] = None
     thumbnail_url: Optional[str] = None

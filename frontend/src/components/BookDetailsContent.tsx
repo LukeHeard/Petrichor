@@ -4,6 +4,7 @@ interface BookDetailsContentProps {
   book: {
     title: string;
     author?: string;
+    series?: string;
     first_publish_year?: number;
     description?: string;
     page_count?: number;
@@ -38,9 +39,14 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         </div>
       )}
       <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
-      <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+      <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: book.series ? '0.25rem' : '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
         {book.author}
       </p>
+      {book.series && (
+        <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontStyle: 'italic', opacity: 0.75 }}>
+          {book.series}
+        </p>
+      )}
       {book.first_publish_year && book.first_publish_year > 0 && (
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '1.5rem' }}>
           First published {book.first_publish_year}

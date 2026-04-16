@@ -12,6 +12,7 @@ interface AddWorkModalProps {
 interface SearchResult {
   title: string;
   author: string;
+  series?: string;
   first_publish_year?: number;
   goodreads_id?: string;
   thumbnail_url?: string;
@@ -86,14 +87,15 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       
       if (res.ok) {
         const data = await res.json();
-        setPreviewWork({ 
-          ...result, 
-          description: data.description, 
+        setPreviewWork({
+          ...result,
+          description: data.description,
           tags: data.tags && data.tags.length > 0 ? data.tags : result.tags,
           page_count: data.page_count || result.page_count,
           first_publish_year: data.first_publish_year || result.first_publish_year,
           rating_average: data.rating_average || result.rating_average,
-          rating_count: data.rating_count || result.rating_count
+          rating_count: data.rating_count || result.rating_count,
+          series: data.series || result.series || ""
         });
       } else {
         setPreviewWork({ ...result, description: "Description currently unavailable." });
@@ -147,6 +149,21 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
               method: 'POST'
           });
           if (!linkRes.ok) throw new Error("Failed to link author to book");
+      }
+
+      // 4. Create and link Series if present
+      if (result.series && result.series.trim()) {
+          const seriesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/series`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: result.series.trim() })
+          });
+          if (seriesRes.ok) {
+              const seriesData = await seriesRes.json();
+              await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workData.id}/series/${seriesData.id}`, {
+                  method: 'POST'
+              });
+          }
       }
 
       // Success
