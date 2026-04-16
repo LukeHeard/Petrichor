@@ -142,7 +142,7 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       const workData = await workRes.json();
 
       // 3. Link Author to Work
-      if (authorId) {
+      if (authorId !== null) {
           const linkRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${workData.id}/authors/${authorId}`, {
               method: 'POST'
           });
