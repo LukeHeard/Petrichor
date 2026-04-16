@@ -754,7 +754,11 @@ def get_stats(
         tsundoku_count = res_tsundoku.get_next()[0] if res_tsundoku.has_next() else 0
 
         res_rating = conn.execute("MATCH (w:Work) WHERE w.personal_rating > 0 RETURN avg(w.personal_rating)")
-        avg_rating = res_rating.get_next()[0] if res_rating.has_next() else 0.0
+        if res_rating.has_next():
+            val = res_rating.get_next()[0]
+            avg_rating = val if val is not None else 0.0
+        else:
+            avg_rating = 0.0
 
         # 2. Period-specific metrics (Sessions)
         # Find the earliest session in the entire DB for truncation logic
