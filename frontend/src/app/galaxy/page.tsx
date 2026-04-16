@@ -297,8 +297,11 @@ export default function GalaxyPage() {
       return `<span style="font-family:sans-serif;font-size:12px;">${node.label}</span>`;
     }
     const rating = node.properties?.personal_rating;
-    const stars  = (rating && rating >= 1)
-      ? `<div style="color:#d1a75c;margin-top:4px;font-size:14px;">${'★'.repeat(Math.round(rating))}${'☆'.repeat(5 - Math.round(rating))}</div>`
+    const stars  = (rating && rating >= 0.1)
+      ? `<div style="color:#d1a75c;margin-top:4px;font-size:12px;display:flex;align-items:center;gap:5px;">
+           <span>${'★'.repeat(Math.round(rating / 2))}${'☆'.repeat(5 - Math.round(rating / 2))}</span>
+           <span style="opacity:0.6;font-size:11px;">${rating.toFixed(1)}</span>
+         </div>`
       : '';
     const img = node.properties?.thumbnail_url
       ? `<img src="${node.properties.thumbnail_url}" style="width:58px;border-radius:4px;display:block;margin-bottom:7px;box-shadow:0 3px 10px rgba(0,0,0,0.5);">`
@@ -465,10 +468,13 @@ export default function GalaxyPage() {
              selectedNode.properties.personal_rating > 0 && (
               <div className="galaxy-inspector-row">
                 <span>Rating</span>
-                <span style={{ color: '#d1a75c' }}>
-                  {'★'.repeat(Math.round(selectedNode.properties.personal_rating))}
-                  {'☆'.repeat(5 - Math.round(selectedNode.properties.personal_rating))}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#d1a75c' }}>
+                    {'★'.repeat(Math.round(selectedNode.properties.personal_rating / 2))}
+                    {'☆'.repeat(5 - Math.round(selectedNode.properties.personal_rating / 2))}
+                  </span>
+                  <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>{selectedNode.properties.personal_rating.toFixed(1)}</span>
+                </div>
               </div>
             )}
             <div className="galaxy-inspector-row">
