@@ -943,7 +943,7 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
         }
 
         # 1. Fetch Works
-        res_works = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.thumbnail_url, w.status")
+        res_works = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.thumbnail_url, w.status, w.personal_rating, w.created_at")
         while res_works.has_next():
             row = res_works.get_next()
             nid = f"work_{row[0]}"
@@ -953,7 +953,7 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
                 type="Work",
                 val=sizes["Work"],
                 color=colors["Work"],
-                properties={"thumbnail_url": row[2], "status": row[3]}
+                properties={"thumbnail_url": row[2], "status": row[3], "personal_rating": row[4], "created_at": row[5]}
             ))
             node_ids.add(nid)
 
