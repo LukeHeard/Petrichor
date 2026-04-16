@@ -1237,6 +1237,168 @@ a {
   50%       { opacity: 0.55; transform: scale(1.2); }
 }
 
+/* Tooltip container injected by react-force-graph */
+.graph-tooltip {
+  background: rgba(7, 11, 9, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px !important;
+  color: white !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  padding: 0 !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55) !important;
+  pointer-events: none !important;
+  max-width: 180px !important;
+}
+
+/* Inspector "View Full Details" button */
+.galaxy-inspector-detail-btn {
+  display: block;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.galaxy-inspector-detail-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* ── Entity breakdown (header) ────────────────────────────────── */
+.galaxy-entity-breakdown {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  animation: fadeInUp 0.25s ease forwards;
+  pointer-events: none;
+}
+
+.galaxy-entity-breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ── Time travel dock (bottom-left) ───────────────────────────── */
+.galaxy-timetravel-dock {
+  position: absolute;
+  bottom: calc(var(--nav-height) + 1.5rem);
+  left: 1.75rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.galaxy-timetravel-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 11, 9, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.galaxy-timetravel-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* ── Time travel panel (sits above the button) ────────────────── */
+.galaxy-timetravel-panel {
+  width: 210px;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  background: rgba(7, 11, 9, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  color: white;
+  animation: fadeInUp 0.2s ease forwards;
+}
+
+.galaxy-timetravel-label {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0 0 0.75rem;
+}
+
+/* ── Time travel slider ───────────────────────────────────────── */
+.galaxy-time-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  cursor: pointer;
+}
+
+.galaxy-time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #7ebf75;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(126, 191, 117, 0.6);
+}
+
+.galaxy-time-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #7ebf75;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 6px rgba(126, 191, 117, 0.6);
+}
+
+.galaxy-time-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.galaxy-time-current {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-weight: 600;
+}
+
 /* Loading state */
 .galaxy-loading {
   display: flex;

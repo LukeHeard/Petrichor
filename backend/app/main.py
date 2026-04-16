@@ -754,7 +754,11 @@ def get_stats(
         tsundoku_count = res_tsundoku.get_next()[0] if res_tsundoku.has_next() else 0
 
         res_rating = conn.execute("MATCH (w:Work) WHERE w.personal_rating > 0 RETURN avg(w.personal_rating)")
-        avg_rating = res_rating.get_next()[0] if res_rating.has_next() else 0.0
+        if res_rating.has_next():
+            val = res_rating.get_next()[0]
+            avg_rating = val if val is not None else 0.0
+        else:
+            avg_rating = 0.0
 
         # 2. Period-specific metrics (Sessions)
         # Find the earliest session in the entire DB for truncation logic
@@ -888,13 +892,18 @@ def get_stats(
         while cr_res.has_next():
             row = cr_res.get_next()
             wid, wtitle, wthumb, wpages, wcurr = row[0], row[1], row[2], row[3], row[4]
-            progress = (wcurr / wpages * 100) if wpages > 0 else 0
+            
+            # Handle potential None values for progress calculation
+            wpages_val = wpages if wpages is not None else 0
+            wcurr_val = wcurr if wcurr is not None else 0
+            
+            progress = (wcurr_val / wpages_val * 100) if wpages_val > 0 else 0
             currently_reading.append({
                 "id": wid,
                 "title": wtitle,
                 "thumbnail_url": wthumb,
-                "page_count": wpages,
-                "current_page": wcurr,
+                "page_count": wpages_val,
+                "current_page": wcurr_val,
                 "progress_percentage": round(progress, 1)
             })
 
@@ -943,7 +952,7 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
         }
 
         # 1. Fetch Works
-        res_works = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.thumbnail_url, w.status")
+        res_works = conn.execute("MATCH (w:Work) RETURN w.id, w.title, w.thumbnail_url, w.status, w.personal_rating, w.created_at")
         while res_works.has_next():
             row = res_works.get_next()
             nid = f"work_{row[0]}"
@@ -953,7 +962,7 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
                 type="Work",
                 val=sizes["Work"],
                 color=colors["Work"],
-                properties={"thumbnail_url": row[2], "status": row[3]}
+                properties={"thumbnail_url": row[2], "status": row[3], "personal_rating": row[4], "created_at": row[5]}
             ))
             node_ids.add(nid)
 

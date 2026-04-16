@@ -42,31 +42,43 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, sessionsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions`)
-        ]);
-
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setCurrentlyReading(statsData.currently_reading || []);
+        // Fetch stats independently
+        try {
+          const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats`);
+          if (statsRes.ok) {
+            const statsData = await statsRes.json();
+            console.log("Stats data received:", statsData);
+            setCurrentlyReading(statsData.currently_reading || []);
+          } else {
+            console.error("Stats fetch failed with status:", statsRes.status);
+          }
+        } catch (err) {
+          console.error("Error fetching stats:", err);
         }
 
-        if (sessionsRes.ok) {
-          const sessionsData = await sessionsRes.json();
-          // Filter for last 7 days
-          const now = new Date();
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(now.getDate() - 7);
-          
-          const filtered = sessionsData
-            .filter((s: ReadingSession) => new Date(s.date) >= sevenDaysAgo)
-            .sort((a: ReadingSession, b: ReadingSession) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          
-          setRecentActivity(filtered);
+        // Fetch sessions independently
+        try {
+          const sessionsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions`);
+          if (sessionsRes.ok) {
+            const sessionsData = await sessionsRes.json();
+            // Filter for last 7 days
+            const now = new Date();
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(now.getDate() - 7);
+            
+            const filtered = sessionsData
+              .filter((s: ReadingSession) => new Date(s.date) >= sevenDaysAgo)
+              .sort((a: ReadingSession, b: ReadingSession) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            setRecentActivity(filtered);
+          } else {
+            console.error("Sessions fetch failed with status:", sessionsRes.status);
+          }
+        } catch (err) {
+          console.error("Error fetching sessions:", err);
         }
       } catch (err) {
-        console.error("Failed to fetch home data", err);
+        console.error("Unexpected error in fetchData:", err);
       } finally {
         setLoading(false);
       }

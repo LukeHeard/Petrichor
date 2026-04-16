@@ -239,10 +239,10 @@ export default function Stats() {
             </div>
 
             <div className="stats-card">
-              <span className="stats-label">Tsundoku</span>
-              <div className="stats-value">{data.summary.tsundoku_count || 0}</div>
+              <span className="stats-label">Number of Logs</span>
+              <div className="stats-value">{data.summary.total_sessions_all_time || 0}</div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
-                <Inbox size={40} />
+                <Layers size={40} />
               </div>
             </div>
 
