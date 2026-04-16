@@ -933,7 +933,7 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
             "Work": "#7ebf75",    # Green
             "Author": "#6D8299",  # Slate blue
             "Tag": "#d1a75c",     # Amber
-            "Series": "#732530"   # Deep red
+            "Series": "#a03040"   # Deep red
         }
         sizes = {
             "Work": 3,
