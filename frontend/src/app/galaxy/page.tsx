@@ -231,7 +231,7 @@ export default function GalaxyPage() {
     if (controls) controls.autoRotate = false;
 
     if (fgRef.current && node.x !== undefined && node.y !== undefined && node.z !== undefined) {
-      const distance  = 100;
+      const distance  = 200;
       const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
       fgRef.current.cameraPosition(
         { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
