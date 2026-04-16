@@ -73,6 +73,7 @@ class Series(SeriesBase):
 class SearchResult(BaseModel):
     title: str
     author: str
+    series: Optional[str] = None
     first_publish_year: Optional[int] = None
     goodreads_id: Optional[str] = None
     thumbnail_url: Optional[str] = None

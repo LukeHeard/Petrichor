@@ -88,6 +88,12 @@ class GoodreadsScraper:
             title = match.group(2).strip()
             clean_title = re.sub(r'\(.*?\)', '', title).strip()
 
+            # Extract series from parenthetical e.g. "(Harry Potter, #1)" or "(The Lord of the Rings, Book 2)"
+            series_name = ""
+            series_match = re.search(r'\(([^,)]+),\s*(?:#|Book\s+)\d', title, re.IGNORECASE)
+            if series_match:
+                series_name = series_match.group(1).strip()
+
             results.append({
                 "goodreads_id": gr_id,
                 "title": clean_title,
@@ -95,7 +101,8 @@ class GoodreadsScraper:
                 "rating_average": float(rating_matches[i].group(1)) if i < len(rating_matches) else 0.0,
                 "rating_count": int(rating_matches[i].group(2).replace(",", "")) if i < len(rating_matches) else 0,
                 "thumbnail_url": clean_gr_image_url(images[i]) if i < len(images) else "",
-                "first_publish_year": int(year_matches[i].group(1)) if i < len(year_matches) else 0
+                "first_publish_year": int(year_matches[i].group(1)) if i < len(year_matches) else 0,
+                "series": series_name
             })
             
         return results
@@ -263,6 +270,37 @@ class GoodreadsScraper:
             final_tags = [t for t in tags if t in cleaned_tags]
             tags = final_tags
 
+            # Series
+            series_name = ""
+            book_series_list = book_data.get("bookSeries", [])
+            if isinstance(book_series_list, list):
+                for bs_item in book_series_list:
+                    if isinstance(bs_item, dict):
+                        bs_ref = bs_item.get("__ref", "")
+                        if bs_ref:
+                            bs_data = apollo.get(bs_ref, {})
+                            # BookSeries may have a direct title
+                            bs_title = bs_data.get("title")
+                            if bs_title:
+                                series_name = bs_title
+                                break
+                            # Or it may have a nested Series ref
+                            series_ref_field = bs_data.get("series", {})
+                            if isinstance(series_ref_field, dict):
+                                nested_ref = series_ref_field.get("__ref", "")
+                                if nested_ref:
+                                    nested = apollo.get(nested_ref, {})
+                                    s_title = nested.get("title")
+                                    if s_title:
+                                        series_name = s_title
+                                        break
+
+            # Fallback: extract series from the raw title parenthetical
+            if not series_name and title:
+                title_series_match = re.search(r'\(([^,)]+),\s*(?:#|Book\s+)\d', title, re.IGNORECASE)
+                if title_series_match:
+                    series_name = title_series_match.group(1).strip()
+
             # Year and Page Count
             publish_year = 0
             page_count = book_data.get("numPages") or book_data.get("numberOfPages") or 0
@@ -304,7 +342,8 @@ class GoodreadsScraper:
                 "rating_count": rating_count,
                 "tags": list(dict.fromkeys(tags))[:8],
                 "page_count": page_count,
-                "first_publish_year": publish_year
+                "first_publish_year": publish_year,
+                "series": series_name
             }
 
         except Exception as e:
