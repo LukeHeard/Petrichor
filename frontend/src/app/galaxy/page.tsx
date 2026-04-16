@@ -104,7 +104,6 @@ export default function GalaxyPage() {
   const [introGone,   setIntroGone]       = useState(false);
   const [showTimeTravel,  setShowTimeTravel]  = useState(false);
   const [timeSlider,      setTimeSlider]      = useState(100);
-  const [showBreakdown,   setShowBreakdown]   = useState(false);
 
   const fgRef            = useRef<any>(null);
   const sceneEnhancedRef = useRef(false);
@@ -321,13 +320,11 @@ export default function GalaxyPage() {
           Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Galaxy</span>
         </h1>
         <p
-          onClick={() => setShowBreakdown(v => !v)}
           style={{
             margin: '0.25rem 0 0',
             color: 'rgba(255,255,255,0.45)',
             fontSize: '0.85rem',
             fontFamily: 'var(--font-sans)',
-            cursor: 'pointer',
             pointerEvents: 'auto',
             userSelect: 'none',
           }}
@@ -336,19 +333,17 @@ export default function GalaxyPage() {
             ? `${displayData.nodes.length} entities · ${displayData.links.length} connections · ${sliderDate}`
             : `${data?.nodes.length ?? 0} entities · ${data?.links.length ?? 0} connections`}
         </p>
-        {showBreakdown && (
-          <div className="galaxy-entity-breakdown">
-            {LEGEND_ITEMS.map(({ label, color }) => {
-              const singularKey = label === 'Series' ? 'Series' : label.slice(0, -1);
-              return (
-                <div key={label} className="galaxy-entity-breakdown-row">
-                  <span className="galaxy-legend-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
-                  <span>{entityCounts[singularKey as keyof typeof entityCounts]} {label.toLowerCase()}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="galaxy-entity-breakdown">
+          {LEGEND_ITEMS.map(({ label, color }) => {
+            const singularKey = label === 'Series' ? 'Series' : label.slice(0, -1);
+            return (
+              <div key={label} className="galaxy-entity-breakdown-row">
+                <span className="galaxy-legend-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                <span>{entityCounts[singularKey as keyof typeof entityCounts]} {label.toLowerCase()}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Legend */}
