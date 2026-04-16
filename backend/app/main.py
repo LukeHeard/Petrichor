@@ -458,8 +458,8 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
                     if remaining_res.has_next() and remaining_res.get_next()[0] == 0:
                         conn.execute("MATCH (s:Series) WHERE s.id = $sid DELETE s", {"sid": old_series_id})
 
-                # Create new relationship (0 means "remove only, no new series")
-                if work_update.series_id > 0:
+                # Create new relationship (-1 means "remove only, no new series")
+                if work_update.series_id >= 0:
                     new_series_check = conn.execute("MATCH (s:Series) WHERE s.id = $sid RETURN s.id", {"sid": work_update.series_id})
                     if not new_series_check.has_next():
                         raise HTTPException(status_code=404, detail="Series not found")

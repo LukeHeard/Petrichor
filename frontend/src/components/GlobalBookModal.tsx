@@ -201,9 +201,9 @@ export default function GlobalBookModal() {
           setSeriesList(prev => prev.some(s => s.id === seriesData.id) ? prev : [...prev, seriesData]);
         }
       }
-      // If the series field was cleared, send 0 to remove the series
+      // If the series field was cleared, send -1 to remove the series
       if (!trimmedSeriesInput && book.series_id) {
-        resolvedSeriesId = 0;
+        resolvedSeriesId = -1;
       }
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, {
