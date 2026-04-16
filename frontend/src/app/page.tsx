@@ -123,7 +123,7 @@ export default function Home() {
             {currentlyReading.map(book => (
               <div key={book.id} className="home-reading-card" onClick={() => handleBookClick(book.id)} style={{ cursor: 'pointer' }}>
                 {book.thumbnail_url ? (
-                  <img src={book.thumbnail_url} alt={book.title} className="home-reading-thumb" />
+                  <img src={book.thumbnail_url.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${book.thumbnail_url}` : book.thumbnail_url} alt={book.title} className="home-reading-thumb" />
                 ) : (
                   <div className="home-reading-thumb" style={{ background: 'var(--muted-background)', border: '1px solid var(--border)' }} />
                 )}
@@ -159,7 +159,7 @@ export default function Home() {
             {recentActivity.map(session => (
               <div key={session.id} className="activity-item" onClick={() => handleBookClick(session.work_id)} style={{ cursor: 'pointer' }}>
                 {session.work_thumbnail_url ? (
-                   <img src={session.work_thumbnail_url} alt="" className="activity-thumb" />
+                   <img src={session.work_thumbnail_url.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${session.work_thumbnail_url}` : session.work_thumbnail_url} alt="" className="activity-thumb" />
                 ) : (
                    <div className="activity-thumb" style={{ background: 'var(--border)' }} />
                 )}

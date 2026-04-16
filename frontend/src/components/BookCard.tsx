@@ -34,13 +34,21 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
     >
       <div className="book-card-cover">
         {thumbnail_url ? (
-          <Image
-            src={thumbnail_url}
-            alt={title}
-            fill
-            sizes="(max-width: 768px) 50vw, 33vw"
-            style={{ objectFit: 'cover' }}
-          />
+          thumbnail_url.startsWith('/uploads') ? (
+            <img
+              src={`${process.env.NEXT_PUBLIC_API_URL}${thumbnail_url}`}
+              alt={title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <Image
+              src={thumbnail_url}
+              alt={title}
+              fill
+              sizes="(max-width: 768px) 50vw, 33vw"
+              style={{ objectFit: 'cover' }}
+            />
+          )
         ) : (
           <div className="book-card-fallback">
             <span className="font-serif">{title}</span>

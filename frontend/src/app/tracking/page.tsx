@@ -179,12 +179,15 @@ export default function Tracking() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  const getLocalDateStr = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
   const getDaySessions = (dateValue: Date) => {
-    const dateStr = dateValue.toISOString().split('T')[0];
+    const dateStr = getLocalDateStr(dateValue);
     return sessions.filter(s => s.date === dateStr);
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateStr(new Date());
 
   const handleWorkSelection = (workId: string) => {
     setSelectedWorkId(workId);
@@ -351,9 +354,9 @@ export default function Tracking() {
                   {booksRead.length > 0 && (
                     <div className="calendar-book-covers">
                       {booksRead.map(session => (
-                        <img 
-                          key={session.id} 
-                          src={session.work_thumbnail_url} 
+                        <img
+                          key={session.id}
+                          src={session.work_thumbnail_url?.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${session.work_thumbnail_url}` : session.work_thumbnail_url}
                           alt={session.work_title}
                           className="calendar-cover-thumb"
                           onClick={(e) => handleCoverClick(e, session)}
@@ -449,8 +452,8 @@ export default function Tracking() {
 
                     <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', opacity: isFront ? 1 : 0.5 }}>
                       {session.work_thumbnail_url && (
-                        <img 
-                          src={session.work_thumbnail_url} 
+                        <img
+                          src={session.work_thumbnail_url.startsWith('/uploads') ? `${process.env.NEXT_PUBLIC_API_URL}${session.work_thumbnail_url}` : session.work_thumbnail_url}
                           alt={session.work_title}
                           style={{ width: '100px', cursor: 'pointer', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                           onClick={() => isFront && router.push(`?book_id=${session.work_id}`)}

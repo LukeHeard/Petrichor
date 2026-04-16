@@ -1,8 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import os
 import logging
 import time
+import shutil
+import uuid
 from typing import Optional
 from .db import get_db, DatabaseManager
 from .schemas import work as schemas
@@ -19,6 +22,9 @@ app = FastAPI(title="Petrichor API")
 
 BLOCKED_TAGS = {"Friendship", "Science Fiction Fantasy"}
 
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../uploads/covers")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +33,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/uploads", StaticFiles(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../uploads")), name="uploads")
 
 @app.get("/")
 def read_root():
@@ -309,6 +317,24 @@ def delete_work(work_id: int, db: DatabaseManager = Depends(get_db)):
         logger.error(f"Error deleting work: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/works/{work_id}/cover")
+async def upload_cover(work_id: int, file: UploadFile = File(...), db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    check = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id", {"id": work_id})
+    if not check.has_next():
+        raise HTTPException(status_code=404, detail="Work not found")
+
+    ext = os.path.splitext(file.filename or "cover.jpg")[1] or ".jpg"
+    filename = f"{work_id}_{uuid.uuid4().hex}{ext}"
+    dest = os.path.join(UPLOADS_DIR, filename)
+
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    thumbnail_url = f"/uploads/covers/{filename}"
+    conn.execute("MATCH (w:Work) WHERE w.id = $id SET w.thumbnail_url = $url", {"id": work_id, "url": thumbnail_url})
+    return {"thumbnail_url": thumbnail_url}
+
 @app.patch("/works/{work_id}", response_model=schemas.Work)
 async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
@@ -340,6 +366,9 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
         if work_update.page_count is not None:
             sets.append("w.page_count = $p_count")
             params["p_count"] = work_update.page_count
+        if work_update.thumbnail_url is not None:
+            sets.append("w.thumbnail_url = $thumb_url")
+            params["thumb_url"] = work_update.thumbnail_url
         if work_update.review is not None:
             sets.append("w.review = $review")
             params["review"] = work_update.review
@@ -429,8 +458,8 @@ async def update_work(work_id: int, work_update: schemas.WorkUpdate, db: Databas
                     if remaining_res.has_next() and remaining_res.get_next()[0] == 0:
                         conn.execute("MATCH (s:Series) WHERE s.id = $sid DELETE s", {"sid": old_series_id})
 
-                # Create new relationship (0 means "remove only, no new series")
-                if work_update.series_id > 0:
+                # Create new relationship (-1 means "remove only, no new series")
+                if work_update.series_id >= 0:
                     new_series_check = conn.execute("MATCH (s:Series) WHERE s.id = $sid RETURN s.id", {"sid": work_update.series_id})
                     if not new_series_check.has_next():
                         raise HTTPException(status_code=404, detail="Series not found")

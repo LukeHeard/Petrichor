@@ -30,9 +30,9 @@ function LibraryContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("added-desc");
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [groupBySeries, setGroupBySeries] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Persistence: Load settings on mount
@@ -44,9 +44,9 @@ function LibraryContent() {
         if (settings.searchQuery !== undefined) setSearchQuery(settings.searchQuery);
         if (settings.selectedStatuses !== undefined) setSelectedStatuses(settings.selectedStatuses);
         if (settings.selectedTags !== undefined) setSelectedTags(settings.selectedTags);
-        if (settings.selectedSeries !== undefined) setSelectedSeries(settings.selectedSeries);
         if (settings.sortBy !== undefined) setSortBy(settings.sortBy);
         if (settings.viewMode !== undefined) setViewMode(settings.viewMode);
+        if (settings.groupBySeries !== undefined) setGroupBySeries(settings.groupBySeries);
       } catch (err) {
         console.error("Failed to parse saved settings", err);
       }
@@ -57,15 +57,15 @@ function LibraryContent() {
   // Persistence: Save settings on change
   useEffect(() => {
     if (!isInitialized) return;
-    const settings = { searchQuery, selectedStatuses, selectedTags, selectedSeries, sortBy, viewMode };
+    const settings = { searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, groupBySeries };
     localStorage.setItem("petrichor_library_settings", JSON.stringify(settings));
-  }, [searchQuery, selectedStatuses, selectedTags, selectedSeries, sortBy, viewMode, isInitialized]);
+  }, [searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, groupBySeries, isInitialized]);
 
   const resetSettings = useCallback(() => {
     setSearchQuery("");
     setSelectedStatuses([]);
     setSelectedTags([]);
-    setSelectedSeries([]);
+    setGroupBySeries(false);
     setSortBy("added-desc");
     localStorage.removeItem("petrichor_library_settings");
   }, []);
@@ -122,21 +122,14 @@ function LibraryContent() {
     return Array.from(tags).sort();
   }, [works]);
 
-  // Dynamically compute available series from current works
-  const allSeries = useMemo(() => {
-    const series = new Set<string>();
-    works.forEach(w => { if (w.series) series.add(w.series); });
-    return Array.from(series).sort();
-  }, [works]);
-
   const filteredAndSortedWorks = useMemo(() => {
     let result = [...works];
 
     // Search Filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(w => 
-        w.title.toLowerCase().includes(q) || 
+      result = result.filter(w =>
+        w.title.toLowerCase().includes(q) ||
         (w.author && w.author.toLowerCase().includes(q))
       );
     }
@@ -149,11 +142,6 @@ function LibraryContent() {
     // Tags Filter
     if (selectedTags.length > 0) {
       result = result.filter(w => w.tags && w.tags.some(t => selectedTags.includes(t)));
-    }
-
-    // Series Filter
-    if (selectedSeries.length > 0) {
-      result = result.filter(w => w.series && selectedSeries.includes(w.series));
     }
 
     // Sort
@@ -185,7 +173,24 @@ function LibraryContent() {
     });
 
     return result;
-  }, [works, searchQuery, selectedStatuses, selectedTags, selectedSeries, sortBy]);
+  }, [works, searchQuery, selectedStatuses, selectedTags, sortBy]);
+
+  const groupedWorks = useMemo(() => {
+    if (!groupBySeries) return null;
+    const groups = new Map<string, Work[]>();
+    const standalone: Work[] = [];
+    filteredAndSortedWorks.forEach(w => {
+      if (w.series) {
+        if (!groups.has(w.series)) groups.set(w.series, []);
+        groups.get(w.series)!.push(w);
+      } else {
+        standalone.push(w);
+      }
+    });
+    const sorted = Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+    if (standalone.length > 0) sorted.push(["", standalone]);
+    return sorted;
+  }, [filteredAndSortedWorks, groupBySeries]);
 
   return (
     <div>
@@ -199,17 +204,16 @@ function LibraryContent() {
           onSearchChange={setSearchQuery}
           onStatusChange={setSelectedStatuses}
           onTagChange={setSelectedTags}
-          onSeriesChange={setSelectedSeries}
           onSortChange={setSortBy}
           onViewModeChange={setViewMode}
+          onGroupBySeriesChange={setGroupBySeries}
           onReset={resetSettings}
           viewMode={viewMode}
+          groupBySeries={groupBySeries}
           allTags={allTags}
-          allSeries={allSeries}
           searchQuery={searchQuery}
           selectedStatuses={selectedStatuses}
           selectedTags={selectedTags}
-          selectedSeries={selectedSeries}
           sortBy={sortBy}
           isInitialized={isInitialized}
         />
@@ -226,10 +230,63 @@ function LibraryContent() {
                 : "No books matching your filters."}
             </p>
           </div>
+        ) : groupedWorks ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {groupedWorks.map(([seriesName, group]) => (
+              <div key={seriesName || "__standalone__"}>
+                <div style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: seriesName ? 'var(--accent)' : 'var(--muted)',
+                  marginBottom: '0.75rem',
+                  paddingBottom: '0.4rem',
+                  borderBottom: '1px solid var(--border)'
+                }}>
+                  {seriesName || "Standalone"}
+                </div>
+                {viewMode === 'list' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {group.map((work, index) => (
+                      <LibraryItem
+                        key={work.id}
+                        id={work.id}
+                        index={index}
+                        title={work.title}
+                        author={work.author}
+                        first_publish_year={work.first_publish_year}
+                        personal_rating={work.personal_rating}
+                        status={work.status}
+                        page_count={work.page_count}
+                        current_page={work.current_page}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="library-grid">
+                    {group.map((work, index) => (
+                      <BookCard
+                        key={work.id}
+                        id={work.id}
+                        index={index}
+                        title={work.title}
+                        author={work.author}
+                        thumbnail_url={work.thumbnail_url}
+                        status={work.status}
+                        page_count={work.page_count}
+                        current_page={work.current_page}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         ) : viewMode === 'list' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {filteredAndSortedWorks.map((work, index) => (
-              <LibraryItem 
+              <LibraryItem
                 key={work.id}
                 id={work.id}
                 index={index}
@@ -246,7 +303,7 @@ function LibraryContent() {
         ) : (
           <div className="library-grid">
             {filteredAndSortedWorks.map((work, index) => (
-              <BookCard 
+              <BookCard
                 key={work.id}
                 id={work.id}
                 index={index}
