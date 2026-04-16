@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { X, SlidersHorizontal } from "lucide-react";
+import { X, Clock } from "lucide-react";
 import * as THREE from 'three';
 import { useRouter } from "next/navigation";
 
@@ -44,41 +44,6 @@ const LEGEND_ITEMS = [
   { label: 'Series',  color: '#a03040' },
 ];
 
-const STATUS_POLES: Record<string, [number, number, number]> = {
-  'Reading':  [0,   70,  0],
-  'Finished': [-70, -35, -30],
-  'Owned':    [70,  -35, -30],
-  'DNF':      [0,   -35,  70],
-};
-
-// Maps a personal rating (1-5) to a cool→warm color.
-// Unrated works keep the default green.
-function ratingToColor(rating: number | null | undefined): string {
-  if (!rating || rating < 1) return '#7ebf75';
-  const t = (Math.min(Math.max(rating, 1), 5) - 1) / 4; // 0→1
-  const h = Math.round(210 - t * 185); // 210 (blue) → 25 (orange)
-  const s = Math.round(55 + t * 10);
-  const l = Math.round(58 - t * 8);
-  return `hsl(${h}, ${s}%, ${l}%)`;
-}
-
-// d3-force-3d compatible cluster force factory
-function makeClusterForce() {
-  let nodes: any[] = [];
-  function force(alpha: number) {
-    nodes.forEach(node => {
-      if (node.type !== 'Work') return;
-      const pole = STATUS_POLES[node.properties?.status];
-      if (!pole) return;
-      node.vx = (node.vx || 0) + (pole[0] - (node.x || 0)) * 0.04 * alpha;
-      node.vy = (node.vy || 0) + (pole[1] - (node.y || 0)) * 0.04 * alpha;
-      node.vz = (node.vz || 0) + (pole[2] - (node.z || 0)) * 0.04 * alpha;
-    });
-  }
-  force.initialize = (n: any[]) => { nodes = n; };
-  return force;
-}
-
 function addSceneEnhancements(scene: THREE.Scene) {
   const starCount = 3000;
   const positions = new Float32Array(starCount * 3);
@@ -104,7 +69,9 @@ function addSceneEnhancements(scene: THREE.Scene) {
   const starGeo = new THREE.BufferGeometry();
   starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   starGeo.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
-  const starMat = new THREE.PointsMaterial({ size: 0.9, vertexColors: true, transparent: true, opacity: 0.85, sizeAttenuation: true });
+  const starMat = new THREE.PointsMaterial({
+    size: 0.9, vertexColors: true, transparent: true, opacity: 0.85, sizeAttenuation: true,
+  });
   const starfield = new THREE.Points(starGeo, starMat);
   starfield.name = 'petrichor-starfield';
   scene.add(starfield);
@@ -130,72 +97,37 @@ function addSceneEnhancements(scene: THREE.Scene) {
 const INTRO_MIN_MS = 1500;
 
 export default function GalaxyPage() {
-  const [data, setData]               = useState<GraphData | null>(null);
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [data, setData]                   = useState<GraphData | null>(null);
+  const [selectedNode, setSelectedNode]   = useState<GraphNode | null>(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-  const [introFading, setIntroFading] = useState(false);
-  const [introGone,   setIntroGone]   = useState(false);
-
-  // Filters panel state
-  const [showFilters,    setShowFilters]    = useState(false);
-  const [visibleTypes,   setVisibleTypes]   = useState({ Work: true, Author: true, Tag: true, Series: true });
-  const [colorByRating,  setColorByRating]  = useState(false);
-  const [clusterByStatus, setClusterByStatus] = useState(false);
+  const [introFading, setIntroFading]     = useState(false);
+  const [introGone,   setIntroGone]       = useState(false);
   const [showTimeTravel, setShowTimeTravel] = useState(false);
   const [timeSlider,     setTimeSlider]     = useState(100);
 
-  const fgRef             = useRef<any>(null);
-  const sceneEnhancedRef  = useRef(false);
-  const introStartRef     = useRef(Date.now());
-  const introTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevNodeIdsRef    = useRef<Set<string>>(new Set());
-  const userPausedRef     = useRef(false);
+  const fgRef            = useRef<any>(null);
+  const sceneEnhancedRef = useRef(false);
+  const introStartRef    = useRef(Date.now());
+  const introTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userPausedRef    = useRef(false);
 
   const router = useRouter();
 
   // ── Data fetching ────────────────────────────────────────────────
-  const fetchGraphData = useCallback(async (isUpdate = false) => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/graph`);
-      if (!res.ok) return;
-      const newData: GraphData = await res.json();
-
-      if (isUpdate) {
-        // Give new nodes a far-out starting position so they fly in
-        newData.nodes = newData.nodes.map(node => {
-          if (prevNodeIdsRef.current.has(node.id)) return node;
-          const theta = Math.random() * Math.PI * 2;
-          const phi   = Math.acos(2 * Math.random() - 1);
-          const r     = 400 + Math.random() * 200;
-          return {
-            ...node,
-            x: r * Math.sin(phi) * Math.cos(theta),
-            y: r * Math.cos(phi),
-            z: r * Math.sin(phi) * Math.sin(theta),
-          };
-        });
+  useEffect(() => {
+    async function fetchGraphData() {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/graph`);
+        if (res.ok) setData(await res.json());
+      } catch (err) {
+        console.error("Failed to fetch graph data", err);
       }
-
-      prevNodeIdsRef.current = new Set(newData.nodes.map(n => n.id));
-      setData(newData);
-    } catch (err) {
-      console.error("Failed to fetch graph data", err);
     }
+    fetchGraphData();
+    return () => { if (introTimerRef.current) clearTimeout(introTimerRef.current); };
   }, []);
 
-  useEffect(() => {
-    fetchGraphData();
-    const handleUpdate = () => fetchGraphData(true);
-    window.addEventListener('petrichor:workAdded',   handleUpdate);
-    window.addEventListener('petrichor:workUpdated', handleUpdate);
-    return () => {
-      window.removeEventListener('petrichor:workAdded',   handleUpdate);
-      window.removeEventListener('petrichor:workUpdated', handleUpdate);
-      if (introTimerRef.current) clearTimeout(introTimerRef.current);
-    };
-  }, [fetchGraphData]);
-
-  // ── Derived: neighbor IDs for focus mode ────────────────────────
+  // ── Neighbor IDs for focus mode ──────────────────────────────────
   const neighborIds = useMemo(() => {
     if (!focusedNodeId || !data) return new Set<string>();
     const neighbors = new Set<string>();
@@ -208,7 +140,7 @@ export default function GalaxyPage() {
     return neighbors;
   }, [focusedNodeId, data]);
 
-  // ── Derived: time range ─────────────────────────────────────────
+  // ── Time range ───────────────────────────────────────────────────
   const { minTime, maxTime } = useMemo(() => {
     if (!data) return { minTime: 0, maxTime: Date.now() };
     const times = data.nodes
@@ -225,24 +157,19 @@ export default function GalaxyPage() {
     return new Date(t).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
   }, [showTimeTravel, timeSlider, minTime, maxTime]);
 
-  // ── Derived: filtered + colored display data ─────────────────────
+  // ── Filtered display data (time travel only) ─────────────────────
   const displayData = useMemo(() => {
-    if (!data) return { nodes: [] as GraphNode[], links: [] as GraphLink[] };
+    if (!data || !showTimeTravel) return data ?? { nodes: [], links: [] };
 
-    const timeCutoff = showTimeTravel
-      ? minTime + (maxTime - minTime) * (timeSlider / 100)
-      : Infinity;
+    const timeCutoff = minTime + (maxTime - minTime) * (timeSlider / 100);
 
-    // Works that pass visibility & time filters
     const visibleWorkIds = new Set<string>();
     data.nodes.forEach(node => {
-      if (node.type !== 'Work' || !visibleTypes.Work) return;
+      if (node.type !== 'Work') return;
       const t = node.properties?.created_at ? node.properties.created_at * 1000 : 0;
-      if (showTimeTravel && t > timeCutoff) return;
-      visibleWorkIds.add(node.id);
+      if (t <= timeCutoff) visibleWorkIds.add(node.id);
     });
 
-    // Non-Work nodes that have at least one edge to a visible Work
     const connectedNonWorkIds = new Set<string>();
     data.links.forEach(link => {
       const src = typeof link.source === 'object' ? (link.source as GraphNode).id : link.source as string;
@@ -251,43 +178,23 @@ export default function GalaxyPage() {
       if (visibleWorkIds.has(tgt)) connectedNonWorkIds.add(src);
     });
 
-    const filteredNodes = data.nodes.filter(node => {
-      if (node.type === 'Work') return visibleWorkIds.has(node.id);
-      if (!visibleTypes[node.type as keyof typeof visibleTypes]) return false;
-      return connectedNonWorkIds.has(node.id);
-    });
+    const filteredNodes = data.nodes.filter(node =>
+      node.type === 'Work'
+        ? visibleWorkIds.has(node.id)
+        : connectedNonWorkIds.has(node.id)
+    );
 
     const visibleNodeIds = new Set(filteredNodes.map(n => n.id));
-
-    const filteredLinks = data.links.filter(link => {
+    const filteredLinks  = data.links.filter(link => {
       const src = typeof link.source === 'object' ? (link.source as GraphNode).id : link.source as string;
       const tgt = typeof link.target === 'object' ? (link.target as GraphNode).id : link.target as string;
       return visibleNodeIds.has(src) && visibleNodeIds.has(tgt);
     });
 
-    // Apply rating-based colors to Work nodes when enabled
-    const nodesWithColors = filteredNodes.map(node => {
-      if (node.type === 'Work' && colorByRating) {
-        return { ...node, color: ratingToColor(node.properties?.personal_rating) };
-      }
-      return node;
-    });
+    return { nodes: filteredNodes, links: filteredLinks };
+  }, [data, showTimeTravel, timeSlider, minTime, maxTime]);
 
-    return { nodes: nodesWithColors, links: filteredLinks };
-  }, [data, visibleTypes, colorByRating, showTimeTravel, timeSlider, minTime, maxTime]);
-
-  // ── Cluster force effect ─────────────────────────────────────────
-  useEffect(() => {
-    if (!fgRef.current) return;
-    if (clusterByStatus) {
-      fgRef.current.d3Force('cluster', makeClusterForce());
-    } else {
-      fgRef.current.d3Force('cluster', null);
-    }
-    fgRef.current.d3ReheatSimulation();
-  }, [clusterByStatus]);
-
-  // ── Engine / scene callbacks ─────────────────────────────────────
+  // ── Engine / scene ───────────────────────────────────────────────
   const handleEngineStop = useCallback(() => {
     if (!fgRef.current) return;
     const controls = fgRef.current.controls();
@@ -339,9 +246,9 @@ export default function GalaxyPage() {
   const nodeThreeObject = useCallback((node: any) => {
     let opacity = 1;
     if (focusedNodeId !== null) {
-      if      (node.id === focusedNodeId)   opacity = 1;
-      else if (neighborIds.has(node.id))    opacity = 0.75;
-      else                                  opacity = 0.1;
+      if      (node.id === focusedNodeId) opacity = 1;
+      else if (neighborIds.has(node.id))  opacity = 0.75;
+      else                                opacity = 0.1;
     }
 
     const group = new THREE.Group();
@@ -355,7 +262,6 @@ export default function GalaxyPage() {
       }),
     ));
 
-    // Only render halos when opacity is meaningful
     if (opacity > 0.05) {
       group.add(new THREE.Mesh(
         new THREE.SphereGeometry(node.val * 1.5),
@@ -394,11 +300,10 @@ export default function GalaxyPage() {
   }, []);
 
   const linkParticleColor = useCallback((link: any) => {
-    const src = typeof link.source === 'object' ? link.source : displayData.nodes.find(n => n.id === link.source);
+    const src = typeof link.source === 'object' ? link.source : data?.nodes.find(n => n.id === link.source);
     return (src as GraphNode)?.color ?? 'rgba(255,255,255,0.4)';
-  }, [displayData]);
+  }, [data]);
 
-  // ── Legend items (show count when time travel active) ───────────
   const workCount = displayData.nodes.filter(n => n.type === 'Work').length;
 
   return (
@@ -416,7 +321,7 @@ export default function GalaxyPage() {
         </p>
       </div>
 
-      {/* Legend (top-right) */}
+      {/* Legend */}
       <div className="galaxy-legend">
         {LEGEND_ITEMS.map(({ label, color }) => (
           <div key={label} className="galaxy-legend-item">
@@ -426,96 +331,32 @@ export default function GalaxyPage() {
         ))}
       </div>
 
-      {/* Filters toggle (top-left, below header) */}
+      {/* Time travel toggle button */}
       <button
-        className="galaxy-filter-toggle-btn"
-        onClick={() => setShowFilters(v => !v)}
-        aria-label="Toggle filters"
-        title="Filters"
+        className="galaxy-timetravel-btn"
+        onClick={() => setShowTimeTravel(v => !v)}
+        aria-label="Toggle time travel"
+        title="Time Travel"
+        style={{ opacity: showTimeTravel ? 1 : undefined, color: showTimeTravel ? 'white' : undefined }}
       >
-        <SlidersHorizontal size={15} />
+        <Clock size={15} />
       </button>
 
-      {/* Filters panel (left side) */}
-      {showFilters && (
-        <div className="galaxy-filters-panel">
-          <p className="galaxy-filters-section-label">Node Types</p>
-          {LEGEND_ITEMS.map(({ label, color }) => (
-            <label key={label} className="galaxy-filter-row">
-              <input
-                type="checkbox"
-                checked={visibleTypes[label as keyof typeof visibleTypes]}
-                onChange={e => setVisibleTypes(v => ({ ...v, [label]: e.target.checked }))}
-              />
-              <span className="galaxy-legend-dot" style={{ background: color, boxShadow: `0 0 5px ${color}` }} />
-              <span>{label}</span>
-            </label>
-          ))}
-
-          <div className="galaxy-filters-divider" />
-          <p className="galaxy-filters-section-label">View</p>
-
-          <label className="galaxy-filter-row">
-            <input
-              type="checkbox"
-              checked={colorByRating}
-              onChange={e => setColorByRating(e.target.checked)}
-            />
-            <span>Color by Rating</span>
-          </label>
-
-          {colorByRating && (
-            <div className="galaxy-rating-gradient">
-              <span>1★</span>
-              <div className="galaxy-rating-gradient-bar" />
-              <span>5★</span>
-            </div>
-          )}
-
-          <label className="galaxy-filter-row" style={{ marginTop: colorByRating ? '0.25rem' : 0 }}>
-            <input
-              type="checkbox"
-              checked={clusterByStatus}
-              onChange={e => setClusterByStatus(e.target.checked)}
-            />
-            <span>Cluster by Status</span>
-          </label>
-
-          {clusterByStatus && (
-            <div className="galaxy-status-poles">
-              {Object.entries(STATUS_POLES).map(([status]) => (
-                <span key={status} className="galaxy-status-badge">{status}</span>
-              ))}
-            </div>
-          )}
-
-          <div className="galaxy-filters-divider" />
-          <p className="galaxy-filters-section-label">Time Travel</p>
-
-          <label className="galaxy-filter-row">
-            <input
-              type="checkbox"
-              checked={showTimeTravel}
-              onChange={e => setShowTimeTravel(e.target.checked)}
-            />
-            <span>Enable</span>
-          </label>
-
-          {showTimeTravel && (
-            <div className="galaxy-time-control">
-              <input
-                type="range"
-                min={0} max={100}
-                value={timeSlider}
-                onChange={e => setTimeSlider(parseInt(e.target.value))}
-                className="galaxy-time-slider"
-              />
-              <div className="galaxy-time-labels">
-                <span>{new Date(minTime).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</span>
-                <span className="galaxy-time-current">{sliderDate ?? 'Now'}</span>
-              </div>
-            </div>
-          )}
+      {/* Time travel panel */}
+      {showTimeTravel && (
+        <div className="galaxy-timetravel-panel">
+          <p className="galaxy-timetravel-label">Time Travel</p>
+          <input
+            type="range"
+            min={0} max={100}
+            value={timeSlider}
+            onChange={e => setTimeSlider(parseInt(e.target.value))}
+            className="galaxy-time-slider"
+          />
+          <div className="galaxy-time-labels">
+            <span>{new Date(minTime).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</span>
+            <span className="galaxy-time-current">{sliderDate ?? 'Now'}</span>
+          </div>
         </div>
       )}
 
@@ -599,7 +440,7 @@ export default function GalaxyPage() {
              selectedNode.properties.personal_rating > 0 && (
               <div className="galaxy-inspector-row">
                 <span>Rating</span>
-                <span style={{ color: '#d1a75c', letterSpacing: '0.05em' }}>
+                <span style={{ color: '#d1a75c' }}>
                   {'★'.repeat(Math.round(selectedNode.properties.personal_rating))}
                   {'☆'.repeat(5 - Math.round(selectedNode.properties.personal_rating))}
                 </span>
