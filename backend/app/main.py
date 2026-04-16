@@ -883,18 +883,23 @@ def get_stats(
             rating_distribution.append({"label": str(row[0]), "value": row[1]})
 
         # 4. Currently Reading
-        cr_res = conn.execute("MATCH (w:Work) WHERE w.status = 'Reading' RETURN w.id, w.title, w.thumbnail_url, w.page_count, w.current_page")
+        cr_res = conn.execute("MATCH (w:Work) WHERE toLower(w.status) = 'reading' RETURN w.id, w.title, w.thumbnail_url, w.page_count, w.current_page")
         currently_reading = []
         while cr_res.has_next():
             row = cr_res.get_next()
             wid, wtitle, wthumb, wpages, wcurr = row[0], row[1], row[2], row[3], row[4]
-            progress = (wcurr / wpages * 100) if wpages > 0 else 0
+            
+            # Handle potential None values for progress calculation
+            wpages_val = wpages if wpages is not None else 0
+            wcurr_val = wcurr if wcurr is not None else 0
+            
+            progress = (wcurr_val / wpages_val * 100) if wpages_val > 0 else 0
             currently_reading.append({
                 "id": wid,
                 "title": wtitle,
                 "thumbnail_url": wthumb,
-                "page_count": wpages,
-                "current_page": wcurr,
+                "page_count": wpages_val,
+                "current_page": wcurr_val,
                 "progress_percentage": round(progress, 1)
             })
 
