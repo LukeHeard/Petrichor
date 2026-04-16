@@ -883,7 +883,7 @@ def get_stats(
             rating_distribution.append({"label": str(row[0]), "value": row[1]})
 
         # 4. Currently Reading
-        cr_res = conn.execute("MATCH (w:Work) WHERE toLower(w.status) = 'reading' RETURN w.id, w.title, w.thumbnail_url, w.page_count, w.current_page")
+        cr_res = conn.execute("MATCH (w:Work) WHERE w.status = 'Reading' RETURN w.id, w.title, w.thumbnail_url, w.page_count, w.current_page")
         currently_reading = []
         while cr_res.has_next():
             row = cr_res.get_next()
