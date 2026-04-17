@@ -178,7 +178,12 @@ export default function Stats() {
 
   const formattedRange = useMemo(() => {
     if (!startDate || !endDate) return "";
-    
+
+    if (rangeType === "all") {
+      const firstActivity = data?.daily_activity?.find(d => d.pages > 0 || d.minutes > 0);
+      const displayStart = firstActivity ? firstActivity.date : startDate;
+      return `${formatDateHeader(displayStart)} — ${formatDateHeader(endDate)}`;
+    }
     if (rangeType === "1m") {
       const [y, m] = startDate.split('-').map(Number);
       const date = new Date(y, m - 1, 1);
@@ -199,7 +204,7 @@ export default function Stats() {
     }
 
     return `${formatDateHeader(startDate)} — ${formatDateHeader(endDate)}`;
-  }, [startDate, endDate, rangeType]);
+  }, [startDate, endDate, rangeType, data]);
 
   const aggregationLevel = useMemo(() => {
     if (!data || data.daily_activity.length < 2) return "daily";
