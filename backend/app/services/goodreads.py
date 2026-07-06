@@ -1,10 +1,9 @@
-import requests
+import httpx
 import re
 import json
 import logging
-import urllib.parse
-from concurrent.futures import ThreadPoolExecutor
 import asyncio
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -24,25 +23,42 @@ def clean_gr_image_url(url: str) -> str:
 
 class GoodreadsScraper:
     BASE_URL = "https://www.goodreads.com"
-    _executor = ThreadPoolExecutor(max_workers=5)
+    _client = None
 
     @classmethod
-    def _fetch_sync(cls, url: str):
-        headers = {
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
+    def _get_client(cls) -> httpx.AsyncClient:
+        # A shared, kept-alive client avoids paying a fresh TCP+TLS handshake
+        # to www.goodreads.com on every single search/enrich call.
+        if cls._client is None:
+            cls._client = httpx.AsyncClient(
+                headers={
+                    "User-Agent": USER_AGENT,
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+                timeout=15,
+            )
+        return cls._client
+
+    @classmethod
+    async def aclose(cls):
+        if cls._client is not None:
+            await cls._client.aclose()
+            cls._client = None
+
+    @classmethod
+    async def _fetch(cls, url: str):
+        client = cls._get_client()
+        headers = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"}
         max_retries = 3
         for i in range(max_retries):
             try:
-                res = requests.get(url, headers=headers, timeout=15)
+                res = await client.get(url, headers=headers)
                 if res.status_code == 200:
                     return res.text
                 if res.status_code == 503:
-                    import time
                     logger.warning(f"Goodreads 503 (Throttled), retrying... ({i+1}/{max_retries})")
-                    time.sleep(2 * (i + 1))
+                    await asyncio.sleep(2 * (i + 1))
                     continue
                 logger.warning(f"Goodreads fetch failed: {res.status_code} for {url}")
                 break
@@ -52,59 +68,62 @@ class GoodreadsScraper:
         return None
 
     @classmethod
-    async def _fetch(cls, url: str):
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(cls._executor, cls._fetch_sync, url)
+    async def _search_fetch(cls, query: str):
+        client = cls._get_client()
+        try:
+            res = await client.get(
+                f"{cls.BASE_URL}/book/auto_complete",
+                params={"format": "json", "q": query},
+                headers={"Accept": "application/json"},
+            )
+        except Exception as e:
+            logger.error(f"Goodreads autocomplete error: {e}")
+            return []
+        if res.status_code != 200:
+            logger.warning(f"Goodreads autocomplete failed: {res.status_code} for query '{query}'")
+            return []
+        try:
+            return res.json()
+        except ValueError:
+            return []
 
     @classmethod
     async def search(cls, query: str):
-        """Search Goodreads and return list of results."""
-        encoded_query = urllib.parse.quote(query)
-        url = f"{cls.BASE_URL}/search?q={encoded_query}"
-        html = await cls._fetch(url)
-        if not html:
-            return []
+        """Search Goodreads via its book/auto_complete JSON endpoint.
+
+        Goodreads' HTML /search page is now gated behind an AWS WAF JS
+        challenge that a plain HTTP client can't pass, but this undocumented
+        autocomplete endpoint (used to power the on-site search box) returns
+        the same underlying data as clean JSON and isn't behind the WAF.
+        """
+        items = await cls._search_fetch(query)
 
         results = []
-        # Find book rows.
-        matches = list(re.finditer(r'<a class="bookTitle" itemprop="url" href="/book/show/(\d+)[^"]*">.*?<span itemprop=\'name\' role=\'heading\' aria-level=\'4\'>(.*?)</span>', html, re.DOTALL))
-        
-        # Author
-        author_matches = list(re.finditer(r'<a class="authorName" itemprop="url" href="[^"]*"><span itemprop="name">(.*?)</span></a>', html))
-        
-        # Minirating
-        rating_matches = list(re.finditer(r'<span class="minirating">.*?([\d\.]+) avg rating &mdash; ([\d,]+) ratings</span>', html))
-
-        # Images
-        image_matches = list(re.finditer(r'<img.*?src="([^"]*)"', html))
-        images = [m.group(1) for m in image_matches if "/books/" in m.group(1) or "/nophoto/" in m.group(1)]
-
-        # Year
-        year_matches = list(re.finditer(r'published\s+(\d{4})', html))
-
-        for i, match in enumerate(matches):
-            if i >= 10: break
-            gr_id = match.group(1)
-            title = match.group(2).strip()
+        for item in items[:10]:
+            title = item.get("title", "") or item.get("bookTitleBare", "")
             clean_title = re.sub(r'\(.*?\)', '', title).strip()
 
-            # Extract series from parenthetical e.g. "(Harry Potter, #1)" or "(The Lord of the Rings, Book 2)"
             series_name = ""
             series_match = re.search(r'\(([^,)]+),\s*(?:#|Book\s+)\d', title, re.IGNORECASE)
             if series_match:
                 series_name = series_match.group(1).strip()
 
+            try:
+                rating_average = float(item.get("avgRating") or 0.0)
+            except (TypeError, ValueError):
+                rating_average = 0.0
+
             results.append({
-                "goodreads_id": gr_id,
+                "goodreads_id": str(item.get("bookId", "")),
                 "title": clean_title,
-                "author": author_matches[i].group(1) if i < len(author_matches) else "Unknown",
-                "rating_average": float(rating_matches[i].group(1)) if i < len(rating_matches) else 0.0,
-                "rating_count": int(rating_matches[i].group(2).replace(",", "")) if i < len(rating_matches) else 0,
-                "thumbnail_url": clean_gr_image_url(images[i]) if i < len(images) else "",
-                "first_publish_year": int(year_matches[i].group(1)) if i < len(year_matches) else 0,
+                "author": (item.get("author") or {}).get("name", "Unknown"),
+                "rating_average": rating_average,
+                "rating_count": item.get("ratingsCount", 0) or 0,
+                "thumbnail_url": clean_gr_image_url(item.get("imageUrl", "")),
+                "first_publish_year": 0,
                 "series": series_name
             })
-            
+
         return results
 
     @classmethod
@@ -320,7 +339,6 @@ class GoodreadsScraper:
                 if pub_time:
                     try:
                         # publicationTime is ms since epoch
-                        import datetime
                         publish_year = datetime.datetime.fromtimestamp(pub_time/1000).year
                     except:
                         pass

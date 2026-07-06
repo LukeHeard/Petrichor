@@ -194,12 +194,13 @@ export default function GalaxyPage() {
     return { nodes: filteredNodes, links: filteredLinks };
   }, [data, showTimeTravel, timeSlider, minTime, maxTime]);
 
-  const entityCounts = useMemo(() => ({
-    Work:   displayData.nodes.filter(n => n.type === 'Work').length,
-    Author: displayData.nodes.filter(n => n.type === 'Author').length,
-    Tag:    displayData.nodes.filter(n => n.type === 'Tag').length,
-    Series: displayData.nodes.filter(n => n.type === 'Series').length,
-  }), [displayData.nodes]);
+  const entityCounts = useMemo(() => {
+    const counts = { Work: 0, Author: 0, Tag: 0, Series: 0 };
+    displayData.nodes.forEach(n => {
+      if (n.type in counts) counts[n.type as keyof typeof counts]++;
+    });
+    return counts;
+  }, [displayData.nodes]);
 
   // ── Engine / scene ───────────────────────────────────────────────
   const handleEngineStop = useCallback(() => {

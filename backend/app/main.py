@@ -36,6 +36,10 @@ app.add_middleware(
 
 app.mount("/uploads", StaticFiles(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../uploads")), name="uploads")
 
+@app.on_event("shutdown")
+async def shutdown_goodreads_client():
+    await GoodreadsScraper.aclose()
+
 @app.get("/")
 def read_root():
     return {"message": "Petrichor Personal Library API - Goodreads Edition"}
@@ -556,7 +560,7 @@ def list_tags(db: DatabaseManager = Depends(get_db)):
             tag_name = result.get_next()[0]
             if tag_name not in BLOCKED_TAGS:
                 tags.append(tag_name)
-        return sorted(list(set(tags))) # Return unique sorted tags
+        return sorted(set(tags)) # Return unique sorted tags
     except Exception as e:
         logger.error(f"Error listing tags: {e}")
         raise HTTPException(status_code=500, detail=str(e))

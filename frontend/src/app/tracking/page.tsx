@@ -182,9 +182,19 @@ export default function Tracking() {
   const getLocalDateStr = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
+  const sessionsByDate = useMemo(() => {
+    const map = new Map<string, ReadingSession[]>();
+    sessions.forEach(s => {
+      const existing = map.get(s.date);
+      if (existing) existing.push(s);
+      else map.set(s.date, [s]);
+    });
+    return map;
+  }, [sessions]);
+
   const getDaySessions = (dateValue: Date) => {
     const dateStr = getLocalDateStr(dateValue);
-    return sessions.filter(s => s.date === dateStr);
+    return sessionsByDate.get(dateStr) || [];
   };
 
   const todayStr = getLocalDateStr(new Date());

@@ -13,6 +13,7 @@ class DatabaseManager:
         os.makedirs(db_path, exist_ok=True)
         self.db = kuzu.Database(db_path)
         self.conn = kuzu.Connection(self.db)
+        self._local = threading.local()
         self._init_schema()
 
     def _get_existing_tables(self):
@@ -86,7 +87,13 @@ class DatabaseManager:
                 logger.error(f"Error initializing schema: {e}")
 
     def get_connection(self):
-        return kuzu.Connection(self.db)
+        # Kuzu's own concurrency model is "one Connection per thread, shared Database" -
+        # reuse a single Connection per thread instead of paying its setup cost on every request.
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = kuzu.Connection(self.db)
+            self._local.conn = conn
+        return conn
 
 db_manager = None
 _db_lock = threading.Lock()
