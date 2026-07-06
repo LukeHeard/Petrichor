@@ -5,29 +5,31 @@ Grounded in the tactile joy of cataloging, elevated by graph-based data. Petrich
 
 Understand the complex simplicity of books with Petrichor.
 
+(or don't and just track your books because, much like me, you don't fuckin care and just want a cool place to store book info and brag to people that it's self hosted so you can look down on them with contempt as they open goodreads)
+
 ![Petrichor Home](images/4_15_26_home.png)
 
 ## Features
 
-- **Personal Catalog:** Manage your library with personal ratings and reviews using minimal list and grid designs for simple and aesthetically pleasing viewing.
+- **Personal Catalog:** Manage your library with personal ratings and reviews using minimal list and grid designs for simple and aesthetically pleasing viewing. (the books. this is where the books go. obviously)
   
   <div style="display: flex; gap: 10px;">
     <img src="images/4_15_26_library_list.png" width="48%" alt="Reading Stats 1" />
     <img src="images/4_15_26_library_grid.png" width="48%" alt="Reading Stats 2" />
   </div>
 
-- **Comprehensive Tracking:** Log reading sessions with page-level granularity. Track minutes read and visualize your progress over time with our calendar view.
+- **Comprehensive Tracking:** Log reading sessions with page-level granularity. Track minutes read and visualize your progress over time with our calendar view. (although i stopped using this almost immediately, there will be some freaks who want this tedious ass feature)
   
   ![Reading Calendar](images/4_15_26_calendar.png)
 
-- **Deep Insights:** Dynamic statistics and charts showing your reading frequency, genre distribution, and library composition.
+- **Deep Insights:** Dynamic statistics and charts showing your reading frequency, genre distribution, and library composition. (so you can come to terms with how much sci-fi and smut you've read)
   
   <div style="display: flex; gap: 10px;">
     <img src="images/4_15_26_stats_1.png" width="48%" alt="Reading Stats 1" />
     <img src="images/4_15_26_stats_2.png" width="48%" alt="Reading Stats 2" />
   </div>
 
-- **Petrichor Galaxy:** An interactive 3D force-directed graph visualization of your library, mapping the relationships between works, authors, and genres in a celestial interface.
+- **Petrichor Galaxy:** An interactive 3D force-directed graph visualization of your library, mapping the relationships between works, authors, and genres in a celestial interface. (i got hella bored one night i wont lie to you)
   
   ![Petrichor Galaxy](images/4_15_26_galaxy.png)
 
@@ -72,3 +74,10 @@ Petrichor uses a graph-based data model (following FRBR principles) to manage bi
 - `frontend/`: React/Next.js application.
 - `backend/`: FastAPI service with KùzuDB integration and Goodreads scraping logic.
 - `backend/data/`: Persistent storage for the graph database.
+
+## AI Use
+
+This project is developed and maintained using a mix of solo and vibe coding (Claude). I have a life and limited time, womp womp.
+Also, was originally developed for use as a personal project, so as such I didn't much care for the way it got done.
+
+That being said, if AI use bothers you for solo, open source, and free applications, I sincerely apologize and you're welcome to go to the store and buy a pencil and paper to track your books.
