@@ -5,7 +5,7 @@ Grounded in the tactile joy of cataloging, elevated by graph-based data. Petrich
 
 Understand the complex simplicity of books with Petrichor.
 
-(or don't and just track your books because, much like me, you don't fuckin care and just want a cool place to store book info and brag to people that it's self hosted so you can look down on them with contempt as they open goodreads)
+(or don't understand anything and just track your books because, like me, you don't care all too much about 'the complex simplicity of books' and just want a cool place to track books and brag to people that it's self hosted so you can look down on them with contempt as they open goodreads)
 
 ![Petrichor Home](images/4_15_26_home.png)
 
