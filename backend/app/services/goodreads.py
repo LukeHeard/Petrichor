@@ -334,7 +334,31 @@ class GoodreadsScraper:
                 if not page_count:
                     page_count = details_obj.get("numPages") or details_obj.get("numberOfPages") or 0
                 
-                # Extract year from publicationTime (timestamp in ms)
+            # Prefer the canonical Work's original publish year (the FRBR "Work" level,
+            # shared across every edition) over this specific edition's publicationTime.
+            # Goodreads often defaults to a reprint/reissue edition (e.g. a whole series
+            # re-released for a movie tie-in), whose publicationTime reflects the reprint
+            # date rather than when the work was actually first published. Despite the name,
+            # WorkDetails has no "publicationYear" field - it's "publicationTime" (a ms
+            # timestamp) just like the edition-level details, including for pre-1970 dates.
+            if work_ref:
+                work_details_field = apollo.get(work_ref, {}).get("details")
+                if isinstance(work_details_field, dict):
+                    # This may be a normalized {"__ref": ...} pointer, or the WorkDetails
+                    # object embedded inline - Goodreads' Apollo cache uses both shapes.
+                    if "__ref" in work_details_field:
+                        work_details = apollo.get(work_details_field["__ref"], {})
+                    else:
+                        work_details = work_details_field
+                    work_pub_time = work_details.get("publicationTime")
+                    if work_pub_time is not None:
+                        try:
+                            publish_year = datetime.datetime.fromtimestamp(work_pub_time / 1000).year
+                        except:
+                            pass
+
+            # Fallback to this edition's publicationTime if the work-level year isn't available
+            if not publish_year and isinstance(details_field, dict):
                 pub_time = details_obj.get("publicationTime")
                 if pub_time:
                     try:
@@ -342,13 +366,6 @@ class GoodreadsScraper:
                         publish_year = datetime.datetime.fromtimestamp(pub_time/1000).year
                     except:
                         pass
-            
-            # Fallback to work publish year if available
-            if not publish_year and work_ref:
-                work_details_ref = apollo.get(work_ref, {}).get("details", {}).get("__ref")
-                if work_details_ref:
-                    work_details = apollo.get(work_details_ref, {})
-                    publish_year = work_details.get("publicationYear", 0)
 
             return {
                 "goodreads_id": gr_id,

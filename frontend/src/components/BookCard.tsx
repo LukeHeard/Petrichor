@@ -12,10 +12,38 @@ interface BookCardProps {
   status?: string;
   page_count?: number;
   current_page?: number;
+  personal_rating?: number;
   index: number;
 }
 
-export default function BookCard({ id, title, thumbnail_url, author, status, page_count = 0, current_page = 0, index }: BookCardProps) {
+// Shared ring used for both the in-progress percentage and the finished/rating display,
+// so the two hover states read as one consistent visual language.
+function HoverRing({ percentage, centerText }: { percentage: number; centerText: string }) {
+  const radius = 32;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.min(100, Math.max(0, percentage)) / 100) * circumference;
+
+  return (
+    <div className="book-card-hover-ring">
+      <svg viewBox="0 0 72 72" style={{ transform: 'rotate(-90deg)' }}>
+        <circle stroke="var(--border)" fill="transparent" strokeWidth="4" r={radius} cx="36" cy="36" style={{ opacity: 0.3 }} />
+        <circle
+          stroke="var(--accent)"
+          fill="transparent"
+          strokeWidth="4"
+          r={radius}
+          cx="36"
+          cy="36"
+          strokeDasharray={circumference}
+          style={{ strokeDashoffset: offset, strokeLinecap: 'round', transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <span className="book-card-hover-ring-value">{centerText}</span>
+    </div>
+  );
+}
+
+export default function BookCard({ id, title, thumbnail_url, author, status, page_count = 0, current_page = 0, personal_rating = 0, index }: BookCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -25,6 +53,9 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
     params.set("book_id", id.toString());
     router.push(`${pathname}?${params.toString()}`);
   };
+
+  const isReadingWithProgress = status === "Reading" && page_count > 0;
+  const isFinished = status === "Finished";
 
   return (
     <div 
@@ -56,11 +87,23 @@ export default function BookCard({ id, title, thumbnail_url, author, status, pag
         )}
         
         <div className="book-card-hover">
-          <div className="book-card-hover-content">
-            <p className="font-serif" style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>{title}</p>
-            {author && <p style={{ fontSize: '0.75rem', opacity: 0.8 }}>{author}</p>}
-            <p style={{ fontSize: '0.65rem', marginTop: '0.5rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>View Details</p>
-          </div>
+          {isReadingWithProgress ? (
+            <div className="book-card-hover-ring-wrap">
+              <HoverRing percentage={(current_page / page_count) * 100} centerText={`${Math.round(Math.min(100, (current_page / page_count) * 100))}%`} />
+              <span className="book-card-hover-ring-label">Reading</span>
+            </div>
+          ) : isFinished ? (
+            <div className="book-card-hover-ring-wrap">
+              <HoverRing percentage={100} centerText={personal_rating > 0 ? personal_rating.toFixed(1) : "—"} />
+              <span className="book-card-hover-ring-label">Finished</span>
+            </div>
+          ) : (
+            <div className="book-card-hover-content">
+              <p className="font-serif" style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>{title}</p>
+              {author && <p style={{ fontSize: '0.75rem', opacity: 0.8 }}>{author}</p>}
+              <p style={{ fontSize: '0.65rem', marginTop: '0.5rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>View Details</p>
+            </div>
+          )}
         </div>
       </div>
       <div className="book-card-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

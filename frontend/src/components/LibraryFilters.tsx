@@ -18,6 +18,13 @@ interface LibraryFiltersProps {
   selectedTags: string[];
   sortBy: string;
   isInitialized: boolean;
+  gridColumns: number;
+  onGridColumnsChange: (columns: number) => void;
+  minGridColumns: number;
+  maxGridColumns: number;
+  effectiveGridColumns: number;
+  defaultGridColumns: number;
+  viewportColumnCap: number;
 }
 
 export default function LibraryFilters({
@@ -35,7 +42,14 @@ export default function LibraryFilters({
   selectedStatuses: parentSelectedStatuses,
   selectedTags: parentSelectedTags,
   sortBy: parentSortBy,
-  isInitialized
+  isInitialized,
+  gridColumns,
+  onGridColumnsChange,
+  minGridColumns,
+  maxGridColumns,
+  effectiveGridColumns,
+  defaultGridColumns,
+  viewportColumnCap
 }: LibraryFiltersProps) {
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -73,7 +87,7 @@ export default function LibraryFilters({
     onTagChange(newTags);
   };
 
-  const hasChanges = isMounted && isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || groupBySeries || parentSortBy !== "added-desc");
+  const hasChanges = isMounted && isInitialized && (searchQuery !== "" || parentSelectedStatuses.length > 0 || parentSelectedTags.length > 0 || groupBySeries || parentSortBy !== "added-desc" || gridColumns !== defaultGridColumns);
 
   // Close sort dropdown on click outside
   useEffect(() => {
@@ -233,23 +247,87 @@ export default function LibraryFilters({
           Series
         </button>
 
-        {/* View Toggle and Reset Button Wrapper */}
-        <div style={{ 
-          marginLeft: 'auto', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'flex-end',
-          position: 'relative'
-        }}>
-          {/* View Toggle */}
-          <div style={{ 
-            display: 'flex', 
-            background: 'var(--muted-background)', 
-            padding: '0.2rem', 
-            borderRadius: '8px'
-          }}>
-            <button
-              onClick={() => onViewModeChange('list')}
+        {/* View Toggle (plus the grid-column stepper when relevant) - a flat row so it stays
+            vertically centered with the search bar/sort/series controls in this same row.
+            Reset Filters lives in its own row below so its extra height can't pull this one
+            off-center. */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Grid Column Count Stepper - only relevant in grid view */}
+            {viewMode === 'grid' && (
+              <div className="fade-in-up" style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.15rem',
+                background: 'var(--muted-background)',
+                padding: '0.2rem',
+                borderRadius: '8px'
+              }}>
+                <button
+                  onClick={() => onGridColumnsChange(gridColumns - 1)}
+                  disabled={effectiveGridColumns <= minGridColumns}
+                  title="Fewer columns"
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: effectiveGridColumns <= minGridColumns ? 'var(--border)' : 'var(--muted)',
+                    borderRadius: '6px',
+                    cursor: effectiveGridColumns <= minGridColumns ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    transition: 'color 0.2s ease'
+                  }}
+                >
+                  −
+                </button>
+                <span style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  color: 'var(--muted)',
+                  minWidth: '40px',
+                  textAlign: 'center',
+                  letterSpacing: '0.02em'
+                }} title="Columns in grid view">
+                  {effectiveGridColumns} COLS
+                </span>
+                <button
+                  onClick={() => onGridColumnsChange(gridColumns + 1)}
+                  disabled={effectiveGridColumns >= Math.min(maxGridColumns, viewportColumnCap)}
+                  title="More columns"
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: effectiveGridColumns >= Math.min(maxGridColumns, viewportColumnCap) ? 'var(--border)' : 'var(--muted)',
+                    borderRadius: '6px',
+                    cursor: effectiveGridColumns >= Math.min(maxGridColumns, viewportColumnCap) ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    transition: 'color 0.2s ease'
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            )}
+
+            {/* View Toggle */}
+            <div style={{
+              display: 'flex',
+              background: 'var(--muted-background)',
+              padding: '0.2rem',
+              borderRadius: '8px'
+            }}>
+              <button
+                onClick={() => onViewModeChange('list')}
               style={{
                 padding: '0.4rem 0.6rem',
                 border: 'none',
@@ -283,45 +361,41 @@ export default function LibraryFilters({
               title="Grid View"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-            </button>
-          </div>
-
-          {/* Reset Button - Positioned absolutely below to not disrupt toggle alignment */}
-          <div style={{ 
-            position: 'absolute',
-            top: 'calc(100% + 0.4rem)',
-            right: 0,
-            whiteSpace: 'nowrap'
-          }}>
-            <button
-              onClick={onReset}
-              disabled={!hasChanges}
-              suppressHydrationWarning
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '0.25rem 0.5rem',
-                color: hasChanges ? 'var(--accent)' : 'var(--muted)',
-                fontSize: '0.65rem',
-                fontWeight: 800,
-                cursor: hasChanges ? 'pointer' : 'default',
-                fontFamily: 'var(--font-sans)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                opacity: hasChanges ? 0.7 : 0.3,
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                if (hasChanges) e.currentTarget.style.opacity = '1';
-              }}
-              onMouseLeave={(e) => {
-                if (hasChanges) e.currentTarget.style.opacity = '0.7';
-              }}
-            ><span>Reset Filters</span></button>
-          </div>
+              </button>
+            </div>
         </div>
     </div>
 
+      {/* Reset Filters - its own row below the search/sort/series/view controls, so its
+          height never pulls that row's vertical centering off-line, and it can't overlap
+          anything once that row wraps onto multiple lines on narrow screens */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-0.85rem' }}>
+        <button
+          onClick={onReset}
+          disabled={!hasChanges}
+          suppressHydrationWarning
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '0.25rem 0.5rem',
+            color: hasChanges ? 'var(--accent)' : 'var(--muted)',
+            fontSize: '0.65rem',
+            fontWeight: 800,
+            cursor: hasChanges ? 'pointer' : 'default',
+            fontFamily: 'var(--font-sans)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            opacity: hasChanges ? 0.7 : 0.3,
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            if (hasChanges) e.currentTarget.style.opacity = '1';
+          }}
+          onMouseLeave={(e) => {
+            if (hasChanges) e.currentTarget.style.opacity = '0.7';
+          }}
+        ><span>Reset Filters</span></button>
+      </div>
 
       {/* Status Filter */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

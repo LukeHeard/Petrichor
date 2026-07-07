@@ -1,21 +1,33 @@
 services:
   backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/lukeheard/petrichor-backend:latest}
     build: ./backend
     volumes:
-      - ./backend:/app
       - kuzu_data:/app/data
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      # Change the left-hand side to use a different host port.
+      - "8000:8000"
     environment:
       - DATABASE_PATH=/app/data/kuzu
     restart: always
 
   frontend:
-    build: ./frontend
+    image: ${FRONTEND_IMAGE:-ghcr.io/lukeheard/petrichor-frontend:latest}
+    build:
+      context: ./frontend
+      # NEXT_PUBLIC_API_URL is compiled into the client bundle at build time, so it must
+      # be passed here rather than under `environment:` (which only applies at container
+      # start - too late for a NEXT_PUBLIC_* var). BACKEND_URL is read live at request
+      # time by middleware.ts, so it belongs under `environment:` instead.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+    depends_on:
+      backend:
+        condition: service_healthy
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      # Change the left-hand side to use a different host port.
+      - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=/api
       - BACKEND_URL=http://backend:8000
     restart: always
 

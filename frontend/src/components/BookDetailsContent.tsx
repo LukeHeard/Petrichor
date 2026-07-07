@@ -47,7 +47,7 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
           {book.series}
         </p>
       )}
-      {book.first_publish_year && book.first_publish_year > 0 && (
+      {book.first_publish_year !== undefined && book.first_publish_year > 0 && (
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', marginBottom: '1.5rem' }}>
           First published {book.first_publish_year}
         </p>
@@ -74,13 +74,13 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
       )}
 
       <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', justifyContent: 'center' }}>
-        {book.page_count && book.page_count > 0 && (
+        {book.page_count !== undefined && book.page_count > 0 && (
           <div style={{ textAlign: 'center' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Pages</p>
             <p style={{ fontSize: '1rem', fontWeight: 500 }}>{book.page_count}</p>
           </div>
         )}
-        {book.rating_average && book.rating_average > 0 && (
+        {book.rating_average !== undefined && book.rating_average > 0 && (
           <div style={{ textAlign: 'center' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Goodreads Rating</p>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.2rem' }}>

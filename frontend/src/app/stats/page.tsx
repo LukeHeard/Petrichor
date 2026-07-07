@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie
@@ -49,7 +49,7 @@ interface StatsData {
 
 type RangeType = "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
-export default function Stats() {
+function StatsContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -375,19 +375,19 @@ export default function Stats() {
 
         <div className="current-range-display">
           {rangeType === "custom" ? (
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <input 
-                type="date" 
-                value={startDate} 
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+              <input
+                type="date"
+                value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem', maxWidth: '100%' }}
               />
-              <span style={{ margin: '0 0.5rem' }}>—</span>
-              <input 
-                type="date" 
-                value={endDate} 
+              <span>—</span>
+              <input
+                type="date"
+                value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+                style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.85rem', maxWidth: '100%' }}
               />
             </div>
           ) : (
@@ -530,7 +530,7 @@ export default function Stats() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
+          <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
             {/* Tag Distribution */}
             <div className="chart-card" style={{ marginBottom: 0 }}>
               <h3 className="chart-title">Top Genres</h3>
@@ -618,5 +618,13 @@ export default function Stats() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Stats() {
+  return (
+    <Suspense fallback={null}>
+      <StatsContent />
+    </Suspense>
   );
 }

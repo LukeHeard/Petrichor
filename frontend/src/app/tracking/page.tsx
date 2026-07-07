@@ -301,7 +301,7 @@ export default function Tracking() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <header className="tracking-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Tracking</span></h1>
           <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>Reading Calendar & Goals</p>
@@ -315,7 +315,7 @@ export default function Tracking() {
       </header>
 
       <section style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div className="calendar-month-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h2 style={{ fontSize: '1.5rem' }}>{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button className="btn-ghost" style={{ padding: '0.4rem 0.8rem' }} onClick={handlePrevMonth}>&larr;</button>
@@ -384,7 +384,7 @@ export default function Tracking() {
 
       {modalSessions.length > 0 && (
         <div className="modal-overlay" onClick={() => { setModalSessions([]); setIsEditingSession(false); setIsDeletingSession(false); }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', background: 'transparent', border: 'none', boxShadow: 'none', height: '360px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', background: 'transparent', border: 'none', boxShadow: 'none', height: 'min(360px, 78vh)' }}>
             
             <div className="modal-card-stack">
               {modalSessions.map((session, idx) => {

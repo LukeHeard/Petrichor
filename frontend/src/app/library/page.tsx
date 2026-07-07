@@ -21,6 +21,35 @@ interface Work {
   created_at?: number;
 }
 
+export const MIN_GRID_COLUMNS = 2;
+export const MAX_GRID_COLUMNS = 6;
+const DEFAULT_GRID_COLUMNS = 4;
+
+const clampColumns = (value: number) => Math.min(MAX_GRID_COLUMNS, Math.max(MIN_GRID_COLUMNS, value));
+
+// Caps how many columns actually render on narrow screens so a user's saved
+// preference (e.g. 6 columns, picked on a desktop) can't shrink cards into
+// unusable slivers on a phone - the preference itself is untouched and simply
+// re-applies once the viewport is wide enough again.
+function useViewportColumnCap() {
+  const [cap, setCap] = useState(MAX_GRID_COLUMNS);
+
+  useEffect(() => {
+    const computeCap = () => {
+      const width = window.innerWidth;
+      if (width <= 480) return 2;
+      if (width <= 768) return 3;
+      return MAX_GRID_COLUMNS;
+    };
+    const update = () => setCap(computeCap());
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  return cap;
+}
+
 function LibraryContent() {
   const [works, setWorks] = useState<Work[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +62,11 @@ function LibraryContent() {
   const [sortBy, setSortBy] = useState("added-desc");
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [groupBySeries, setGroupBySeries] = useState(false);
+  const [gridColumns, setGridColumns] = useState(DEFAULT_GRID_COLUMNS);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  const viewportColumnCap = useViewportColumnCap();
+  const effectiveGridColumns = Math.min(gridColumns, viewportColumnCap);
 
   // Persistence: Load settings on mount
   useEffect(() => {
@@ -47,6 +80,7 @@ function LibraryContent() {
         if (settings.sortBy !== undefined) setSortBy(settings.sortBy);
         if (settings.viewMode !== undefined) setViewMode(settings.viewMode);
         if (settings.groupBySeries !== undefined) setGroupBySeries(settings.groupBySeries);
+        if (settings.gridColumns !== undefined) setGridColumns(clampColumns(settings.gridColumns));
       } catch (err) {
         console.error("Failed to parse saved settings", err);
       }
@@ -57,9 +91,9 @@ function LibraryContent() {
   // Persistence: Save settings on change
   useEffect(() => {
     if (!isInitialized) return;
-    const settings = { searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, groupBySeries };
+    const settings = { searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, groupBySeries, gridColumns };
     localStorage.setItem("petrichor_library_settings", JSON.stringify(settings));
-  }, [searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, groupBySeries, isInitialized]);
+  }, [searchQuery, selectedStatuses, selectedTags, sortBy, viewMode, groupBySeries, gridColumns, isInitialized]);
 
   const resetSettings = useCallback(() => {
     setSearchQuery("");
@@ -67,6 +101,7 @@ function LibraryContent() {
     setSelectedTags([]);
     setGroupBySeries(false);
     setSortBy("added-desc");
+    setGridColumns(DEFAULT_GRID_COLUMNS);
     localStorage.removeItem("petrichor_library_settings");
   }, []);
 
@@ -216,6 +251,13 @@ function LibraryContent() {
           selectedTags={selectedTags}
           sortBy={sortBy}
           isInitialized={isInitialized}
+          gridColumns={gridColumns}
+          onGridColumnsChange={(n) => setGridColumns(clampColumns(n))}
+          minGridColumns={MIN_GRID_COLUMNS}
+          maxGridColumns={MAX_GRID_COLUMNS}
+          effectiveGridColumns={effectiveGridColumns}
+          defaultGridColumns={DEFAULT_GRID_COLUMNS}
+          viewportColumnCap={viewportColumnCap}
         />
 
         {loading ? (
@@ -264,7 +306,7 @@ function LibraryContent() {
                     ))}
                   </div>
                 ) : (
-                  <div className="library-grid">
+                  <div className="library-grid" style={{ gridTemplateColumns: `repeat(${effectiveGridColumns}, 1fr)` }}>
                     {group.map((work, index) => (
                       <BookCard
                         key={work.id}
@@ -276,6 +318,7 @@ function LibraryContent() {
                         status={work.status}
                         page_count={work.page_count}
                         current_page={work.current_page}
+                        personal_rating={work.personal_rating}
                       />
                     ))}
                   </div>
@@ -301,7 +344,7 @@ function LibraryContent() {
             ))}
           </div>
         ) : (
-          <div className="library-grid">
+          <div className="library-grid" style={{ gridTemplateColumns: `repeat(${effectiveGridColumns}, 1fr)` }}>
             {filteredAndSortedWorks.map((work, index) => (
               <BookCard
                 key={work.id}
@@ -313,6 +356,7 @@ function LibraryContent() {
                 status={work.status}
                 page_count={work.page_count}
                 current_page={work.current_page}
+                personal_rating={work.personal_rating}
               />
             ))}
           </div>

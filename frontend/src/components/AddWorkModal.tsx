@@ -75,6 +75,26 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
     }
   };
 
+  // The /search endpoint only returns lightweight stubs (first_publish_year is always 0,
+  // no description/page_count/rating) - the real values only come from /enrich. Both the
+  // preview screen and the "quick add" button need this, so it's shared here.
+  const enrichResult = async (result: SearchResult): Promise<SearchResult> => {
+    if (!result.goodreads_id) return result;
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.goodreads_id)}`);
+    if (!res.ok) return result;
+    const data = await res.json();
+    return {
+      ...result,
+      description: data.description,
+      tags: data.tags && data.tags.length > 0 ? data.tags : result.tags,
+      page_count: data.page_count || result.page_count,
+      first_publish_year: data.first_publish_year || result.first_publish_year,
+      rating_average: data.rating_average || result.rating_average,
+      rating_count: data.rating_count || result.rating_count,
+      series: data.series || result.series || ""
+    };
+  };
+
   const handlePreview = async (result: SearchResult) => {
     setError("");
     let timer = setTimeout(() => {
@@ -82,24 +102,9 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
     }, 8000);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enrich/${encodeURIComponent(result.goodreads_id || "")}`);
+      const enriched = await enrichResult(result);
       clearTimeout(timer);
-      
-      if (res.ok) {
-        const data = await res.json();
-        setPreviewWork({
-          ...result,
-          description: data.description,
-          tags: data.tags && data.tags.length > 0 ? data.tags : result.tags,
-          page_count: data.page_count || result.page_count,
-          first_publish_year: data.first_publish_year || result.first_publish_year,
-          rating_average: data.rating_average || result.rating_average,
-          rating_count: data.rating_count || result.rating_count,
-          series: data.series || result.series || ""
-        });
-      } else {
-        setPreviewWork({ ...result, description: "Description currently unavailable." });
-      }
+      setPreviewWork(enriched.description !== undefined ? enriched : { ...result, description: "Description currently unavailable." });
     } catch (err) {
       console.error("Failed to enrich work", err);
       setPreviewWork({ ...result, description: "Failed to load details." });
@@ -111,13 +116,27 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
     setError("");
 
     try {
+      // If this result hasn't already been through the preview/enrich step (e.g. added
+      // directly from the search list via the quick "Add" button), enrich it now so the
+      // saved book gets its real page count, year, rating, tags, and description instead
+      // of the bare search stub. Fall back to the stub on failure so a slow/flaky
+      // Goodreads fetch can't block the add entirely.
+      let enrichedResult = result;
+      if (result.description === undefined) {
+        try {
+          enrichedResult = await enrichResult(result);
+        } catch (err) {
+          console.error("Failed to enrich before adding, falling back to search stub", err);
+        }
+      }
+
       // 1. Create the Author
       let authorId = null;
-      if (result.author) {
+      if (enrichedResult.author) {
          const authorRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/authors`, {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ name: result.author })
+             body: JSON.stringify({ name: enrichedResult.author })
          });
          if (!authorRes.ok) throw new Error("Failed to create author");
          const authorData = await authorRes.json();
@@ -128,16 +147,16 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       const workRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          title: result.title, 
-          goodreads_id: result.goodreads_id || null,
-          thumbnail_url: result.thumbnail_url || null,
-          first_publish_year: result.first_publish_year || 0,
-          description: result.description || "",
-          page_count: result.page_count || 0,
-          rating_average: result.rating_average || 0,
-          rating_count: result.rating_count || 0,
-          tags: result.tags || []
+        body: JSON.stringify({
+          title: enrichedResult.title,
+          goodreads_id: enrichedResult.goodreads_id || null,
+          thumbnail_url: enrichedResult.thumbnail_url || null,
+          first_publish_year: enrichedResult.first_publish_year || 0,
+          description: enrichedResult.description || "",
+          page_count: enrichedResult.page_count || 0,
+          rating_average: enrichedResult.rating_average || 0,
+          rating_count: enrichedResult.rating_count || 0,
+          tags: enrichedResult.tags || []
         })
       });
       if (!workRes.ok) throw new Error("Failed to add book");
@@ -152,11 +171,11 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       }
 
       // 4. Create and link Series if present
-      if (result.series && result.series.trim()) {
+      if (enrichedResult.series && enrichedResult.series.trim()) {
           const seriesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/series`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: result.series.trim() })
+              body: JSON.stringify({ name: enrichedResult.series.trim() })
           });
           if (seriesRes.ok) {
               const seriesData = await seriesRes.json();
@@ -167,8 +186,8 @@ export default function AddWorkModal({ isOpen, onClose, onWorkAdded }: AddWorkMo
       }
 
       // Success
-      if (result.goodreads_id) {
-        setExistingIds(prev => new Set([...Array.from(prev), result.goodreads_id!]));
+      if (enrichedResult.goodreads_id) {
+        setExistingIds(prev => new Set([...Array.from(prev), enrichedResult.goodreads_id!]));
       }
       setIsSearching(false);
       onWorkAdded();

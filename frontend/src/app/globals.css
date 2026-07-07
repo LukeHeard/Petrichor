@@ -28,6 +28,29 @@
   }
 }
 
+/* Explicit theme overrides set by the theme toggle (data-theme on <html>) - these win over
+   prefers-color-scheme regardless of source order, since an attribute selector on :root is
+   more specific than a bare :root inside a media query. */
+:root[data-theme="dark"] {
+  --background: #1C1E1D;
+  --foreground: #D3D0CB;
+  --muted: #888E86;
+  --muted-background: #252826;
+  --accent: #768A6A;
+  --accent-foreground: #1C1E1D;
+  --border: #363937;
+}
+
+:root[data-theme="light"] {
+  --background: #EFECE7;
+  --foreground: #2E302E;
+  --muted: #7E857C;
+  --muted-background: #E5E2DC;
+  --accent: #5E7153;
+  --accent-foreground: #EFECE7;
+  --border: #D1CDC3;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -205,33 +228,82 @@ a {
   background: color-mix(in srgb, var(--muted) 20%, transparent);
 }
 
+/* Theme toggle - fixed top-right, sun/crescent-moon morph via a masking "cutter" circle */
+.theme-toggle-btn {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1500;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--background) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--background) 85%);
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.92);
+}
+
+.theme-toggle-btn svg {
+  width: 19px;
+  height: 19px;
+  overflow: visible;
+}
+
+.theme-toggle-cutter {
+  transform: translate(9px, -9px);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle-rays {
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: 12px 12px;
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle-btn.is-dark .theme-toggle-cutter {
+  transform: translate(3px, -3px);
+}
+
+.theme-toggle-btn.is-dark .theme-toggle-rays {
+  opacity: 0;
+  transform: scale(0.4);
+}
+
 .main-container {
-  padding: 3rem 1.5rem calc(var(--nav-height) + 3rem) 1.5rem;
+  padding: 3.25rem 1.5rem calc(var(--nav-height) + 3rem) 1.5rem;
   max-width: 1000px; /* Slightly wider for the grid */
   margin: 0 auto;
 }
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* Column count is set inline per the user's grid-size preference (see LibraryFilters'
+     column stepper); this is only the fallback before that inline style is applied. */
+  grid-template-columns: repeat(4, 1fr);
   gap: 2.5rem 1.5rem;
   padding: 1rem 0;
 }
 
 .library-grid > * {
   min-width: 0;
-}
-
-@media (min-width: 768px) {
-  .library-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .library-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
 }
 
 .book-card {
@@ -290,6 +362,44 @@ a {
 
 .book-card:hover .book-card-hover {
   opacity: 1;
+}
+
+.book-card-hover-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.book-card-hover-ring {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.book-card-hover-ring svg {
+  width: 100%;
+  height: 100%;
+}
+
+.book-card-hover-ring-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.book-card-hover-ring-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  opacity: 0.7;
 }
 
 .book-card-info {
@@ -563,6 +673,13 @@ a {
   transform: scale(1.1);
   z-index: 10;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.calendar-book-covers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: auto;
 }
 
 .calendar-cell.has-activity:hover {
@@ -1043,10 +1160,10 @@ a {
 }
 
 
-/* Legend (top-right) */
+/* Legend (top-right) - dropped below the fixed theme toggle, which now sits in that corner */
 .galaxy-legend {
   position: absolute;
-  top: 1.75rem;
+  top: 3.5rem;
   right: 1.75rem;
   z-index: 10;
   display: flex;
@@ -1439,4 +1556,155 @@ a {
 @keyframes ellipsis {
   0%   { width: 0; }
   100% { width: 1.5em; }
+}
+
+/* ─── Responsive / Mobile ──────────────────────────────────────── */
+
+/* Tablet and below: tighten up multi-column layouts before they get cramped */
+@media (max-width: 768px) {
+  .charts-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .galaxy-inspector {
+    width: min(272px, calc(100vw - 2.5rem));
+    right: 1.25rem;
+  }
+
+  .galaxy-timetravel-panel {
+    width: min(210px, calc(100vw - 3.5rem));
+  }
+}
+
+/* Phones */
+@media (max-width: 640px) {
+  .main-container {
+    padding: 3.25rem 1rem calc(var(--nav-height) + 2.5rem) 1rem;
+  }
+
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+
+  .library-grid {
+    gap: 1.75rem 1rem;
+  }
+
+  .stats-grid {
+    gap: 0.75rem;
+  }
+
+  .stats-value {
+    font-size: 1.4rem;
+  }
+
+  /* Home: currently-reading rows shrink so the title/progress column keeps breathing room */
+  .home-reading-card {
+    gap: 1.25rem;
+  }
+
+  .home-reading-thumb {
+    width: 76px;
+  }
+
+  .home-reading-title {
+    font-size: 1.4rem;
+  }
+
+  /* Tracking header: stack the "Log Reading" button under the title instead of squeezing it */
+  .tracking-header {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  /* Calendar: cells were sized for desktop (110px tall); shrink so a month fits without a giant scroll */
+  .calendar-cell {
+    min-height: 62px;
+    padding: 4px;
+  }
+
+  .calendar-date-number {
+    width: 20px;
+    height: 20px;
+    font-size: 0.72rem;
+    margin-bottom: 2px;
+  }
+
+  .calendar-day-header {
+    font-size: 0.6rem;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+
+  .calendar-cover-thumb {
+    width: 18px;
+    height: 27px;
+  }
+
+  .calendar-pages-count {
+    top: 4px;
+    right: 4px;
+    font-size: 0.6rem;
+  }
+
+  .modal-deck-card {
+    padding: 1.25rem !important;
+    overflow-y: auto;
+  }
+
+  /* Stats: date range controls otherwise overflow the viewport width */
+  .date-control-bar {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .date-control-bar .range-selector {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .chart-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  /* Galaxy: desktop chrome (header, legend, inspector, time-travel) is spaced for large viewports.
+     Corners stay corners on mobile so the always-visible time-travel dock and the on-demand
+     inspector never fight for the same strip of screen; each panel just gets narrower. */
+  .galaxy-header {
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    max-width: calc(100% - 2rem);
+  }
+
+  .galaxy-legend {
+    top: 3.25rem; /* clears the fixed theme toggle in the corner */
+    right: 1rem;
+    gap: 0.6rem;
+    padding: 0.45rem 0.7rem;
+  }
+
+  .galaxy-legend-item span:not(.galaxy-legend-dot) {
+    display: none;
+  }
+
+  .galaxy-inspector {
+    right: 1rem;
+    left: auto;
+    width: min(260px, calc(100vw - 2rem));
+    bottom: calc(var(--nav-height) + 1rem);
+  }
+
+  .galaxy-timetravel-dock {
+    left: 1rem;
+    bottom: calc(var(--nav-height) + 1rem);
+  }
+
+  .galaxy-timetravel-panel {
+    width: min(190px, calc(100vw - 2rem - 50px));
+  }
+
+  .galaxy-intro-title {
+    font-size: 1.9rem;
+  }
 }

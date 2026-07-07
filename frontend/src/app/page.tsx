@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { TrendingUp, Clock, BookOpen } from "lucide-react";
 
@@ -24,7 +24,7 @@ interface ReadingSession {
   work_thumbnail_url?: string;
 }
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -180,7 +180,15 @@ export default function Home() {
           </div>
         )}
       </section>
-      
+
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }

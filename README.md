@@ -50,22 +50,66 @@ Understand the complex simplicity of books with Petrichor.
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
 
-### Execution
+Both images are production builds (Next.js standalone output, FastAPI/uvicorn without `--reload`) - no source checkout is required for the prebuilt-image paths below.
 
-The application is containerized for easy setup. Simply run:
+### Option 1: Docker Compose (GHCR images)
 
-```bash
-docker compose up --build
-```
-
-To run on custom ports:
+Grab just the compose file (no need to clone the repo):
 
 ```bash
-FRONTEND_PORT={PORT} BACKEND_PORT={PORT} docker compose up -d --build
+curl -O https://raw.githubusercontent.com/LukeHeard/Petrichor/main/docker-compose.yml
+docker compose pull
+docker compose up -d
 ```
 
-- **Frontend:** [http://localhost:3000](http://localhost:3000) (or your custom `FRONTEND_PORT`)
-- **Backend API:** [http://localhost:8000](http://localhost:8000) (or `BACKEND_PORT`)
+### Option 2: Docker Compose, build from source
+
+```bash
+git clone https://github.com/LukeHeard/Petrichor.git
+cd Petrichor
+docker compose up -d --build
+```
+
+Either way:
+
+- **Frontend:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:8000](http://localhost:8000)
+
+To use different host ports, just edit the `ports:` lines in `docker-compose.yml` (e.g. `"8080:3000"` for the frontend).
+
+Your library data lives in the `kuzu_data` named Docker volume, independent of the containers - `docker compose down` and `up` again (with or without `--build`) never touches it. To actually wipe it: `docker compose down -v`.
+
+### Option 3: Docker run
+
+For anyone who'd rather wire the containers up by hand:
+
+```bash
+docker network create petrichor-net
+docker volume create petrichor-data
+
+docker run -d --name petrichor-backend \
+  --network petrichor-net \
+  -v petrichor-data:/app/data \
+  -p 8000:8000 \
+  --restart unless-stopped \
+  ghcr.io/lukeheard/petrichor-backend:latest
+
+docker run -d --name petrichor-frontend \
+  --network petrichor-net \
+  -e BACKEND_URL=http://petrichor-backend:8000 \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  ghcr.io/lukeheard/petrichor-frontend:latest
+```
+
+The frontend resolves the backend at *request time* (via `BACKEND_URL`, read live by `frontend/src/middleware.ts`), so it just needs to be able to reach whatever hostname you give it on the shared network - it doesn't have to be named `petrichor-backend`. Building your own images instead of using GHCR's works the same way: `docker build -t petrichor-backend ./backend` / `docker build -t petrichor-frontend ./frontend`, then `docker run` those tags.
+
+### Published images
+
+Every push to `main` publishes `:latest`, and tagged releases (`vX.Y.Z`) publish matching semver tags, via [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml):
+
+- `ghcr.io/lukeheard/petrichor-backend`
+- `ghcr.io/lukeheard/petrichor-frontend`
 
 ## Architecture
 
