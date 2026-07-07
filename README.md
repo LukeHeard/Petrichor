@@ -104,6 +104,10 @@ docker run -d --name petrichor-frontend \
 
 The frontend resolves the backend at *request time* (via `BACKEND_URL`, read live by `frontend/src/middleware.ts`), so it just needs to be able to reach whatever hostname you give it on the shared network - it doesn't have to be named `petrichor-backend`. Building your own images instead of using GHCR's works the same way: `docker build -t petrichor-backend ./backend` / `docker build -t petrichor-frontend ./frontend`, then `docker run` those tags.
 
+**If you rename `--name petrichor-backend`**, update `BACKEND_URL` on the frontend to match - plain `docker run` has no equivalent of Compose's service-name/container-name split (see below), so here the name really is the only thing the frontend has to find it by.
+
+> **Renaming containers:** in `docker-compose.yml`, the service keys (`backend`/`frontend`) are how the two containers find each other - Compose registers those as DNS names on its internal network automatically, independent of `container_name`. Rename `container_name` all you like (e.g. to avoid clashing with another app's containers on the same host); just don't rename the service keys themselves unless you also update every reference to them (`BACKEND_URL`, `depends_on`).
+
 ### Published images
 
 Every push to `main` publishes `:latest`, and tagged releases (`vX.Y.Z`) publish matching semver tags, via [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml):

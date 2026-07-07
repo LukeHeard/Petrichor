@@ -1,5 +1,11 @@
 services:
-  petrichor-backend:
+  # The service keys below ("backend"/"frontend") are how containers find each other on
+  # the compose-managed network - Docker Compose registers each one as a DNS name
+  # automatically, independent of `container_name`. Rename `container_name` freely (e.g.
+  # to avoid colliding with another app's containers on the same host) without touching
+  # anything else; DO NOT rename the service keys themselves unless you also update every
+  # reference to them below (BACKEND_URL, depends_on).
+  backend:
     container_name: petrichor-backend
     image: ${BACKEND_IMAGE:-ghcr.io/lukeheard/petrichor-backend:latest}
     build: ./backend
@@ -12,7 +18,7 @@ services:
       - DATABASE_PATH=/app/data/kuzu
     restart: always
 
-  petrichor-frontend:
+  frontend:
     container_name: petrichor-frontend
     image: ${FRONTEND_IMAGE:-ghcr.io/lukeheard/petrichor-frontend:latest}
     build:
@@ -24,12 +30,14 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     depends_on:
-      petrichor-backend:
+      backend:
         condition: service_healthy
     ports:
       # Change the left-hand side to use a different host port.
       - "3000:3000"
     environment:
+      # "backend" here is the service key above, not container_name - this line never
+      # needs to change even if you rename container_name.
       - BACKEND_URL=http://backend:8000
     restart: always
 
