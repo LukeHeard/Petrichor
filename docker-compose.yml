@@ -24,7 +24,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     depends_on:
-      backend:
+      petrichor-backend:
         condition: service_healthy
     ports:
       # Change the left-hand side to use a different host port.
