@@ -497,6 +497,30 @@ export default function GalaxyPage() {
               View Full Details →
             </button>
           )}
+
+          {selectedNode.type === 'Author' && (
+            <button
+              className="galaxy-inspector-detail-btn"
+              onClick={() => {
+                const authorId = selectedNode.id.replace('author_', '');
+                router.push(`/authors/${authorId}`);
+              }}
+            >
+              View Author&apos;s Works →
+            </button>
+          )}
+
+          {selectedNode.type === 'Series' && (
+            <button
+              className="galaxy-inspector-detail-btn"
+              onClick={() => {
+                const seriesId = selectedNode.id.replace('series_', '');
+                router.push(`/series/${seriesId}`);
+              }}
+            >
+              View Series →
+            </button>
+          )}
         </div>
       )}
     </div>

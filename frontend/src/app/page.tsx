@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { TrendingUp, Clock, BookOpen } from "lucide-react";
+import { TrendingUp, Clock, BookOpen, Flame } from "lucide-react";
 
 interface CurrentWorkProgress {
   id: number;
@@ -31,6 +31,7 @@ function HomeContent() {
 
   const [currentlyReading, setCurrentlyReading] = useState<CurrentWorkProgress[]>([]);
   const [recentActivity, setRecentActivity] = useState<ReadingSession[]>([]);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const handleBookClick = (id: number) => {
@@ -49,6 +50,7 @@ function HomeContent() {
             const statsData = await statsRes.json();
             console.log("Stats data received:", statsData);
             setCurrentlyReading(statsData.currently_reading || []);
+            setCurrentStreak(statsData.summary?.current_streak_days || 0);
           } else {
             console.error("Stats fetch failed with status:", statsRes.status);
           }
@@ -105,9 +107,17 @@ function HomeContent() {
 
   return (
     <div className="fade-in-up">
-      <header style={{ marginBottom: '3rem' }}>
-        <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Home</span></h1>
-        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>"Maybe home is nothing but two planks of wood laid across a fire." — C.S. Lewis</p>
+      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+        <div>
+          <h1 style={{ marginBottom: '0.25rem' }}>Petrichor <span style={{ opacity: 0.5, fontWeight: 400 }}>Home</span></h1>
+          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', letterSpacing: '0.02em' }}>"Maybe home is nothing but two planks of wood laid across a fire." — C.S. Lewis</p>
+        </div>
+        {!loading && currentStreak > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent)', whiteSpace: 'nowrap' }}>
+            <Flame size={18} />
+            {currentStreak} day{currentStreak === 1 ? "" : "s"} streak
+          </div>
+        )}
       </header>
 
       <section>

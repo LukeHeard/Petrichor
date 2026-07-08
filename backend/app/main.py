@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+import re
 import logging
 import time
 import shutil
@@ -35,6 +36,47 @@ app.add_middleware(
 )
 
 app.mount("/uploads", StaticFiles(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../uploads")), name="uploads")
+
+COMPILATION_TITLE_MARKERS = ("collection", "omnibus", "box set", "boxset", "boxed set", "bundle", "complete series")
+
+def is_compilation_title(title: str) -> bool:
+    """Goodreads' autocomplete/series pages surface boxsets, omnibus editions, and
+    numbered bundles (e.g. "Chronicles #2-6") alongside individual books - these
+    aren't "missing" books so much as repackaged ones already owned."""
+    lowered = title.lower()
+    if any(marker in lowered for marker in COMPILATION_TITLE_MARKERS):
+        return True
+    return bool(re.search(r'#\d+\s*[-–—]\s*\d+', title))
+
+def is_non_english_title(title: str) -> bool:
+    """Series/author listing pages mix in every foreign-language edition alongside
+    the originals - a plain non-ASCII check filters out most of that noise (accented
+    Latin, Cyrillic, etc.) without needing real language detection."""
+    return not title.isascii()
+
+# Regional/translated editions on series and author listing pages typically have
+# 2-3 orders of magnitude fewer ratings than the primary English edition (e.g. a
+# Finnish "Dune" translation sitting at ~600 ratings next to the original's 430k+),
+# so a low floor cleanly filters most of them out even when the title itself
+# passes the ASCII check (e.g. transliterated titles with no diacritics).
+MIN_DISCOVER_RATING_COUNT = 1000
+
+def attach_tags(conn, works: list[dict]):
+    """Fetch and attach HAS_TAG names onto a list of work dicts, in place."""
+    if not works:
+        return
+    # Kuzu's execute() doesn't accept Python lists as query parameters, so the
+    # (internal, integer-only) id list is inlined directly into the Cypher text.
+    id_list = ", ".join(str(int(w["id"])) for w in works)
+    tag_result = conn.execute(
+        f"MATCH (w:Work)-[:HAS_TAG]->(t:Tag) WHERE w.id IN [{id_list}] RETURN w.id, t.name"
+    )
+    tag_map: dict[int, list[str]] = {}
+    while tag_result.has_next():
+        t_row = tag_result.get_next()
+        tag_map.setdefault(t_row[0], []).append(t_row[1])
+    for w in works:
+        w["tags"] = tag_map.get(w["id"], [])
 
 @app.on_event("shutdown")
 async def shutdown_goodreads_client():
@@ -513,6 +555,131 @@ def list_authors(db: DatabaseManager = Depends(get_db)):
         logger.error(f"Error listing authors: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/authors/{author_id}", response_model=schemas.AuthorDetail)
+def get_author(author_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        author_res = conn.execute("MATCH (a:Author) WHERE a.id = $id RETURN a.id, a.name", {"id": author_id})
+        if not author_res.has_next():
+            raise HTTPException(status_code=404, detail="Author not found")
+        author_row = author_res.get_next()
+
+        result = conn.execute(
+            "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE a.id = $id "
+            "OPTIONAL MATCH (w)-[:IS_IN_SERIES]->(s:Series) "
+            "RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, "
+            "w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, "
+            "w.review, w.personal_notes, w.created_at, s.id, s.name "
+            "ORDER BY w.first_publish_year",
+            {"id": author_id}
+        )
+        works = []
+        while result.has_next():
+            row = result.get_next()
+            works.append({
+                "id": row[0], "title": row[1], "goodreads_id": row[2], "thumbnail_url": row[3],
+                "author": author_row[1], "author_id": author_id,
+                "first_publish_year": row[4], "description": row[5], "page_count": row[6],
+                "current_page": row[7], "rating_average": row[8], "rating_count": row[9],
+                "personal_rating": row[10], "status": row[11], "review": row[12],
+                "personal_notes": row[13], "created_at": row[14],
+                "series_id": row[15], "series": row[16], "tags": []
+            })
+
+        attach_tags(conn, works)
+        return {"id": author_row[0], "name": author_row[1], "works": works}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting author {author_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/authors/{author_id}/discover", response_model=list[schemas.SearchResult])
+async def discover_author_works(author_id: int, db: DatabaseManager = Depends(get_db)):
+    """Find other books by this author not yet in the library."""
+    conn = db.get_connection()
+    author_res = conn.execute(
+        "MATCH (a:Author) WHERE a.id = $id RETURN a.name, a.goodreads_author_id",
+        {"id": author_id}
+    )
+    if not author_res.has_next():
+        raise HTTPException(status_code=404, detail="Author not found")
+    author_name, stored_gr_author_id = author_res.get_next()
+
+    owned_res = conn.execute(
+        "MATCH (a:Author)-[:WROTE]->(w:Work) WHERE a.id = $id "
+        "OPTIONAL MATCH (w)-[:IS_IN_SERIES]->(s:Series) RETURN w.goodreads_id, w.title, s.name",
+        {"id": author_id}
+    )
+    owned_gr_ids, owned_titles, series_names, owned_work_gr_ids = set(), set(), set(), []
+    while owned_res.has_next():
+        gr_id, title, series_name = owned_res.get_next()
+        if gr_id:
+            owned_gr_ids.add(gr_id)
+            owned_work_gr_ids.append(gr_id)
+        owned_titles.add(title.strip().lower())
+        if series_name:
+            series_names.add(series_name)
+
+    # Self-heal: learn this author's real Goodreads numeric id from one of their
+    # already-enriched owned works, so future lookups can skip straight to it.
+    if not stored_gr_author_id and owned_work_gr_ids:
+        try:
+            details = await GoodreadsScraper.get_details(owned_work_gr_ids[0])
+        except Exception as e:
+            details = None
+            logger.warning(f"Could not resolve Goodreads author id for '{author_name}': {e}")
+        if details and details.get("author_goodreads_id"):
+            stored_gr_author_id = details["author_goodreads_id"]
+            conn.execute(
+                "MATCH (a:Author) WHERE a.id = $id SET a.goodreads_author_id = $gid",
+                {"id": author_id, "gid": stored_gr_author_id}
+            )
+
+    discovered, seen_gr_ids = [], set()
+
+    if stored_gr_author_id:
+        # A complete, ordered bibliography from the author's own Goodreads page -
+        # far more thorough than fuzzy /book/auto_complete search matching, which
+        # regularly only surfaces a handful of an author's books.
+        try:
+            results = await GoodreadsScraper.get_author_books(stored_gr_author_id, limit=40)
+        except Exception as e:
+            logger.warning(f"Author bibliography fetch failed for '{author_name}': {e}")
+            results = []
+        for r in results:
+            if is_compilation_title(r["title"]) or is_non_english_title(r["title"]):
+                continue
+            if (r.get("rating_count") or 0) < MIN_DISCOVER_RATING_COUNT:
+                continue
+            gr_id = r.get("goodreads_id")
+            if gr_id in owned_gr_ids or r["title"].strip().lower() in owned_titles or gr_id in seen_gr_ids:
+                continue
+            seen_gr_ids.add(gr_id)
+            discovered.append(r)
+        return discovered
+
+    # Fallback for authors with no resolvable Goodreads id (e.g. manually added,
+    # no goodreads_id on any owned work yet): fuzzy search by name and known series.
+    for query in [author_name, *series_names]:
+        try:
+            results = await GoodreadsScraper.search(query, limit=20)
+        except Exception as e:
+            logger.warning(f"Discover search failed for author '{author_name}' (query '{query}'): {e}")
+            continue
+        for r in results:
+            if r["author"].strip().lower() != author_name.strip().lower():
+                continue
+            if is_compilation_title(r["title"]) or is_non_english_title(r["title"]):
+                continue
+            gr_id = r.get("goodreads_id")
+            if gr_id in owned_gr_ids or r["title"].strip().lower() in owned_titles or gr_id in seen_gr_ids:
+                continue
+            seen_gr_ids.add(gr_id)
+            discovered.append(r)
+
+    return discovered
+
 @app.post("/debug/merge-authors")
 def merge_duplicate_authors(db: DatabaseManager = Depends(get_db)):
     conn = db.get_connection()
@@ -596,6 +763,137 @@ def list_series(db: DatabaseManager = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error listing series: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/series/{series_id}", response_model=schemas.SeriesDetail)
+def get_series(series_id: int, db: DatabaseManager = Depends(get_db)):
+    conn = db.get_connection()
+    try:
+        series_res = conn.execute("MATCH (s:Series) WHERE s.id = $id RETURN s.id, s.name", {"id": series_id})
+        if not series_res.has_next():
+            raise HTTPException(status_code=404, detail="Series not found")
+        series_row = series_res.get_next()
+
+        result = conn.execute(
+            "MATCH (w:Work)-[:IS_IN_SERIES]->(s:Series) WHERE s.id = $id "
+            "OPTIONAL MATCH (a:Author)-[:WROTE]->(w) "
+            "RETURN w.id, w.title, w.goodreads_id, w.thumbnail_url, w.first_publish_year, w.description, "
+            "w.page_count, w.current_page, w.rating_average, w.rating_count, w.personal_rating, w.status, "
+            "w.review, w.personal_notes, w.created_at, a.id, a.name "
+            "ORDER BY w.first_publish_year",
+            {"id": series_id}
+        )
+        works = []
+        while result.has_next():
+            row = result.get_next()
+            works.append({
+                "id": row[0], "title": row[1], "goodreads_id": row[2], "thumbnail_url": row[3],
+                "first_publish_year": row[4], "description": row[5], "page_count": row[6],
+                "current_page": row[7], "rating_average": row[8], "rating_count": row[9],
+                "personal_rating": row[10], "status": row[11], "review": row[12],
+                "personal_notes": row[13], "created_at": row[14],
+                "author_id": row[15], "author": row[16],
+                "series_id": series_id, "series": series_row[1], "tags": []
+            })
+
+        attach_tags(conn, works)
+        return {"id": series_row[0], "name": series_row[1], "works": works}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting series {series_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/series/{series_id}/discover", response_model=list[schemas.SearchResult])
+async def discover_series_works(series_id: int, db: DatabaseManager = Depends(get_db)):
+    """Find other books in this series not yet in the library."""
+    conn = db.get_connection()
+    series_res = conn.execute(
+        "MATCH (s:Series) WHERE s.id = $id RETURN s.name, s.goodreads_series_url",
+        {"id": series_id}
+    )
+    if not series_res.has_next():
+        raise HTTPException(status_code=404, detail="Series not found")
+    series_name, stored_series_url = series_res.get_next()
+
+    owned_res = conn.execute(
+        "MATCH (w:Work)-[:IS_IN_SERIES]->(s:Series) WHERE s.id = $id "
+        "OPTIONAL MATCH (a:Author)-[:WROTE]->(w) RETURN w.goodreads_id, w.title, a.name",
+        {"id": series_id}
+    )
+    owned_gr_ids, owned_titles, known_authors, owned_work_gr_ids = set(), set(), set(), []
+    while owned_res.has_next():
+        gr_id, title, author_name = owned_res.get_next()
+        if gr_id:
+            owned_gr_ids.add(gr_id)
+            owned_work_gr_ids.append(gr_id)
+        owned_titles.add(title.strip().lower())
+        if author_name:
+            known_authors.add(author_name.strip().lower())
+
+    # Self-heal: learn this series' Goodreads page URL from one of the already-
+    # enriched owned works (matching on series NAME, since a book can belong to
+    # more than one series, e.g. a saga umbrella plus a sub-series).
+    if not stored_series_url and owned_work_gr_ids:
+        for gr_id in owned_work_gr_ids:
+            try:
+                details = await GoodreadsScraper.get_details(gr_id)
+            except Exception as e:
+                logger.warning(f"Could not resolve Goodreads series url for '{series_name}': {e}")
+                continue
+            if details and details.get("series_url") and details.get("series", "").strip().lower() == series_name.strip().lower():
+                stored_series_url = details["series_url"]
+                conn.execute(
+                    "MATCH (s:Series) WHERE s.id = $id SET s.goodreads_series_url = $url",
+                    {"id": series_id, "url": stored_series_url}
+                )
+                break
+
+    discovered, seen_gr_ids = [], set()
+
+    if stored_series_url:
+        # The series' own Goodreads page lists every entry directly, in reading
+        # order - far more complete than fuzzy search, which misses sequels whose
+        # own book page doesn't carry a "(Series, #N)" annotation in its title.
+        try:
+            results = await GoodreadsScraper.get_series_books(stored_series_url, series_name=series_name, limit=40)
+        except Exception as e:
+            logger.warning(f"Series listing fetch failed for '{series_name}': {e}")
+            results = []
+        for r in results:
+            if is_compilation_title(r["title"]) or is_non_english_title(r["title"]):
+                continue
+            if (r.get("rating_count") or 0) < MIN_DISCOVER_RATING_COUNT:
+                continue
+            gr_id = r.get("goodreads_id")
+            if gr_id in owned_gr_ids or r["title"].strip().lower() in owned_titles or gr_id in seen_gr_ids:
+                continue
+            seen_gr_ids.add(gr_id)
+            discovered.append(r)
+        return discovered
+
+    # Fallback for series with no resolvable Goodreads page yet: fuzzy search by
+    # series name, also accepting same-author results since autocomplete doesn't
+    # always tag the series field on sequel titles.
+    try:
+        results = await GoodreadsScraper.search(series_name, limit=20)
+    except Exception as e:
+        logger.warning(f"Discover search failed for series '{series_name}': {e}")
+        return []
+
+    for r in results:
+        series_matches = (r.get("series") or "").strip().lower() == series_name.strip().lower()
+        author_matches = r["author"].strip().lower() in known_authors
+        if not series_matches and not author_matches:
+            continue
+        if is_compilation_title(r["title"]) or is_non_english_title(r["title"]):
+            continue
+        gr_id = r.get("goodreads_id")
+        if gr_id in owned_gr_ids or r["title"].strip().lower() in owned_titles or gr_id in seen_gr_ids:
+            continue
+        seen_gr_ids.add(gr_id)
+        discovered.append(r)
+
+    return discovered
 
 @app.post("/works/{work_id}/series/{series_id}")
 def link_series_to_work(work_id: int, series_id: int, db: DatabaseManager = Depends(get_db)):
@@ -814,7 +1112,30 @@ def get_stats(
             total_pages_all_time = 0
             total_minutes_all_time = 0
             total_sessions_all_time = 0
-        
+
+        # 1.6 Reading Streaks (based on distinct days with a logged session, all-time)
+        res_days = conn.execute("MATCH (s:ReadingSession) RETURN DISTINCT s.date ORDER BY s.date")
+        session_dates = []
+        while res_days.has_next():
+            session_dates.append(datetime.strptime(res_days.get_next()[0], fmt).date())
+
+        longest_streak = 0
+        running_streak = 0
+        prev_date = None
+        for d in session_dates:
+            if prev_date is not None and (d - prev_date).days == 1:
+                running_streak += 1
+            else:
+                running_streak = 1
+            longest_streak = max(longest_streak, running_streak)
+            prev_date = d
+
+        current_streak = 0
+        if session_dates:
+            days_since_last = (now.date() - session_dates[-1]).days
+            if days_since_last <= 1:
+                current_streak = running_streak
+
         chart_start = req_start
         if db_earliest_date_str:
             db_earliest = datetime.strptime(db_earliest_date_str, fmt)
@@ -950,7 +1271,9 @@ def get_stats(
                 "total_pages_all_time": total_pages_all_time,
                 "total_minutes_all_time": total_minutes_all_time,
                 "total_sessions_all_time": total_sessions_all_time,
-                "tsundoku_count": tsundoku_count
+                "tsundoku_count": tsundoku_count,
+                "current_streak_days": current_streak,
+                "longest_streak_days": longest_streak
             },
             "daily_activity": activity_data, # Kept key name for frontend compat, but content varies
             "tag_distribution": tag_distribution,
