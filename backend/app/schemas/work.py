@@ -59,6 +59,9 @@ class Author(AuthorBase):
     class Config:
         from_attributes = True
 
+class AuthorDetail(Author):
+    works: List[Work] = []
+
 class SeriesBase(BaseModel):
     name: str
 
@@ -70,6 +73,9 @@ class Series(SeriesBase):
 
     class Config:
         from_attributes = True
+
+class SeriesDetail(Series):
+    works: List[Work] = []
 
 class SearchResult(BaseModel):
     title: str

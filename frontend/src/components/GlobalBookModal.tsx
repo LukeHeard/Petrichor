@@ -38,6 +38,14 @@ interface Series {
   name: string;
 }
 
+// Module-level (not component state) so this modal survives navigating away and
+// back (e.g. to an author/series page and hitting Back) without blanking out
+// and re-fetching from scratch - the same book/lists are shown instantly while
+// a fresh copy is quietly fetched behind them.
+const bookDetailCache = new Map<string, FullWork>();
+let cachedAuthorList: Author[] | null = null;
+let cachedSeriesList: Series[] | null = null;
+
 export default function GlobalBookModal() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -47,6 +55,8 @@ export default function GlobalBookModal() {
 
   const [book, setBook] = useState<FullWork | null>(null);
   const [loading, setLoading] = useState(false);
+  const hasMountedRef = useRef(false);
+  const openedInAppRef = useRef(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -76,11 +86,33 @@ export default function GlobalBookModal() {
   const [coverUploading, setCoverUploading] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
+  const applyBook = (data: FullWork) => {
+    setBook(data);
+    setEditTitle(data.title);
+    setEditYear(data.first_publish_year);
+    setEditDescription(data.description || "");
+    setEditPages(data.page_count || 0);
+    setEditTags(data.tags || []);
+    setEditAuthorId(data.author_id);
+    setEditAuthorInput(data.author || "");
+    setEditSeriesId(data.series_id);
+    setEditSeriesInput(data.series || "");
+    setEditThumbnailUrl(data.thumbnail_url);
+  };
+
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (bookId) {
-      setLoading(true);
-      setBook(null);
+      const cachedBook = bookDetailCache.get(bookId);
+      if (cachedBook) {
+        applyBook(cachedBook);
+        setLoading(false);
+      } else {
+        setLoading(true);
+        setBook(null);
+      }
+      if (cachedAuthorList) setAuthors(cachedAuthorList);
+      if (cachedSeriesList) setSeriesList(cachedSeriesList);
       setTimedOut(false);
       setIsDeleting(false);
 
@@ -95,19 +127,12 @@ export default function GlobalBookModal() {
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/series`).then(res => res.json()),
       ])
         .then(([data, authorList, seriesData]) => {
-          setBook(data);
-          setEditTitle(data.title);
-          setEditYear(data.first_publish_year);
-          setEditDescription(data.description || "");
-          setEditPages(data.page_count || 0);
-          setEditTags(data.tags || []);
-          setEditAuthorId(data.author_id);
-          setEditAuthorInput(data.author || "");
+          bookDetailCache.set(bookId, data);
+          cachedAuthorList = authorList;
+          cachedSeriesList = seriesData;
+          applyBook(data);
           setAuthors(authorList);
-          setEditSeriesId(data.series_id);
-          setEditSeriesInput(data.series || "");
           setSeriesList(seriesData);
-          setEditThumbnailUrl(data.thumbnail_url);
           clearTimeout(timer);
         })
         .catch(err => console.error(err))
@@ -123,20 +148,47 @@ export default function GlobalBookModal() {
   useEffect(() => {
     const handleUpdate = (e: any) => {
       if (book && e.detail.id === book.id) {
-        setBook({ ...book, ...e.detail });
+        const updated = { ...book, ...e.detail };
+        setBook(updated);
+        bookDetailCache.set(String(book.id), updated);
       }
     };
     window.addEventListener("petrichor:workUpdated", handleUpdate);
     return () => window.removeEventListener("petrichor:workUpdated", handleUpdate);
   }, [book]);
 
+  // Tracks whether book_id appeared via an in-app navigation (safe to router.back()
+  // out of) versus already being in the URL on first mount, e.g. a direct/deep link
+  // (where there's no in-app history entry underneath it to go back to).
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+    } else if (bookId) {
+      openedInAppRef.current = true;
+    }
+    if (!bookId) {
+      openedInAppRef.current = false;
+    }
+  }, [bookId]);
+
   if (!bookId) return null;
 
   const closeModal = () => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    newParams.delete("book_id");
-    const query = newParams.toString();
-    router.push(`${pathname}${query ? `?${query}` : ''}`);
+    // Every call site that opens this modal does so with router.push, adding a single
+    // history entry (current path + ?book_id=X). Closing must undo that with back(),
+    // not push a second "stripped" entry - otherwise open+close pairs pile up two
+    // entries each, and the browser Back button just reopens the modal instead of
+    // leaving the page it was opened from. openedInAppRef distinguishes that normal
+    // case from a direct/deep link that already had book_id on first load, where
+    // there's no in-app history entry to undo.
+    if (openedInAppRef.current) {
+      router.back();
+    } else {
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete("book_id");
+      const query = newParams.toString();
+      router.push(`${pathname}${query ? `?${query}` : ''}`);
+    }
     setIsEditing(false);
   };
 
@@ -182,7 +234,11 @@ export default function GlobalBookModal() {
         if (authorRes.ok) {
           const authorData = await authorRes.json();
           resolvedAuthorId = authorData.id;
-          setAuthors(prev => prev.some(a => a.id === authorData.id) ? prev : [...prev, authorData]);
+          setAuthors(prev => {
+            const next = prev.some(a => a.id === authorData.id) ? prev : [...prev, authorData];
+            cachedAuthorList = next;
+            return next;
+          });
         }
       }
 
@@ -198,7 +254,11 @@ export default function GlobalBookModal() {
         if (seriesRes.ok) {
           const seriesData = await seriesRes.json();
           resolvedSeriesId = seriesData.id;
-          setSeriesList(prev => prev.some(s => s.id === seriesData.id) ? prev : [...prev, seriesData]);
+          setSeriesList(prev => {
+            const next = prev.some(s => s.id === seriesData.id) ? prev : [...prev, seriesData];
+            cachedSeriesList = next;
+            return next;
+          });
         }
       }
       // If the series field was cleared, send -1 to remove the series
@@ -222,6 +282,7 @@ export default function GlobalBookModal() {
       if (res.ok) {
         const updatedWork = await res.json();
         setBook(updatedWork);
+        bookDetailCache.set(String(updatedWork.id), updatedWork);
         setIsEditing(false);
         // Refresh library list
         window.dispatchEvent(new Event("petrichor:workAdded"));
@@ -695,6 +756,7 @@ export default function GlobalBookModal() {
                               try {
                                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works/${book.id}`, { method: 'DELETE' });
                                 if (res.ok) {
+                                  bookDetailCache.delete(String(book.id));
                                   window.dispatchEvent(new Event("petrichor:workAdded"));
                                   closeModal();
                                 }

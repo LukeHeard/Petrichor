@@ -5,8 +5,8 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie
 } from "recharts";
-import { 
-  ChevronLeft, ChevronRight, BookOpen, Clock, Layers, Star, TrendingUp, Calendar, Book, Inbox, Zap, Timer
+import {
+  ChevronLeft, ChevronRight, BookOpen, Clock, Layers, Star, TrendingUp, Calendar, Book, Inbox, Zap, Timer, Flame
 } from "lucide-react";
 
 interface DailyStat {
@@ -40,6 +40,8 @@ interface StatsData {
     total_minutes_all_time: number;
     total_sessions_all_time: number;
     tsundoku_count: number;
+    current_streak_days: number;
+    longest_streak_days: number;
   };
   daily_activity: DailyStat[];
   tag_distribution: DistributionStat[];
@@ -318,13 +320,35 @@ function StatsContent() {
             <div className="stats-card">
               <span className="stats-label">Avg Mins / Log</span>
               <div className="stats-value">
-                {(data.summary.total_sessions_all_time || 0) > 0 
-                  ? Math.round(data.summary.total_minutes_all_time / data.summary.total_sessions_all_time) 
+                {(data.summary.total_sessions_all_time || 0) > 0
+                  ? Math.round(data.summary.total_minutes_all_time / data.summary.total_sessions_all_time)
                   : 0
                 }
               </div>
               <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
                 <Timer size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Current Streak</span>
+              <div className="stats-value">
+                {data.summary.current_streak_days || 0}
+                <span className="stats-unit">{data.summary.current_streak_days === 1 ? "day" : "days"}</span>
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Flame size={40} />
+              </div>
+            </div>
+
+            <div className="stats-card">
+              <span className="stats-label">Longest Streak</span>
+              <div className="stats-value">
+                {data.summary.longest_streak_days || 0}
+                <span className="stats-unit">{data.summary.longest_streak_days === 1 ? "day" : "days"}</span>
+              </div>
+              <div style={{ position: 'absolute', right: '1rem', bottom: '0.5rem', opacity: 0.1 }}>
+                <Flame size={40} />
               </div>
             </div>
           </div>

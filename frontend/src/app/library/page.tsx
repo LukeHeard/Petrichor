@@ -21,6 +21,11 @@ interface Work {
   created_at?: number;
 }
 
+// Module-level (not component state) so it survives the page unmounting on route
+// navigation - returning to the library shows the last-known list instantly instead
+// of flashing back to an empty/loading grid while it refetches in the background.
+let cachedWorks: Work[] | null = null;
+
 export const MIN_GRID_COLUMNS = 2;
 export const MAX_GRID_COLUMNS = 6;
 const DEFAULT_GRID_COLUMNS = 4;
@@ -51,8 +56,8 @@ function useViewportColumnCap() {
 }
 
 function LibraryContent() {
-  const [works, setWorks] = useState<Work[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [works, setWorks] = useState<Work[]>(cachedWorks || []);
+  const [loading, setLoading] = useState(!cachedWorks);
   const [showSpinner, setShowSpinner] = useState(false);
 
   // Filter & Sort State
@@ -116,11 +121,15 @@ function LibraryContent() {
   }, [loading]);
 
   const fetchWorks = useCallback(async () => {
-    setLoading(true);
+    // Only show the loading state on a cold start - if we already have a cached
+    // list (e.g. returning from an author/series page), keep it visible while
+    // this revalidates in the background instead of blanking the grid first.
+    if (!cachedWorks) setLoading(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/works`);
       if (response.ok) {
         const data = await response.json();
+        cachedWorks = data;
         setWorks(data);
       }
     } catch (err) {

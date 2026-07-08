@@ -69,18 +69,27 @@ class DatabaseManager:
                         self._create_table(name, stmt)
 
                 # Migration: add columns that may be missing from older schemas
-                try:
-                    res = self.conn.execute("CALL TABLE_INFO('Work') RETURN *")
-                    cols = []
-                    while res.has_next():
-                        cols.append(res.get_next()[1])
-                    for col_name, col_type in {"thumbnail_url": "STRING", "goodreads_id": "STRING", "current_page": "INT64"}.items():
-                        if col_name not in cols:
-                            default_val = "0" if col_type == "INT64" else "''"
-                            self.conn.execute(f"ALTER TABLE Work ADD {col_name} {col_type} DEFAULT {default_val}")
-                            logger.info(f"Migrated: added {col_name} to Work table")
-                except Exception as e:
-                    logger.warning(f"Migration check failed (non-fatal): {e}")
+                table_migrations = {
+                    "Work": {"thumbnail_url": "STRING", "goodreads_id": "STRING", "current_page": "INT64"},
+                    # Goodreads' own numeric author id / series page URL, captured opportunistically
+                    # during enrichment so future "discover more" lookups can fetch a complete
+                    # bibliography/series listing instead of relying on fuzzy search matching.
+                    "Author": {"goodreads_author_id": "INT64"},
+                    "Series": {"goodreads_series_url": "STRING"},
+                }
+                for table_name, columns in table_migrations.items():
+                    try:
+                        res = self.conn.execute(f"CALL TABLE_INFO('{table_name}') RETURN *")
+                        cols = []
+                        while res.has_next():
+                            cols.append(res.get_next()[1])
+                        for col_name, col_type in columns.items():
+                            if col_name not in cols:
+                                default_val = "0" if col_type == "INT64" else "''"
+                                self.conn.execute(f"ALTER TABLE {table_name} ADD {col_name} {col_type} DEFAULT {default_val}")
+                                logger.info(f"Migrated: added {col_name} to {table_name} table")
+                    except Exception as e:
+                        logger.warning(f"Migration check failed for {table_name} (non-fatal): {e}")
 
                 logger.info("Schema initialization complete.")
             except Exception as e:

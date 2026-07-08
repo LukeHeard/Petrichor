@@ -28,6 +28,8 @@ class StatsSummary(BaseModel):
     total_minutes_all_time: int
     total_sessions_all_time: int
     tsundoku_count: int
+    current_streak_days: int
+    longest_streak_days: int
 
 class StatsResponse(BaseModel):
     summary: StatsSummary

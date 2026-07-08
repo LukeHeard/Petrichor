@@ -88,7 +88,7 @@ class GoodreadsScraper:
             return []
 
     @classmethod
-    async def search(cls, query: str):
+    async def search(cls, query: str, limit: int = 10):
         """Search Goodreads via its book/auto_complete JSON endpoint.
 
         Goodreads' HTML /search page is now gated behind an AWS WAF JS
@@ -99,7 +99,7 @@ class GoodreadsScraper:
         items = await cls._search_fetch(query)
 
         results = []
-        for item in items[:10]:
+        for item in items[:limit]:
             title = item.get("title", "") or item.get("bookTitleBare", "")
             clean_title = re.sub(r'\(.*?\)', '', title).strip()
 
@@ -200,6 +200,7 @@ class GoodreadsScraper:
 
             # Authors
             authors_list = "Unknown"
+            author_goodreads_id = None
             contrib_field = book_data.get("primaryContributorEdge")
             if isinstance(contrib_field, dict):
                  edge = contrib_field
@@ -208,6 +209,7 @@ class GoodreadsScraper:
                  node_ref = edge.get("node", {}).get("__ref", "")
                  node = apollo.get(node_ref, {})
                  authors_list = node.get("name", "Unknown")
+                 author_goodreads_id = node.get("legacyId")
 
             # Image
             thumbnail = clean_gr_image_url(book_data.get("imageUrl", ""))
@@ -290,29 +292,26 @@ class GoodreadsScraper:
             tags = final_tags
 
             # Series
+            # Each bookSeries entry is {"__typename": "BookSeries", "userPosition": ...,
+            # "series": {"__ref": "Series:..."}} - the ref is nested under "series",
+            # not on the BookSeries item itself.
             series_name = ""
+            series_url = ""
             book_series_list = book_data.get("bookSeries", [])
             if isinstance(book_series_list, list):
                 for bs_item in book_series_list:
-                    if isinstance(bs_item, dict):
-                        bs_ref = bs_item.get("__ref", "")
-                        if bs_ref:
-                            bs_data = apollo.get(bs_ref, {})
-                            # BookSeries may have a direct title
-                            bs_title = bs_data.get("title")
-                            if bs_title:
-                                series_name = bs_title
-                                break
-                            # Or it may have a nested Series ref
-                            series_ref_field = bs_data.get("series", {})
-                            if isinstance(series_ref_field, dict):
-                                nested_ref = series_ref_field.get("__ref", "")
-                                if nested_ref:
-                                    nested = apollo.get(nested_ref, {})
-                                    s_title = nested.get("title")
-                                    if s_title:
-                                        series_name = s_title
-                                        break
+                    if not isinstance(bs_item, dict):
+                        continue
+                    series_ref_field = bs_item.get("series", {})
+                    series_ref = series_ref_field.get("__ref", "") if isinstance(series_ref_field, dict) else ""
+                    if not series_ref:
+                        continue
+                    series_data = apollo.get(series_ref, {})
+                    s_title = series_data.get("title")
+                    if s_title:
+                        series_name = s_title
+                        series_url = series_data.get("webUrl", "")
+                        break
 
             # Fallback: extract series from the raw title parenthetical
             if not series_name and title:
@@ -378,10 +377,106 @@ class GoodreadsScraper:
                 "tags": list(dict.fromkeys(tags))[:8],
                 "page_count": page_count,
                 "first_publish_year": publish_year,
-                "series": series_name
+                "series": series_name,
+                "series_url": series_url,
+                "author_goodreads_id": author_goodreads_id
             }
 
         except Exception as e:
             logger.error(f"Error parsing Goodreads NEXT_DATA: {e}")
-            
+
         return None
+
+    @classmethod
+    async def get_author_books(cls, author_goodreads_id, limit: int = 30):
+        """Scrape an author's Goodreads "list" page for their full bibliography.
+
+        The /book/auto_complete search endpoint is fuzzy-matched against whatever
+        query text is passed in and frequently only surfaces a handful of an
+        author's books (and inconsistently at that) - this legacy server-rendered
+        listing page instead gives a complete, ordered bibliography in one request.
+        """
+        url = f"{cls.BASE_URL}/author/list/{author_goodreads_id}"
+        html = await cls._fetch(url)
+        if not html:
+            return []
+
+        results = []
+        for row_match in re.finditer(r'<tr itemscope itemtype="http://schema\.org/Book">(.*?)</tr>', html, re.DOTALL):
+            row = row_match.group(1)
+
+            id_match = re.search(r'/book/show/(\d+)-', row)
+            if not id_match:
+                continue
+
+            title_match = re.search(r"""itemprop=['"]name['"]\s+role=['"]heading['"][^>]*>([^<]+)<""", row)
+            if not title_match:
+                continue
+            raw_title = title_match.group(1).strip()
+            clean_title = re.sub(r'\(.*?\)', '', raw_title).strip()
+
+            series_match = re.search(r'\(([^,)]+),\s*(?:#|Book\s+)\d', raw_title, re.IGNORECASE)
+
+            author_match = re.search(r'class="authorName"[^>]*>\s*<span itemprop="name">([^<]+)<', row)
+            rating_match = re.search(r'([\d.]+)\s*avg rating', row)
+            count_match = re.search(r'avg rating\s*&mdash;\s*([\d,]+)\s*rating', row)
+            year_match = re.search(r'published\s*(\d{4})', row)
+            thumb_match = re.search(r'class="bookCover"[^>]*src="([^"]+)"', row)
+
+            results.append({
+                "goodreads_id": id_match.group(1),
+                "title": clean_title,
+                "author": author_match.group(1).strip() if author_match else "Unknown",
+                "rating_average": float(rating_match.group(1)) if rating_match else 0.0,
+                "rating_count": int(count_match.group(1).replace(",", "")) if count_match else 0,
+                "thumbnail_url": clean_gr_image_url(thumb_match.group(1)) if thumb_match else "",
+                "first_publish_year": int(year_match.group(1)) if year_match else 0,
+                "series": series_match.group(1).strip() if series_match else ""
+            })
+            if len(results) >= limit:
+                break
+
+        return results
+
+    @classmethod
+    async def get_series_books(cls, series_url: str, series_name: str = "", limit: int = 30):
+        """Scrape a series' Goodreads page for its complete book list.
+
+        Sequel titles frequently don't carry a "(Series, #N)" annotation on their own
+        book page, so the fuzzy autocomplete search's series-field detection misses
+        them - the series page itself lists every entry directly, in reading order.
+        """
+        html = await cls._fetch(series_url)
+        if not html:
+            return []
+
+        title_pattern = re.compile(
+            r'<a class="gr-h3 gr-h3--serif gr-h3--noMargin" href="/book/show/(\d+)-[^"]*" itemprop="url"[^>]*>\s*'
+            r'<span itemprop="name"[^>]*>([^<]+)</span>'
+        )
+        matches = list(title_pattern.finditer(html))
+
+        results = []
+        for i, m in enumerate(matches[:limit]):
+            goodreads_id, title = m.group(1), m.group(2).strip()
+            window_end = matches[i + 1].start() if i + 1 < len(matches) else min(len(html), m.end() + 2000)
+            chunk = html[m.end():window_end]
+            preceding = html[max(0, m.start() - 800):m.start()]
+
+            author_match = re.search(r'itemprop="author"[\s\S]*?<a itemprop="url"[^>]*>([^<]+)<', chunk)
+            rating_match = re.search(r'Rated ([\d.]+) of 5', chunk)
+            count_match = re.search(r'>([\d,]+)</span><span[^>]*>\s*Ratings</span>', chunk)
+            thumb_match = re.search(r'<img src="([^"]+)"', preceding)
+
+            results.append({
+                "goodreads_id": goodreads_id,
+                "title": title,
+                "author": author_match.group(1).strip() if author_match else "Unknown",
+                "rating_average": float(rating_match.group(1)) if rating_match else 0.0,
+                "rating_count": int(count_match.group(1).replace(",", "")) if count_match else 0,
+                "thumbnail_url": clean_gr_image_url(thumb_match.group(1)) if thumb_match else "",
+                "first_publish_year": 0,
+                "series": series_name
+            })
+
+        return results

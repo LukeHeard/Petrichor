@@ -1,10 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 interface BookDetailsContentProps {
   book: {
     title: string;
     author?: string;
+    author_id?: number;
     series?: string;
+    series_id?: number;
     first_publish_year?: number;
     description?: string;
     page_count?: number;
@@ -19,6 +23,8 @@ interface BookDetailsContentProps {
 }
 
 export default function BookDetailsContent({ book, actions }: BookDetailsContentProps) {
+  const router = useRouter();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeInUp 0.3s ease' }}>
       {book.thumbnail_url && (
@@ -39,11 +45,30 @@ export default function BookDetailsContent({ book, actions }: BookDetailsContent
         </div>
       )}
       <h2 className="font-serif" style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem' }}>{book.title}</h2>
-      <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: book.series ? '0.25rem' : '0.5rem', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+      <p
+        style={{
+          color: 'var(--muted)', fontSize: '0.9rem', marginBottom: book.series ? '0.25rem' : '0.5rem',
+          fontFamily: 'var(--font-sans)', fontWeight: 500,
+          cursor: book.author_id !== undefined ? 'pointer' : undefined,
+          textDecoration: book.author_id !== undefined ? 'underline' : undefined,
+          textDecorationColor: 'color-mix(in srgb, var(--muted) 40%, transparent)',
+          textUnderlineOffset: '3px'
+        }}
+        onClick={() => book.author_id !== undefined && router.push(`/authors/${book.author_id}`)}
+      >
         {book.author}
       </p>
       {book.series && (
-        <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '0.5rem', fontFamily: 'var(--font-sans)', fontStyle: 'italic', opacity: 0.75 }}>
+        <p
+          style={{
+            color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '0.5rem',
+            fontFamily: 'var(--font-sans)', fontStyle: 'italic', opacity: 0.75,
+            cursor: book.series_id !== undefined ? 'pointer' : undefined,
+            textDecoration: book.series_id !== undefined ? 'underline' : undefined,
+            textUnderlineOffset: '3px'
+          }}
+          onClick={() => book.series_id !== undefined && router.push(`/series/${book.series_id}`)}
+        >
           {book.series}
         </p>
       )}
