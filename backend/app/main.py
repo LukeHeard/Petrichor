@@ -1421,10 +1421,15 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 def _kindle_settings_payload() -> settings_schemas.KindleSettings:
-    cookies, device_token = settings_store.get_kindle_credentials()
+    names = settings_store.kindle_cookie_names()
+    _, device_token = settings_store.get_kindle_credentials()
     return settings_schemas.KindleSettings(
-        configured=bool(cookies) and bool(device_token),
-        has_cookies=bool(cookies),
+        # Reflects real usability, incl. KINDLE_MOCK demo mode.
+        configured=KindleClient.is_configured(),
+        has_ubid_main="ubid-main" in names,
+        has_at_main="at-main" in names,
+        has_x_main="x-main" in names,
+        has_session_id="session-id" in names,
         has_device_token=bool(device_token),
         source=settings_store.kindle_source(),
     )
@@ -1437,9 +1442,20 @@ def get_settings():
 
 @app.put("/settings/kindle", response_model=settings_schemas.KindleSettings)
 async def update_kindle_settings(creds: settings_schemas.KindleCredentialsUpdate):
-    if not creds.cookies.strip() or not creds.device_token.strip():
-        raise HTTPException(status_code=400, detail="Both cookies and device token are required.")
-    settings_store.set_kindle_credentials(creds.cookies, creds.device_token)
+    cookie_values = {
+        "ubid-main": creds.ubid_main,
+        "at-main": creds.at_main,
+        "x-main": creds.x_main,
+        "session-id": creds.session_id,
+    }
+    missing = [name for name, value in cookie_values.items() if not value.strip()]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing cookie value(s): {', '.join(missing)}")
+    if not creds.device_token.strip():
+        raise HTTPException(status_code=400, detail="Device token is required.")
+
+    cookie_string = "; ".join(f"{name}={value.strip()}" for name, value in cookie_values.items())
+    settings_store.set_kindle_credentials(cookie_string, creds.device_token)
     # Drop any cached Amazon session so the next call authenticates with the new creds.
     await KindleClient.aclose()
     return _kindle_settings_payload()

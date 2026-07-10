@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 _lock = threading.Lock()
 _cache: dict | None = None
 
+# The cookies read.amazon.com's auth requires; all four must be present for the
+# integration to work. (Kept here too, not just in kindle.py, to avoid a circular
+# import - settings.py is imported by kindle.py.)
+REQUIRED_KINDLE_COOKIES = ("ubid-main", "at-main", "x-main", "session-id")
+
 
 def _settings_path() -> str:
     explicit = os.getenv("SETTINGS_PATH")
@@ -68,9 +73,26 @@ def get_kindle_credentials() -> tuple[str, str]:
     return cookies.strip(), device_token.strip()
 
 
+def _present_cookie_names(cookie_string: str) -> set[str]:
+    names = set()
+    for part in cookie_string.split(";"):
+        key, _, value = part.partition("=")
+        if key.strip() and value.strip():
+            names.add(key.strip())
+    return names
+
+
+def kindle_cookie_names() -> set[str]:
+    """Names of the cookies currently set (from saved creds or env fallback)."""
+    cookies, _ = get_kindle_credentials()
+    return _present_cookie_names(cookies)
+
+
 def is_kindle_configured() -> bool:
     cookies, device_token = get_kindle_credentials()
-    return bool(cookies) and bool(device_token)
+    if not device_token:
+        return False
+    return set(REQUIRED_KINDLE_COOKIES).issubset(_present_cookie_names(cookies))
 
 
 def kindle_source() -> str | None:

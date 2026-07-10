@@ -13,7 +13,7 @@ services:
       - kuzu_data:/app/data
     ports:
       # Change the left-hand side to use a different host port.
-      - "8000:8000"
+      - "8099:8000"
     environment:
       - DATABASE_PATH=/app/data/kuzu
       # Kindle progress sync (optional). Copy these from a logged-in
@@ -41,7 +41,7 @@ services:
         condition: service_healthy
     ports:
       # Change the left-hand side to use a different host port.
-      - "3000:3000"
+      - "3123:3000"
     environment:
       # "backend" here is the service key above, not container_name - this line never
       # needs to change even if you rename container_name.

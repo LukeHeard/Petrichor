@@ -3,16 +3,23 @@ from typing import Optional
 
 
 class KindleCredentialsUpdate(BaseModel):
-    cookies: str
+    ubid_main: str
+    at_main: str
+    x_main: str
+    session_id: str
     device_token: str
 
 
 class KindleSettings(BaseModel):
     configured: bool
-    # Never echo secrets back to the client; just enough to show status.
-    has_cookies: bool
+    # Per-credential presence, so the form can show which fields are already
+    # saved without ever echoing the secret values back.
+    has_ubid_main: bool
+    has_at_main: bool
+    has_x_main: bool
+    has_session_id: bool
     has_device_token: bool
-    # From env fallback vs. saved in the data volume.
+    # 'saved' (data volume) vs 'environment' (env fallback) vs None.
     source: Optional[str] = None
 
 
