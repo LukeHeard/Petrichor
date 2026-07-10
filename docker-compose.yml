@@ -16,6 +16,13 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_PATH=/app/data/kuzu
+      # Kindle progress sync (optional). Copy these from a logged-in
+      # read.amazon.com browser session; see .env.example. The integration runs
+      # inside this container via curl_cffi - no extra service is needed.
+      - KINDLE_COOKIES=${KINDLE_COOKIES:-}
+      - KINDLE_DEVICE_TOKEN=${KINDLE_DEVICE_TOKEN:-}
+      # Set to 1 to serve a fake Kindle library for testing without an account.
+      - KINDLE_MOCK=${KINDLE_MOCK:-}
     restart: always
 
   frontend:

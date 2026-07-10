@@ -13,8 +13,12 @@ from .schemas import work as schemas
 from .schemas import tracking as tracking_schemas
 from .schemas import stats as stats_schemas
 from .schemas import graph as graph_schemas
+from .schemas import kindle as kindle_schemas
+from .schemas import settings as settings_schemas
 from datetime import datetime, timedelta
 from .services.goodreads import GoodreadsScraper
+from .services.kindle import KindleClient, KindleNotConfiguredError, KindleAuthError
+from .services import settings as settings_store
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -81,6 +85,11 @@ def attach_tags(conn, works: list[dict]):
 @app.on_event("shutdown")
 async def shutdown_goodreads_client():
     await GoodreadsScraper.aclose()
+
+
+@app.on_event("shutdown")
+async def shutdown_kindle_client():
+    await KindleClient.aclose()
 
 @app.get("/")
 def read_root():
@@ -1401,3 +1410,230 @@ def get_graph_data(db: DatabaseManager = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error fetching graph data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Settings
+#
+# User-editable runtime settings persisted to the data volume (see
+# services/settings.py). Currently holds Kindle credentials; secrets are stored
+# but never echoed back to the client.
+# ---------------------------------------------------------------------------
+
+def _kindle_settings_payload() -> settings_schemas.KindleSettings:
+    cookies, device_token = settings_store.get_kindle_credentials()
+    return settings_schemas.KindleSettings(
+        configured=bool(cookies) and bool(device_token),
+        has_cookies=bool(cookies),
+        has_device_token=bool(device_token),
+        source=settings_store.kindle_source(),
+    )
+
+
+@app.get("/settings", response_model=settings_schemas.SettingsResponse)
+def get_settings():
+    return {"kindle": _kindle_settings_payload()}
+
+
+@app.put("/settings/kindle", response_model=settings_schemas.KindleSettings)
+async def update_kindle_settings(creds: settings_schemas.KindleCredentialsUpdate):
+    if not creds.cookies.strip() or not creds.device_token.strip():
+        raise HTTPException(status_code=400, detail="Both cookies and device token are required.")
+    settings_store.set_kindle_credentials(creds.cookies, creds.device_token)
+    # Drop any cached Amazon session so the next call authenticates with the new creds.
+    await KindleClient.aclose()
+    return _kindle_settings_payload()
+
+
+@app.delete("/settings/kindle", response_model=settings_schemas.KindleSettings)
+async def delete_kindle_settings():
+    settings_store.clear_kindle_credentials()
+    await KindleClient.aclose()
+    return _kindle_settings_payload()
+
+
+# ---------------------------------------------------------------------------
+# Kindle integration
+#
+# Pulls Whispersync "furthest page read" progress from read.amazon.com's private
+# API (via curl_cffi, in-process - no sidecar) and turns forward progress into
+# ReadingSession nodes so streaks/stats light up for Kindle reading. A Work is
+# tied to an Amazon edition by its ASIN (Work.kindle_asin); Work.kindle_last_pct
+# records the last percentage seen so a sync knows how far progress advanced.
+# ---------------------------------------------------------------------------
+
+def _asin_to_work_map(conn) -> dict[str, int]:
+    """Map linked ASIN -> Work id for every Work that has one."""
+    res = conn.execute(
+        "MATCH (w:Work) WHERE w.kindle_asin IS NOT NULL AND w.kindle_asin <> '' "
+        "RETURN w.kindle_asin, w.id"
+    )
+    mapping = {}
+    while res.has_next():
+        asin, wid = res.get_next()
+        mapping[asin] = wid
+    return mapping
+
+
+@app.get("/kindle/status", response_model=kindle_schemas.KindleStatus)
+def kindle_status():
+    """Whether Kindle credentials are configured. Does not hit Amazon."""
+    return {"configured": KindleClient.is_configured()}
+
+
+@app.get("/kindle/library", response_model=kindle_schemas.KindleLibraryResponse)
+async def kindle_library(db: DatabaseManager = Depends(get_db)):
+    """Owned Kindle books, each annotated with the Work it's linked to (if any)."""
+    try:
+        books = await KindleClient.get_library()
+    except KindleNotConfiguredError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except KindleAuthError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error fetching Kindle library: {e}")
+        raise HTTPException(status_code=502, detail=f"Kindle request failed: {e}")
+
+    conn = db.get_connection()
+    asin_map = _asin_to_work_map(conn)
+    for book in books:
+        book["linked_work_id"] = asin_map.get(book["asin"])
+    return {"books": books}
+
+
+@app.post("/kindle/link/{work_id}")
+def kindle_link(work_id: int, link: kindle_schemas.KindleLink, db: DatabaseManager = Depends(get_db)):
+    """Tie a Work to a Kindle ASIN so future syncs pull its progress."""
+    conn = db.get_connection()
+    check = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id", {"id": work_id})
+    if not check.has_next():
+        raise HTTPException(status_code=404, detail="Work not found")
+    # One ASIN maps to one Work; clear any prior owner so links stay unique.
+    conn.execute(
+        "MATCH (w:Work) WHERE w.kindle_asin = $asin AND w.id <> $id SET w.kindle_asin = '', w.kindle_last_pct = 0.0",
+        {"asin": link.asin, "id": work_id},
+    )
+    conn.execute(
+        "MATCH (w:Work) WHERE w.id = $id SET w.kindle_asin = $asin",
+        {"id": work_id, "asin": link.asin},
+    )
+    return {"work_id": work_id, "asin": link.asin}
+
+
+@app.delete("/kindle/link/{work_id}")
+def kindle_unlink(work_id: int, db: DatabaseManager = Depends(get_db)):
+    """Remove a Work's Kindle link."""
+    conn = db.get_connection()
+    check = conn.execute("MATCH (w:Work) WHERE w.id = $id RETURN w.id", {"id": work_id})
+    if not check.has_next():
+        raise HTTPException(status_code=404, detail="Work not found")
+    conn.execute(
+        "MATCH (w:Work) WHERE w.id = $id SET w.kindle_asin = '', w.kindle_last_pct = 0.0",
+        {"id": work_id},
+    )
+    return {"work_id": work_id}
+
+
+@app.post("/kindle/sync", response_model=kindle_schemas.KindleSyncResponse)
+async def kindle_sync(db: DatabaseManager = Depends(get_db)):
+    """Pull progress for every linked Work; log a ReadingSession where it advanced.
+
+    Kindle reports a single "furthest position" per book, not sessions. We convert
+    it to a page via the Work's page_count and diff against the last synced page:
+    any forward movement becomes one ReadingSession dated to Amazon's sync time,
+    with minutes_read = 0 (Kindle doesn't report time spent). Backward or unchanged
+    progress is a no-op.
+    """
+    conn = db.get_connection()
+
+    linked = conn.execute(
+        "MATCH (w:Work) WHERE w.kindle_asin IS NOT NULL AND w.kindle_asin <> '' "
+        "RETURN w.id, w.title, w.kindle_asin, w.page_count, w.current_page, w.kindle_last_pct"
+    )
+    rows = []
+    while linked.has_next():
+        rows.append(linked.get_next())
+
+    synced: list[dict] = []
+    errors: list[str] = []
+
+    for work_id, title, asin, page_count, current_page, last_pct in rows:
+        try:
+            progress = await KindleClient.get_progress(asin)
+        except KindleNotConfiguredError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except KindleAuthError as e:
+            raise HTTPException(status_code=502, detail=str(e))
+        except Exception as e:
+            errors.append(f"{title}: {e}")
+            continue
+
+        pct = progress.get("percentage")
+        current_page = current_page or 0
+        last_pct = last_pct or 0.0
+
+        # Record the latest percentage regardless, so a future page_count fix can
+        # still reason about movement.
+        conn.execute(
+            "MATCH (w:Work) WHERE w.id = $id SET w.kindle_last_pct = $pct",
+            {"id": work_id, "pct": pct if pct is not None else last_pct},
+        )
+
+        if pct is None:
+            synced.append({
+                "work_id": work_id, "work_title": title, "asin": asin,
+                "percentage": None, "old_page": current_page, "new_page": current_page,
+                "session_created": False, "note": "No progress reported by Amazon yet.",
+            })
+            continue
+
+        if not page_count:
+            synced.append({
+                "work_id": work_id, "work_title": title, "asin": asin,
+                "percentage": pct, "old_page": current_page, "new_page": current_page,
+                "session_created": False,
+                "note": "Set a page count on this book to convert Kindle % into pages.",
+            })
+            continue
+
+        new_page = max(0, min(page_count, round(pct / 100 * page_count)))
+
+        if new_page <= current_page:
+            synced.append({
+                "work_id": work_id, "work_title": title, "asin": asin,
+                "percentage": pct, "old_page": current_page, "new_page": current_page,
+                "session_created": False,
+                "note": "No forward progress since last sync.",
+            })
+            continue
+
+        # Date the session to Amazon's reported sync time (fall back to today).
+        sync_ms = progress.get("synced_at_ms")
+        if sync_ms:
+            date_str = datetime.utcfromtimestamp(sync_ms / 1000).strftime("%Y-%m-%d")
+        else:
+            date_str = datetime.utcnow().strftime("%Y-%m-%d")
+
+        start_page = current_page + 1
+        # Mirror POST /sessions: create the node, link it, advance the Work.
+        session_res = conn.execute(
+            "CREATE (s:ReadingSession {date: $date, start_page: $start, end_page: $end, minutes_read: 0}) RETURN s.id",
+            {"date": date_str, "start": start_page, "end": new_page},
+        )
+        session_id = session_res.get_next()[0]
+        conn.execute(
+            "MATCH (w:Work), (s:ReadingSession) WHERE w.id = $wid AND s.id = $sid CREATE (s)-[:SESSION_FOR]->(w)",
+            {"wid": work_id, "sid": session_id},
+        )
+        conn.execute(
+            "MATCH (w:Work) WHERE w.id = $id SET w.current_page = $cp, w.status = 'Reading'",
+            {"id": work_id, "cp": new_page},
+        )
+
+        synced.append({
+            "work_id": work_id, "work_title": title, "asin": asin,
+            "percentage": pct, "old_page": current_page, "new_page": new_page,
+            "session_created": True, "note": None,
+        })
+
+    return {"synced": synced, "errors": errors}

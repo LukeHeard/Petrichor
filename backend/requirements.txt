@@ -6,4 +6,7 @@ pydantic-settings==2.1.0
 python-multipart==0.0.6
 httpx==0.25.1
 requests==2.31.0
+# Chrome TLS-fingerprint impersonation for read.amazon.com's private Kindle API.
+# Runs in-process (no proxy sidecar) - ships prebuilt wheels, no compiler needed.
+curl_cffi==0.7.4
 

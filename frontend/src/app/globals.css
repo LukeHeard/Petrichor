@@ -1708,3 +1708,28 @@ a {
     font-size: 1.9rem;
   }
 }
+
+/* Kindle & Settings */
+.kindle-card {
+  background: var(--muted-background);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.2s ease;
+}
+
+.kindle-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
+
+.settings-section {
+  background: var(--muted-background);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.settings-section textarea:focus,
+.settings-section input:focus {
+  outline: none;
+  border-color: var(--accent);
+}

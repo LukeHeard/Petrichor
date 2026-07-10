@@ -70,7 +70,13 @@ class DatabaseManager:
 
                 # Migration: add columns that may be missing from older schemas
                 table_migrations = {
-                    "Work": {"thumbnail_url": "STRING", "goodreads_id": "STRING", "current_page": "INT64"},
+                    # kindle_asin links a Work to its Amazon edition for Whispersync progress
+                    # pulls; kindle_last_pct is the last percentage we saw, so a sync can tell
+                    # whether progress moved and by how much before synthesizing a ReadingSession.
+                    "Work": {
+                        "thumbnail_url": "STRING", "goodreads_id": "STRING", "current_page": "INT64",
+                        "kindle_asin": "STRING", "kindle_last_pct": "DOUBLE",
+                    },
                     # Goodreads' own numeric author id / series page URL, captured opportunistically
                     # during enrichment so future "discover more" lookups can fetch a complete
                     # bibliography/series listing instead of relying on fuzzy search matching.
@@ -83,9 +89,10 @@ class DatabaseManager:
                         cols = []
                         while res.has_next():
                             cols.append(res.get_next()[1])
+                        type_defaults = {"INT64": "0", "DOUBLE": "0.0", "STRING": "''"}
                         for col_name, col_type in columns.items():
                             if col_name not in cols:
-                                default_val = "0" if col_type == "INT64" else "''"
+                                default_val = type_defaults.get(col_type, "''")
                                 self.conn.execute(f"ALTER TABLE {table_name} ADD {col_name} {col_type} DEFAULT {default_val}")
                                 logger.info(f"Migrated: added {col_name} to {table_name} table")
                     except Exception as e:
