@@ -90,7 +90,16 @@ export default function SettingsPage() {
 
   const saveKindle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ubidMain.trim() || !atMain.trim() || !xMain.trim() || !sessionId.trim() || !deviceToken.trim()) return;
+    const missing: string[] = [];
+    if (!ubidMain.trim()) missing.push("ubid-main");
+    if (!atMain.trim()) missing.push("at-main");
+    if (!xMain.trim()) missing.push("x-main");
+    if (!sessionId.trim()) missing.push("session-id");
+    if (!deviceToken.trim()) missing.push("device token");
+    if (missing.length) {
+      setMessage({ text: `Please fill in: ${missing.join(", ")}`, ok: false });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
@@ -107,7 +116,7 @@ export default function SettingsPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Save failed (${res.status})`);
+        throw new Error(body.detail || `Save failed (HTTP ${res.status})`);
       }
       setKindle(await res.json());
       setUbidMain("");
@@ -115,9 +124,13 @@ export default function SettingsPage() {
       setXMain("");
       setSessionId("");
       setDeviceToken("");
-      setMessage({ text: "Kindle credentials saved.", ok: true });
+      setMessage({ text: "Credentials saved ✓", ok: true });
     } catch (err) {
-      setMessage({ text: err instanceof Error ? err.message : "Save failed", ok: false });
+      // Network failures (proxy/backend down) land here with a TypeError.
+      setMessage({
+        text: err instanceof Error ? err.message : "Save failed — is the backend running?",
+        ok: false,
+      });
     } finally {
       setSaving(false);
     }
@@ -244,11 +257,31 @@ export default function SettingsPage() {
               color: kindle?.configured ? "var(--accent)" : "var(--muted)",
             }}
           >
-            {kindle?.configured
+            {kindle?.source === "mock"
+              ? "● Demo mode (KINDLE_MOCK)"
+              : kindle?.configured
               ? `● Connected${kindle.source === "environment" ? " (via env)" : ""}`
               : "○ Not connected"}
           </span>
         </div>
+
+        {kindle?.source === "mock" && (
+          <div
+            style={{
+              padding: "0.6rem 0.9rem",
+              marginBottom: "1rem",
+              borderRadius: "8px",
+              border: "1px solid var(--accent)",
+              color: "var(--accent)",
+              fontSize: "0.82rem",
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Demo mode is on.</strong> KINDLE_MOCK is set, so the library and sync return
+            fake data and any credentials you save here are ignored. Remove KINDLE_MOCK from your
+            .env and restart the backend to use real Kindle data.
+          </div>
+        )}
         <p style={{ color: "var(--muted)", fontSize: "0.9rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>
           Pull Whispersync reading progress from Amazon into your library. Grab these from a
           logged-in{" "}
@@ -310,24 +343,18 @@ export default function SettingsPage() {
           )}
 
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={
-                saving ||
-                !ubidMain.trim() ||
-                !atMain.trim() ||
-                !xMain.trim() ||
-                !sessionId.trim() ||
-                !deviceToken.trim()
-              }
-            >
+            <button type="submit" className="btn-primary" disabled={saving}>
               {saving ? "Saving…" : "Save Credentials"}
             </button>
             {kindle?.source === "saved" && (
               <button type="button" className="btn-ghost" onClick={clearKindle} disabled={saving}>
                 Clear Saved
               </button>
+            )}
+            {(kindle?.has_at_main || kindle?.has_device_token) && (
+              <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+                Saved on server — fields stay blank for security.
+              </span>
             )}
           </div>
         </form>

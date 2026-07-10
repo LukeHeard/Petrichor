@@ -83,6 +83,10 @@ class KindleClient:
     # ---------------------------------------------------------------- config
 
     @classmethod
+    def mock_enabled(cls) -> bool:
+        return _mock_enabled()
+
+    @classmethod
     def is_configured(cls) -> bool:
         return _mock_enabled() or settings.is_kindle_configured()
 

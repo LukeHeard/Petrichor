@@ -1431,7 +1431,7 @@ def _kindle_settings_payload() -> settings_schemas.KindleSettings:
         has_x_main="x-main" in names,
         has_session_id="session-id" in names,
         has_device_token=bool(device_token),
-        source=settings_store.kindle_source(),
+        source="mock" if KindleClient.mock_enabled() else settings_store.kindle_source(),
     )
 
 
